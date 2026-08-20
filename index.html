@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SICEKAS - Puskesmas Banjaran Kota</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- GSAP CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+  <!-- Ambient Room Lighting -->
+  <div class="ambient-glow" id="ambientGlow" style="opacity: 0;"></div>
+
+  <div class="main-wrapper">
+    <!-- Header: Transparent Logo with Dazzling Glare, SICEKAS & Subtitles -->
+    <header class="app-header" id="appHeader" style="opacity: 0; visibility: hidden; pointer-events: none;">
+      
+      <!-- Transparent Golden Logo with Shimmering Glare -->
+      <div class="logo-wrapper" id="logoWrapper">
+        <div class="logo-aura"></div>
+        <div class="logo-container">
+          <img src="LOGO.png" alt="Logo Puskesmas Banjaran Kota" class="app-logo" id="appLogo">
+          <!-- Dazzling Light Glare Sweep -->
+          <div class="logo-glare-sweep"></div>
+          <!-- Lens Flare Sparkles -->
+          <div class="lens-flare flare-1"></div>
+          <div class="lens-flare flare-2"></div>
+        </div>
+      </div>
+
+      <!-- App Title -->
+      <div class="title-container">
+        <h1 class="app-title">SICEKAS</h1>
+        <div class="title-glow-effect"></div>
+      </div>
+
+      <!-- Subtitles -->
+      <p class="app-subtitle-1">Sistem Informasi Catat Pelaporan Puskesmas</p>
+      <div class="app-subtitle-2">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+          <circle cx="12" cy="10" r="3"></circle>
+        </svg>
+        <span>Puskesmas Banjaran Kota</span>
+      </div>
+    </header>
+
+    <div class="container">
+      <!-- Lamp Component -->
+      <div class="lamp-container">
+        <!-- Conical Light Beam (starts 100% hidden) -->
+        <div class="light-beam" id="lightBeam" style="opacity: 0; visibility: hidden;"></div>
+
+        <div class="lamp">
+          <!-- Lampshade (Dome Top) -->
+          <div class="lamp-shade" id="lampShade">
+            <div class="lamp-shade-inner"></div>
+            <div class="lamp-bulb" id="lampBulb"></div>
+          </div>
+
+          <!-- Pull Cord Switch -->
+          <div class="pull-cord" id="pullCord" title="Tarik atau klik tali untuk menyalakan lampu">
+            <div class="cord-line" id="cordLine"></div>
+            <div class="cord-bead" id="cordBead"></div>
+            <span class="pull-tooltip">Tarik saklar</span>
+          </div>
+
+          <!-- Lamp Stem / Rod -->
+          <div class="lamp-rod"></div>
+
+          <!-- Lamp Base -->
+          <div class="lamp-base"></div>
+        </div>
+      </div>
+
+      <!-- Login Form Card (starts 100% hidden) -->
+      <div class="login-card" id="loginCard" style="opacity: 0; visibility: hidden; pointer-events: none;">
+        <div class="card-glow-overlay"></div>
+        
+        <div class="card-content">
+          <h2 class="form-title">Welcome</h2>
+          <p class="form-subtitle">Silakan masuk ke akun Anda</p>
+
+          <form id="loginForm" onsubmit="event.preventDefault();">
+            <!-- Username Field -->
+            <div class="input-group">
+              <label for="username">Username</label>
+              <div class="input-wrapper">
+                <input type="text" id="username" placeholder="Enter name" autocomplete="off" required>
+                <div class="input-icon">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Password Field -->
+            <div class="input-group">
+              <label for="password">Password</label>
+              <div class="input-wrapper">
+                <input type="password" id="password" placeholder="Enter Password" required>
+                <div class="input-icon" id="togglePassword" style="cursor: pointer;" title="Lihat/Sembunyikan password">
+                  <svg id="eyeIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Form Options -->
+            <div class="form-options">
+              <label class="remember-me">
+                <input type="checkbox" id="rememberMe">
+                <span>Ingat saya</span>
+              </label>
+              <a href="#" class="forgot-link">Lupa Password?</a>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn-signin" id="btnSignIn">
+              <span>Sign In</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Instruction Badge -->
+  <div class="hint-badge" id="hintBadge">
+    <div class="hint-dot"></div>
+    <span>Klik tali / lampu untuk menyalakan & mematikan</span>
+  </div>
+
+  <script src="script.js?v=6"></script>
+</body>
+</html>
