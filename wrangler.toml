@@ -1,0 +1,18 @@
+# ============================================================================
+# SICEKAS v2.0 - CLOUDFLARE PAGES & D1 DATABASE CONFIGURATION
+# ============================================================================
+
+name = "sicekas-v2"
+compatibility_date = "2026-08-01"
+pages_build_output_dir = "."
+
+# Cloudflare D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "sicekas-d1"
+database_id = "sicekas-d1-prod"
+
+[vars]
+ENVIRONMENT = "production"
+APP_NAME = "SICEKAS v2.0"
+PUSKESMAS_NAME = "Puskesmas Banjaran Kota"

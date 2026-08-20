@@ -784,3 +784,44 @@ body {
     max-width: 360px;
   }
 }
+
+/* SweetAlert2 Luxury Theme for Login */
+.swal2-container {
+  z-index: 999999 !important;
+}
+
+.swal2-backdrop-show {
+  backdrop-filter: blur(10px) !important;
+  background: rgba(5, 7, 12, 0.75) !important;
+}
+
+.swal2-popup.sicekas-swal-modal {
+  background: linear-gradient(145deg, rgba(24, 30, 42, 0.98) 0%, rgba(14, 18, 26, 0.98) 100%) !important;
+  border: 1px solid rgba(255, 209, 102, 0.35) !important;
+  border-radius: 20px !important;
+  padding: 30px 32px !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(255, 209, 102, 0.18) !important;
+  color: #ffffff !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+
+.swal2-popup.sicekas-swal-toast {
+  background: linear-gradient(135deg, rgba(26, 32, 45, 0.97) 0%, rgba(16, 20, 28, 0.97) 100%) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 209, 102, 0.35) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.7), 0 0 25px rgba(255, 209, 102, 0.2) !important;
+  padding: 14px 18px !important;
+}
+
+.sicekas-swal-toast .swal2-title {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+}
+
+.sicekas-swal-toast .swal2-timer-progress-bar {
+  background: linear-gradient(135deg, #ffd166 0%, #cca044 100%) !important;
+  height: 3px !important;
+}
+

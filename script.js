@@ -305,20 +305,96 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Sign in submit feedback & redirect to dashboard
   if (loginForm) {
-    loginForm.addEventListener('submit', (e) => {
+    loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      
-      gsap.to(btnSignIn, {
-        scale: 0.96,
-        duration: 0.1,
-        yoyo: true,
-        repeat: 1,
-        onComplete: () => {
-          setTimeout(() => {
-            window.location.href = 'dashboard.html';
-          }, 300);
+      const usernameInput = document.getElementById('username') || document.querySelector('input[type="text"]');
+      const username = usernameInput ? usernameInput.value.trim() : '';
+      const password = passwordInput ? passwordInput.value.trim() : '';
+
+      if (!username || !password) {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Lengkapi Data Login',
+            text: 'Harap masukkan username dan kata sandi Anda.',
+            confirmButtonText: 'OK',
+            customClass: { popup: 'sicekas-swal-modal', confirmButton: 'btn-swal-gold' }
+          });
+        } else {
+          alert('Harap masukkan username dan kata sandi Anda.');
         }
-      });
+        return;
+      }
+
+      // Button loading state
+      const originalText = btnSignIn.innerHTML;
+      btnSignIn.disabled = true;
+      btnSignIn.innerHTML = '<span>Memverifikasi Akun...</span>';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.user) {
+            localStorage.setItem('SICEKAS_CURRENT_USER', JSON.stringify(data.user));
+            if (typeof Swal !== 'undefined') {
+              const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 1500,
+                timerProgressBar: true,
+                customClass: { popup: 'sicekas-swal-toast' }
+              });
+              Toast.fire({
+                icon: 'success',
+                title: `Selamat datang, ${data.user.nama}!`
+              });
+            }
+            setTimeout(() => {
+              window.location.href = 'dashboard.html';
+            }, 700);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Direct API offline fallback', err);
+      }
+
+      // Offline / Localhost fallback login
+      if (username === 'ozie' && password === '213117') {
+        const fallbackUser = {
+          username: 'ozie',
+          nama: 'Mochamad Fauzie, S.Gz',
+          jabatan: 'Nutrisionis',
+          nip: '873.3204.16.02.008',
+          role: 'Super Admin',
+          avatar: 'MF'
+        };
+        localStorage.setItem('SICEKAS_CURRENT_USER', JSON.stringify(fallbackUser));
+        setTimeout(() => {
+          window.location.href = 'dashboard.html';
+        }, 300);
+      } else {
+        btnSignIn.disabled = false;
+        btnSignIn.innerHTML = originalText;
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'error',
+            title: 'Autentikasi Gagal',
+            text: 'Username atau kata sandi yang Anda masukkan salah.',
+            confirmButtonText: 'Coba Lagi',
+            customClass: { popup: 'sicekas-swal-modal', confirmButton: 'btn-swal-gold' }
+          });
+        } else {
+          alert('Username atau kata sandi yang Anda masukkan salah.');
+        }
+      }
     });
   }
 

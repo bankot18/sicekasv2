@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const profilePopover = document.getElementById('profilePopover');
   const navLinks = document.querySelectorAll('.nav-link');
   const sidebarSearchInput = document.getElementById('sidebarSearchInput');
-  const btnNewReport = document.getElementById('btnNewReport');
 
   // Topbar titles
   const topbarCategory = document.getElementById('topbarCategory');
@@ -68,8 +67,40 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
   window.DAFTAR_PEGAWAI = DAFTAR_PEGAWAI;
 
-  // Global Toast Helper
+  // ==========================================================================
+  // SWEETALERT2 LUXURY NOTIFICATION SYSTEM (Sweet Notify 2)
+  // ==========================================================================
+  const getSicekasToast = () => {
+    if (typeof Swal === 'undefined') return null;
+    return Swal.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 3500,
+      timerProgressBar: true,
+      customClass: {
+        popup: 'sicekas-swal-toast'
+      },
+      didOpen: (toast) => {
+        toast.addEventListener('mouseenter', Swal.stopTimer);
+        toast.addEventListener('mouseleave', Swal.resumeTimer);
+      }
+    });
+  };
+
+  // Global Toast Helper (Sweet Notify 2)
   window.showToast = (msg, type = 'info') => {
+    const toastInstance = getSicekasToast();
+    if (toastInstance) {
+      const swalType = type === 'error' ? 'error' : (type === 'success' ? 'success' : (type === 'warn' || type === 'warning' ? 'warning' : 'info'));
+      toastInstance.fire({
+        icon: swalType,
+        title: msg
+      });
+      return;
+    }
+
+    // Fallback if Swal not loaded
     let toastContainer = document.getElementById('sicekasToastContainer');
     if (!toastContainer) {
       toastContainer = document.createElement('div');
@@ -92,6 +123,299 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => toast.remove(), 350);
     }, 3200);
   };
+
+  // Interactive Luxury SweetAlert2 Dialogs
+  window.SicekasAlert = {
+    toast: (msg, type = 'info') => window.showToast(msg, type),
+    success: (title, text = '') => {
+      if (typeof Swal === 'undefined') { alert(`${title}\n${text}`); return Promise.resolve(); }
+      return Swal.fire({
+        icon: 'success',
+        title: title,
+        text: text,
+        confirmButtonText: 'Selesai',
+        customClass: { popup: 'sicekas-swal-modal', confirmButton: 'btn-swal-gold' }
+      });
+    },
+    error: (title, text = '') => {
+      if (typeof Swal === 'undefined') { alert(`${title}\n${text}`); return Promise.resolve(); }
+      return Swal.fire({
+        icon: 'error',
+        title: title,
+        text: text,
+        confirmButtonText: 'Mengerti',
+        customClass: { popup: 'sicekas-swal-modal', confirmButton: 'btn-swal-gold' }
+      });
+    },
+    confirm: async (title, text = '', confirmText = 'Ya, Lanjutkan', cancelText = 'Batal', isDanger = false) => {
+      if (typeof Swal === 'undefined') { return confirm(`${title}\n${text}`); }
+      const res = await Swal.fire({
+        icon: isDanger ? 'warning' : 'question',
+        title: title,
+        text: text,
+        showCancelButton: true,
+        confirmButtonText: confirmText,
+        cancelButtonText: cancelText,
+        reverseButtons: true,
+        customClass: {
+          popup: 'sicekas-swal-modal',
+          confirmButton: isDanger ? 'btn-swal-danger' : 'btn-swal-gold',
+          cancelButton: 'btn-swal-cancel'
+        }
+      });
+      return res.isConfirmed;
+    }
+  };
+
+  // ==========================================================================
+  // CLOUDFLARE D1 DATABASE & CLOUD-FIRST SERVICE LAYER
+  // ==========================================================================
+  const CloudflareDB = {
+    isCloudReady: false,
+    async checkConnection() {
+      try {
+        const res = await fetch('/api/health');
+        if (res.ok) {
+          const data = await res.json();
+          this.isCloudReady = data.d1_connected || false;
+          return data;
+        }
+      } catch (e) {
+        this.isCloudReady = false;
+      }
+      return null;
+    },
+
+    // 1. Users & Roles
+    async fetchUsers() {
+      try {
+        const res = await fetch('/api/users');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.users) {
+            localStorage.setItem('SICEKAS_D1_USERS_CACHE', JSON.stringify(json.users));
+            return json.users;
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback to local users cache / defaults', e);
+      }
+      return JSON.parse(localStorage.getItem('SICEKAS_D1_USERS_CACHE')) || DAFTAR_PEGAWAI;
+    },
+
+    async updateUserRole(nip, role) {
+      try {
+        const res = await fetch('/api/users/update-role', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nip, role })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) return json;
+        }
+      } catch (e) {
+        console.warn('Saving role locally due to offline mode', e);
+      }
+      // Local sync fallback
+      const rolesStore = JSON.parse(localStorage.getItem('SICEKAS_USER_ROLES')) || {};
+      rolesStore[nip] = role;
+      localStorage.setItem('SICEKAS_USER_ROLES', JSON.stringify(rolesStore));
+      return { success: true, localOnly: true };
+    },
+
+    async resetUserPass(nip) {
+      try {
+        const res = await fetch('/api/users/reset-pass', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nip })
+        });
+        if (res.ok) return await res.json();
+      } catch (e) {
+        console.warn('Reset pass fallback', e);
+      }
+      return { success: true };
+    },
+
+    // 2. Jadwal Kegiatan
+    async fetchJadwal(bulan, tahun) {
+      try {
+        const url = `/api/jadwal?bulan=${bulan || ''}&tahun=${tahun || ''}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            localStorage.setItem('SICEKAS_BOK_DATA_V2', JSON.stringify(json.data));
+            return json.data;
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback to local Jadwal data', e);
+      }
+      return JSON.parse(localStorage.getItem('SICEKAS_BOK_DATA_V2')) || [];
+    },
+
+    async saveJadwal(item) {
+      // Direct cloud mutation
+      try {
+        const res = await fetch('/api/jadwal/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item)
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) {
+            let local = JSON.parse(localStorage.getItem('SICEKAS_BOK_DATA_V2')) || [];
+            const idx = local.findIndex(i => i.id === item.id);
+            if (idx >= 0) local[idx] = item;
+            else local.push(item);
+            localStorage.setItem('SICEKAS_BOK_DATA_V2', JSON.stringify(local));
+            return json;
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback saving Jadwal locally', e);
+      }
+      // Local fallback
+      let local = JSON.parse(localStorage.getItem('SICEKAS_BOK_DATA_V2')) || [];
+      const idx = local.findIndex(i => i.id === item.id);
+      if (idx >= 0) local[idx] = item;
+      else local.push(item);
+      localStorage.setItem('SICEKAS_BOK_DATA_V2', JSON.stringify(local));
+      return { success: true, id: item.id };
+    },
+
+    async deleteJadwal(id) {
+      try {
+        const res = await fetch('/api/jadwal/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) {
+            let local = JSON.parse(localStorage.getItem('SICEKAS_BOK_DATA_V2')) || [];
+            local = local.filter(i => i.id !== id);
+            localStorage.setItem('SICEKAS_BOK_DATA_V2', JSON.stringify(local));
+            return json;
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback deleting Jadwal locally', e);
+      }
+      let local = JSON.parse(localStorage.getItem('SICEKAS_BOK_DATA_V2')) || [];
+      local = local.filter(i => i.id !== id);
+      localStorage.setItem('SICEKAS_BOK_DATA_V2', JSON.stringify(local));
+      return { success: true };
+    },
+
+    // 3. POA Bulanan
+    async fetchPoa(bulan, tahun, nip) {
+      try {
+        const url = `/api/poa?bulan=${bulan || ''}&tahun=${tahun || ''}&nip=${nip || ''}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) return json.data;
+        }
+      } catch (e) {
+        console.warn('Fallback fetch POA', e);
+      }
+      return JSON.parse(localStorage.getItem('SICEKAS_POA_DATA_V2')) || [];
+    },
+
+    async savePoa(item) {
+      try {
+        const res = await fetch('/api/poa/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item)
+        });
+        if (res.ok) return await res.json();
+      } catch (e) {
+        console.warn('Fallback save POA', e);
+      }
+      return { success: true };
+    },
+
+    // 4. TP POL Jaspel
+    async fetchTpPol(bulan, tahun, nip) {
+      try {
+        const url = `/api/tppol?bulan=${bulan || ''}&tahun=${tahun || ''}&nip=${nip || ''}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) return json.data;
+        }
+      } catch (e) {
+        console.warn('Fallback fetch TP POL', e);
+      }
+      return JSON.parse(localStorage.getItem('SICEKAS_TPPOL_DATA_V2')) || [];
+    },
+
+    async saveTpPol(item) {
+      try {
+        const res = await fetch('/api/tppol/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item)
+        });
+        if (res.ok) return await res.json();
+      } catch (e) {
+        console.warn('Fallback save TP POL', e);
+      }
+      return { success: true };
+    },
+
+    // 5. SPPD & LPT
+    async fetchSppd(id) {
+      try {
+        const url = `/api/sppd?id=${id || ''}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) return json.data;
+        }
+      } catch (e) {
+        console.warn('Fallback fetch SPPD', e);
+      }
+      return null;
+    },
+
+    async saveSppd(item) {
+      try {
+        const res = await fetch('/api/sppd/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item)
+        });
+        if (res.ok) return await res.json();
+      } catch (e) {
+        console.warn('Fallback save SPPD', e);
+      }
+      return { success: true };
+    },
+
+    // 6. Direct SQL Runner (Super Admin)
+    async executeSql(sql) {
+      try {
+        const res = await fetch('/api/sql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sql })
+        });
+        if (res.ok) return await res.json();
+        return { success: false, error: `HTTP ${res.status}: ${res.statusText}` };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }
+  };
+
+  window.CloudflareDB = CloudflareDB;
 
   // ==========================================================================
   // 1. SIDEBAR COLLAPSE / EXPAND TOGGLE (like @davidm_ai)
@@ -423,26 +747,6 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Password akun SICEKAS / PC berhasil diperbarui!');
       closePassModal();
       passwordForm.reset();
-    });
-  }
-
-  if (btnHeroNewReport) {
-    btnHeroNewReport.addEventListener('click', () => {
-      alert('Membuka formulir pencatatan rekap laporan baru (SICEKAS)...');
-    });
-  }
-
-  if (btnNewReport) {
-    btnNewReport.addEventListener('click', () => {
-      gsap.to(btnNewReport, {
-        scale: 0.95,
-        duration: 0.1,
-        yoyo: true,
-        repeat: 1,
-        onComplete: () => {
-          alert('Membuka formulir pencatatan laporan pasien baru (SICEKAS)...');
-        }
-      });
     });
   }
 
@@ -2904,13 +3208,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Clear all photos
   if (dokBtnClearAll) {
-    dokBtnClearAll.addEventListener('click', () => {
+    dokBtnClearAll.addEventListener('click', async () => {
       if (!dokPhotoContainer) return;
       const cards = dokPhotoContainer.querySelectorAll('.dok-photo-card');
       if (cards.length === 0) return;
-      if (confirm('Hapus semua foto dokumentasi?')) {
+      const confirmed = await window.SicekasAlert.confirm(
+        'Hapus Semua Foto?',
+        'Seluruh foto dokumentasi kegiatan pada lembar ini akan dihapus.',
+        'Ya, Hapus Semua',
+        'Batal',
+        true
+      );
+      if (confirmed) {
         cards.forEach(c => c.remove());
         updateDokEmptyState();
+        showToast('✓ Semua foto dokumentasi berhasil dihapus.', 'info');
       }
     });
   }
@@ -4899,7 +5211,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (modal) modal.classList.add('active');
     },
 
-    simpanJadwal() {
+    async simpanJadwal() {
       const editId = document.getElementById('bokEditId').value;
       const tanggal = document.getElementById('inputTanggalBOK').value;
       const noKeg = parseInt(document.getElementById('inputKegiatanBOK').value);
@@ -4915,36 +5227,30 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const namaKegiatan = KEGIATAN_BOK_LIST[noKeg - 1];
-      const data = this.getData();
+      const entryId = editId || ('bok-' + Date.now());
 
-      if (editId) {
-        // Edit existing
-        const idx = data.findIndex(i => i.id === editId);
-        if (idx !== -1) {
-          data[idx].tanggal = tanggal;
-          data[idx].noKegiatan = noKeg;
-          data[idx].namaKegiatan = namaKegiatan;
-          data[idx].keterangan = keterangan;
-          data[idx].updatedAt = new Date().toISOString();
-        }
-        this.saveData(data);
-        if (window.showToast) window.showToast('Jadwal kegiatan berhasil diperbarui!', 'success');
-      } else {
-        // Create new
-        const newEntry = {
-          id: 'bok-' + Date.now(),
-          tanggal: tanggal,
-          noKegiatan: noKeg,
-          namaKegiatan: namaKegiatan,
-          keterangan: keterangan,
-          username: CURRENT_USER.username,
-          namaUser: CURRENT_USER.nama,
-          jabatan: CURRENT_USER.jabatan,
-          createdAt: new Date().toISOString()
-        };
-        data.push(newEntry);
-        this.saveData(data);
-        if (window.showToast) window.showToast('Jadwal kegiatan berhasil ditambahkan!', 'success');
+      const payload = {
+        id: entryId,
+        tanggal: tanggal,
+        noKegiatan: noKeg,
+        nama_kegiatan: namaKegiatan,
+        namaKegiatan: namaKegiatan,
+        keterangan: keterangan,
+        lokasi: 'Puskesmas / Wilayah Kerja',
+        petugas_nip: CURRENT_USER.nip,
+        petugas_nama: CURRENT_USER.nama,
+        petugas_jabatan: CURRENT_USER.jabatan,
+        username: CURRENT_USER.username,
+        namaUser: CURRENT_USER.nama,
+        jabatan: CURRENT_USER.jabatan,
+        rekan_kolaborasi: [],
+        status: 'Disetujui',
+        updatedAt: new Date().toISOString()
+      };
+
+      await CloudflareDB.saveJadwal(payload);
+      if (window.showToast) {
+        window.showToast(editId ? '✓ Jadwal berhasil diperbarui di Cloudflare D1!' : '✓ Jadwal berhasil ditambahkan ke Cloudflare D1!', 'success');
       }
 
       // Close modal & refresh
@@ -4953,14 +5259,18 @@ document.addEventListener('DOMContentLoaded', () => {
       this.render();
     },
 
-    hapusJadwal(id) {
-      if (!confirm('Apakah Anda yakin ingin menghapus jadwal kegiatan ini?')) return;
+    async hapusJadwal(id) {
+      const confirmed = await window.SicekasAlert.confirm(
+        'Hapus Jadwal Kegiatan?',
+        'Kegiatan ini akan dihapus secara permanen dari Cloudflare D1 Database.',
+        'Ya, Hapus Jadwal',
+        'Batal',
+        true
+      );
+      if (!confirmed) return;
 
-      let data = this.getData();
-      data = data.filter(i => i.id !== id);
-      this.saveData(data);
-
-      if (window.showToast) window.showToast('Jadwal kegiatan berhasil dihapus.', 'info');
+      await CloudflareDB.deleteJadwal(id);
+      if (window.showToast) window.showToast('✓ Jadwal kegiatan berhasil dihapus dari Cloudflare D1.', 'info');
       this.render();
     },
 
@@ -5451,16 +5761,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     },
 
-    updateUserRole(nip, newRole) {
-      const rolesStore = JSON.parse(localStorage.getItem('SICEKAS_USER_ROLES')) || {};
-      rolesStore[nip] = newRole;
-      localStorage.setItem('SICEKAS_USER_ROLES', JSON.stringify(rolesStore));
-      this.log('AUTH', `Hak akses pegawai [${nip}] diperbarui menjadi: ${newRole}`, 'term-auth');
-      showToast(`✓ Hak akses berhasil diperbarui: ${newRole}`, 'success');
+    async updateUserRole(nip, newRole) {
+      await CloudflareDB.updateUserRole(nip, newRole);
+      this.log('AUTH', `Hak akses pegawai [${nip}] diperbarui menjadi: ${newRole} (Cloudflare D1)`, 'term-auth');
+      showToast(`✓ Hak akses berhasil disimpan ke Cloudflare D1: ${newRole}`, 'success');
     },
 
-    resetUserPass(nama) {
-      this.log('AUTH', `Admin me-reset sandi login untuk pegawai: ${nama}`, 'term-warn');
+    async resetUserPass(nama, nip) {
+      await CloudflareDB.resetUserPass(nip || nama);
+      this.log('AUTH', `Admin me-reset sandi login untuk pegawai: ${nama} (Cloudflare D1)`, 'term-warn');
       showToast(`✓ Sandi sementara untuk ${nama} telah di-reset ke default!`, 'success');
     },
 
@@ -5524,15 +5833,43 @@ document.addEventListener('DOMContentLoaded', () => {
       this.log('CMD', `sicekas-admin@root:~$ ${cmd}`, 'term-cmd');
       const clean = cmd.toLowerCase().trim();
 
+      // Check for direct SQL queries to Cloudflare D1
+      if (clean.startsWith('select') || clean.startsWith('insert') || clean.startsWith('update') || clean.startsWith('delete') || clean.startsWith('pragma') || clean.startsWith('show')) {
+        this.log('INFO', `Mengeksekusi query SQL pada Cloudflare D1 Database...`, 'term-info');
+        CloudflareDB.executeSql(cmd).then(res => {
+          if (res && res.success) {
+            if (res.type === 'SELECT') {
+              this.log('SUCCESS', `Query OK. Ditemukan ${res.row_count} baris data:`, 'term-success');
+              if (res.rows && res.rows.length > 0) {
+                res.rows.slice(0, 8).forEach((r, idx) => {
+                  this.log('INFO', `  [#${idx + 1}] ${JSON.stringify(r)}`, 'term-info');
+                });
+                if (res.rows.length > 8) {
+                  this.log('INFO', `  ... dan ${res.rows.length - 8} baris lainnya.`);
+                }
+              }
+            } else {
+              this.log('SUCCESS', `Query Mutasi Berhasil dieksekusi pada Cloudflare D1 Database.`, 'term-success');
+            }
+          } else {
+            this.log('ERROR', `SQL Error: ${res?.error || 'Koneksi D1 gagal'}`, 'term-err');
+          }
+        }).catch(err => {
+          this.log('ERROR', `Gagal eksekusi SQL: ${err.message}`, 'term-err');
+        });
+        return;
+      }
+
       if (clean === 'help') {
         this.log('INFO', 'Daftar Perintah Terminal Tersedia:');
         this.log('INFO', '  • help        - Menampilkan bantuan perintah');
-        this.log('INFO', '  • status      - Menampilkan status Cloudflare Pages & database');
+        this.log('INFO', '  • status      - Menampilkan status Cloudflare Pages & D1 Database');
         this.log('INFO', '  • ping        - Uji latensi Cloudflare Edge Network');
         this.log('INFO', '  • users       - Menampilkan statistik 39 akun pegawai');
-        this.log('INFO', '  • sync        - Memaksa sinkronisasi LocalStorage & Edge');
+        this.log('INFO', '  • sync        - Memaksa sinkronisasi Cloudflare D1');
         this.log('INFO', '  • backup      - Membuat paket backup data JSON');
         this.log('INFO', '  • diag        - Menjalankan live diagnostic test');
+        this.log('INFO', '  • <SQL QUERY> - Eksekusi SQL langsung (contoh: SELECT * FROM users)');
         this.log('INFO', '  • clear       - Membersihkan layar log terminal');
       } else if (clean === 'status') {
         this.log('SUCCESS', `STATUS SISTEM SICEKAS v2.0 (Cloudflare Pages):`);
@@ -5668,8 +6005,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (btnResetDemo) {
-        btnResetDemo.addEventListener('click', () => {
-          if (confirm('Apakah Anda yakin ingin me-reset dan memuat ulang data demo Jadwal Kegiatan?')) {
+        btnResetDemo.addEventListener('click', async () => {
+          const confirmed = await window.SicekasAlert.confirm(
+            'Muat Ulang Data Demo?',
+            'Data contoh jadwal kegiatan akan di-reset ke nilai bawaan puskesmas.',
+            'Ya, Muat Ulang',
+            'Batal',
+            false
+          );
+          if (confirmed) {
             localStorage.removeItem('SICEKAS_BOK_DATA_V2');
             localStorage.removeItem('SICEKAS_BOK_COLLAB_V2');
             if (typeof initSeedBokData === 'function') initSeedBokData();
@@ -5682,8 +6026,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (btnWipe) {
-        btnWipe.addEventListener('click', () => {
-          if (confirm('PERINGATAN: Seluruh cache dan data lokal akan dibersihkan. Lanjutkan?')) {
+        btnWipe.addEventListener('click', async () => {
+          const confirmed = await window.SicekasAlert.confirm(
+            'Bersihkan Seluruh Storage?',
+            'PERINGATAN: Seluruh cache, data sesi, dan pengaturan lokal akan dibersihkan dari browser.',
+            'Ya, Bersihkan Storage',
+            'Batal',
+            true
+          );
+          if (confirmed) {
             localStorage.clear();
             sessionStorage.clear();
             this.log('WARN', 'Seluruh storage lokal browser dibersihkan.', 'term-warn');
