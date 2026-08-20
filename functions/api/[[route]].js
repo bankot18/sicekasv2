@@ -137,6 +137,47 @@ export async function onRequest(context) {
       return jsonResponse({ success: true, message: `Kata sandi pegawai [${nip}] berhasil di-reset ke default.` });
     }
 
+    if (pathname === '/api/users/change-password' && method === 'POST') {
+      const body = await request.json();
+      const { nip, username, oldPassword, newPassword } = body;
+
+      if (!oldPassword || !newPassword) {
+        return jsonResponse({ success: false, error: 'Password saat ini dan password baru wajib diisi!' }, 400);
+      }
+
+      if (newPassword.length < 6) {
+        return jsonResponse({ success: false, error: 'Password baru minimal 6 karakter!' }, 400);
+      }
+
+      let user = null;
+      if (nip) {
+        user = await db.prepare('SELECT * FROM users WHERE nip = ?').bind(nip).first();
+      } else if (username) {
+        user = await db.prepare('SELECT * FROM users WHERE username = ?').bind(username).first();
+      }
+
+      if (!user) {
+        return jsonResponse({ success: false, error: 'Akun pegawai tidak ditemukan di database!' }, 404);
+      }
+
+      if (user.password_hash !== oldPassword) {
+        return jsonResponse({ success: false, error: 'Password saat ini yang Anda masukkan salah!' }, 401);
+      }
+
+      await db.prepare(
+        'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      ).bind(newPassword, user.id).run();
+
+      await db.prepare(
+        'INSERT INTO audit_logs (user_nip, user_nama, category, action, details, ip_address) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(user.nip, user.nama, 'AUTH', 'CHANGE_PASSWORD', `Password akun ${user.nama} berhasil diperbarui`, request.headers.get('CF-Connecting-IP') || '127.0.0.1').run();
+
+      return jsonResponse({
+        success: true,
+        message: `Kata sandi akun [${user.nama}] berhasil diperbarui di Cloudflare D1 Database!`
+      });
+    }
+
     // ------------------------------------------------------------------------
     // 4. JADWAL KEGIATAN (/api/jadwal, /api/jadwal/save, /api/jadwal/delete)
     // ------------------------------------------------------------------------

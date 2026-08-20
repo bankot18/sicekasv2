@@ -9,8 +9,8 @@ pages_build_output_dir = "."
 # Cloudflare D1 Database Binding
 [[d1_databases]]
 binding = "DB"
-database_name = "sicekas-d1"
-database_id = "sicekas-d1-prod"
+database_name = "sicekas-v2"
+database_id = "8186f6c9-f454-4a87-a541-50d09e74b929"
 
 [vars]
 ENVIRONMENT = "production"

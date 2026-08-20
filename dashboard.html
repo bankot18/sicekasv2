@@ -3024,6 +3024,10 @@
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg>
                 <span>Konfigurasi Cloudflare Pages</span>
               </button>
+              <button type="button" class="dev-tab-btn" data-devtab="d1studio">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                <span>D1 Database Studio (Live Table Manager)</span>
+              </button>
               <button type="button" class="dev-tab-btn" data-devtab="users">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                 <span>Manajemen Hak Akses Pegawai</span>
@@ -3103,6 +3107,105 @@
                     <span>Simpan Pengaturan Cloudflare</span>
                   </button>
                 </div>
+              </div>
+            </div>
+
+            <!-- TAB: CLOUDFLARE D1 STUDIO & LIVE TABLE MANAGER -->
+            <div class="dev-tab-panel" id="devTabD1studio" style="display: none;">
+              <div class="dash-card dev-card">
+                <div class="card-header" style="flex-wrap: wrap; gap: 14px;">
+                  <div class="card-title-group">
+                    <div class="header-icon-box gold">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                    </div>
+                    <div>
+                      <h3 class="card-title">Cloudflare D1 Database Studio (Live Table Manager)</h3>
+                      <p class="card-subtitle">Kelola, sunting, filter, dan eksekusi query seluruh tabel D1 SQLite secara realtime</p>
+                    </div>
+                  </div>
+                  
+                  <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <button type="button" class="btn-dev-action" id="btnD1RefreshTable" title="Muat Ulang Data Tabel">
+                      <span>🔄 Refresh Data</span>
+                    </button>
+                    <button type="button" class="btn-dev-action primary" id="btnD1ToggleSqlRunner" title="Buka Kotak SQL Editor">
+                      <span>⚡ SQL Query Sandbox</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- TABLE SELECTOR PILLS -->
+                <div class="d1-table-selector-bar">
+                  <span class="d1-sel-label">Pilih Tabel D1:</span>
+                  <div class="d1-pills-group" id="d1TablePills">
+                    <button type="button" class="d1-pill active" data-table="users">
+                      <span class="d1-pill-icon">👥</span> users <span class="d1-pill-count" id="count-users">39</span>
+                    </button>
+                    <button type="button" class="d1-pill" data-table="jadwal_kegiatan">
+                      <span class="d1-pill-icon">📅</span> jadwal_kegiatan <span class="d1-pill-count" id="count-jadwal_kegiatan">6</span>
+                    </button>
+                    <button type="button" class="d1-pill" data-table="poa_bulanan">
+                      <span class="d1-pill-icon">📑</span> poa_bulanan <span class="d1-pill-count" id="count-poa_bulanan">0</span>
+                    </button>
+                    <button type="button" class="d1-pill" data-table="tppol_jaspel">
+                      <span class="d1-pill-icon">🏆</span> tppol_jaspel <span class="d1-pill-count" id="count-tppol_jaspel">0</span>
+                    </button>
+                    <button type="button" class="d1-pill" data-table="sppd_lpt">
+                      <span class="d1-pill-icon">📜</span> sppd_lpt <span class="d1-pill-count" id="count-sppd_lpt">0</span>
+                    </button>
+                    <button type="button" class="d1-pill" data-table="audit_logs">
+                      <span class="d1-pill-icon">🛡️</span> audit_logs <span class="d1-pill-count" id="count-audit_logs">0</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- SQL QUERY SANDBOX (COLLAPSIBLE) -->
+                <div class="d1-sql-sandbox-box" id="d1SqlSandboxBox" style="display: none;">
+                  <div class="d1-sql-header">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="color: #ffd166; font-weight: 700; font-family: monospace; font-size: 13px;">SQL &gt;</span>
+                      <span style="font-size: 12px; color: #94a3b8;">Eksekusi query SQL kustom langsung pada database Cloudflare D1</span>
+                    </div>
+                    <span class="d1-sql-timer" id="d1SqlLatency">Latency: -- ms</span>
+                  </div>
+                  <div class="d1-sql-editor-wrapper">
+                    <textarea id="d1CustomSqlInput" rows="3" class="d1-sql-textarea" placeholder="Contoh: SELECT id, nama, role, jabatan FROM users WHERE role = 'PJ Klaster' ORDER BY no_urut ASC;"></textarea>
+                  </div>
+                  <div class="d1-sql-footer">
+                    <div class="d1-sql-quick-tags">
+                      <button type="button" class="btn-sql-tag" onclick="window.DeveloperWebController.setSqlExample('SELECT * FROM users ORDER BY no_urut ASC;')">All Users</button>
+                      <button type="button" class="btn-sql-tag" onclick="window.DeveloperWebController.setSqlExample('SELECT * FROM jadwal_kegiatan ORDER BY tanggal DESC;')">All Jadwal</button>
+                      <button type="button" class="btn-sql-tag" onclick="window.DeveloperWebController.setSqlExample('SELECT * FROM poa_bulanan;')">All POA</button>
+                      <button type="button" class="btn-sql-tag" onclick="window.DeveloperWebController.setSqlExample('SELECT * FROM tppol_jaspel;')">All TP POL</button>
+                      <button type="button" class="btn-sql-tag" onclick="window.DeveloperWebController.setSqlExample('SELECT * FROM sppd_lpt;')">All SPPD</button>
+                      <button type="button" class="btn-sql-tag" onclick="window.DeveloperWebController.setSqlExample('SELECT * FROM audit_logs ORDER BY id DESC LIMIT 20;')">Recent Logs</button>
+                    </div>
+                    <button type="button" class="btn-dev-action primary" id="btnD1RunCustomSql">
+                      <span>▶ Execute SQL</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- TABLE TOOLBAR: SEARCH & STATS -->
+                <div class="d1-table-toolbar">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="text" class="custom-input" id="d1TableSearch" placeholder="Filter / cari data pada tabel aktif..." style="width: 280px; padding: 7px 14px; font-size: 12.5px;">
+                    <span class="d1-table-info" id="d1TableActiveInfo">Menampilkan tabel: <strong>users</strong> (39 baris)</span>
+                  </div>
+                </div>
+
+                <!-- DYNAMIC DATA GRID -->
+                <div class="table-responsive" style="max-height: 520px; overflow: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: rgba(8,12,20,0.6);">
+                  <table class="custom-table dev-table d1-dynamic-table" id="d1DynamicGrid">
+                    <thead id="d1GridThead">
+                      <!-- Dynamic columns generated on the fly -->
+                    </thead>
+                    <tbody id="d1GridTbody">
+                      <!-- Dynamic rows generated on the fly -->
+                    </tbody>
+                  </table>
+                </div>
+
               </div>
             </div>
 
@@ -3660,6 +3763,6 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=15"></script>
+  <script src="dashboard.js?v=20"></script>
 </body>
 </html>

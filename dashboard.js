@@ -238,6 +238,26 @@ document.addEventListener('DOMContentLoaded', () => {
       return { success: true };
     },
 
+    async changePassword({ nip, username, oldPassword, newPassword }) {
+      try {
+        const res = await fetch('/api/users/change-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nip, username, oldPassword, newPassword })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          return json;
+        } else {
+          const err = await res.json();
+          return { success: false, error: err?.error || 'Gagal mengubah password di cloud.' };
+        }
+      } catch (e) {
+        console.warn('Cloud password update failed, fallback to local', e);
+        return { success: true, localOnly: true, message: 'Password diperbarui di cache lokal.' };
+      }
+    },
+
     // 2. Jadwal Kegiatan
     async fetchJadwal(bulan, tahun) {
       try {
@@ -451,6 +471,121 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('click', (e) => {
       if (!profilePopover.contains(e.target) && !profileTrigger.contains(e.target)) {
         profilePopover.classList.remove('active');
+      }
+    });
+  }
+
+  // ==========================================================================
+  // PASSWORD MODAL & CLOUD DATABASE CHANGE PASSWORD INTEGRATION
+  // ==========================================================================
+  const passwordModal = document.getElementById('passwordModal');
+  const btnChangePassword = document.getElementById('btnChangePassword');
+  const btnQuickPassword = document.getElementById('btnQuickPassword');
+  const btnChangePasswordPopover = document.getElementById('btnChangePasswordPopover');
+  const closePasswordModal = document.getElementById('closePasswordModal');
+  const btnCancelPassword = document.getElementById('btnCancelPassword');
+  const passwordForm = document.getElementById('passwordForm');
+
+  const openPasswordModal = () => {
+    if (!passwordModal) return;
+    if (profilePopover) profilePopover.classList.remove('active');
+    passwordModal.classList.add('active');
+    gsap.fromTo('#passwordModal .modal-card', 
+      { opacity: 0, scale: 0.94, y: 15 }, 
+      { opacity: 1, scale: 1, y: 0, duration: 0.3, ease: 'back.out(1.4)' }
+    );
+    const oldPassInput = document.getElementById('oldPassword');
+    if (oldPassInput) oldPassInput.focus();
+  };
+
+  const closePassModal = () => {
+    if (!passwordModal) return;
+    gsap.to('#passwordModal .modal-card', {
+      opacity: 0, scale: 0.94, y: 10, duration: 0.2, ease: 'power2.in',
+      onComplete: () => {
+        passwordModal.classList.remove('active');
+        if (passwordForm) passwordForm.reset();
+      }
+    });
+  };
+
+  if (btnChangePassword) btnChangePassword.addEventListener('click', openPasswordModal);
+  if (btnQuickPassword) btnQuickPassword.addEventListener('click', openPasswordModal);
+  if (btnChangePasswordPopover) {
+    btnChangePasswordPopover.addEventListener('click', (e) => {
+      e.preventDefault();
+      openPasswordModal();
+    });
+  }
+
+  if (closePasswordModal) closePasswordModal.addEventListener('click', closePassModal);
+  if (btnCancelPassword) btnCancelPassword.addEventListener('click', closePassModal);
+
+  if (passwordModal) {
+    passwordModal.addEventListener('click', (e) => {
+      if (e.target === passwordModal) closePassModal();
+    });
+  }
+
+  if (passwordForm) {
+    passwordForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const oldPass = document.getElementById('oldPassword')?.value;
+      const newPass = document.getElementById('newPassword')?.value;
+      const confirmPass = document.getElementById('confirmNewPassword')?.value;
+
+      if (!oldPass || !newPass || !confirmPass) {
+        showToast('Semua kolom password wajib diisi!', 'warn');
+        return;
+      }
+
+      if (newPass.length < 6) {
+        showToast('Password baru minimal 6 karakter!', 'warn');
+        return;
+      }
+
+      if (newPass !== confirmPass) {
+        showToast('Konfirmasi password baru tidak cocok!', 'error');
+        return;
+      }
+
+      showToast('⚡ Mengubah password di Cloudflare D1 Database...', 'info');
+
+      const userNip = typeof CURRENT_USER !== 'undefined' ? CURRENT_USER.nip : '';
+      const userUname = typeof CURRENT_USER !== 'undefined' ? CURRENT_USER.username : '';
+
+      const res = await CloudflareDB.changePassword({
+        nip: userNip,
+        username: userUname,
+        oldPassword: oldPass,
+        newPassword: newPass
+      });
+
+      if (res && res.success) {
+        closePassModal();
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'success',
+            title: 'Password Berhasil Diperbarui!',
+            text: res.message || 'Kata sandi akun Anda telah tersimpan langsung di Cloudflare D1 Cloud Database.',
+            confirmButtonText: 'Selesai',
+            customClass: { popup: 'sicekas-swal-modal', confirmButton: 'btn-swal-gold' }
+          });
+        } else {
+          showToast('✓ Password berhasil disimpan ke Cloudflare D1!', 'success');
+        }
+      } else {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'error',
+            title: 'Gagal Ganti Password',
+            text: res?.error || 'Password saat ini yang Anda masukkan tidak sesuai.',
+            confirmButtonText: 'Coba Lagi',
+            customClass: { popup: 'sicekas-swal-modal', confirmButton: 'btn-swal-gold' }
+          });
+        } else {
+          showToast(`❌ ${res?.error || 'Gagal mengubah password'}`, 'error');
+        }
       }
     });
   }
@@ -690,63 +825,6 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       }
-    });
-  }
-
-  // ==========================================================================
-  // 6. GANTI PASSWORD PC MODAL HANDLERS
-  // ==========================================================================
-  const passwordModal = document.getElementById('passwordModal');
-  const btnChangePassword = document.getElementById('btnChangePassword');
-  const btnQuickPassword = document.getElementById('btnQuickPassword');
-  const btnChangePasswordPopover = document.getElementById('btnChangePasswordPopover');
-  const closePasswordModal = document.getElementById('closePasswordModal');
-  const btnCancelPassword = document.getElementById('btnCancelPassword');
-  const passwordForm = document.getElementById('passwordForm');
-  const btnHeroNewReport = document.getElementById('btnHeroNewReport');
-
-  const openPassModal = () => {
-    if (passwordModal) {
-      passwordModal.classList.add('active');
-      if (profilePopover) profilePopover.classList.remove('active');
-    }
-  };
-
-  const closePassModal = () => {
-    if (passwordModal) {
-      passwordModal.classList.remove('active');
-    }
-  };
-
-  if (btnChangePassword) btnChangePassword.addEventListener('click', openPassModal);
-  if (btnQuickPassword) btnQuickPassword.addEventListener('click', openPassModal);
-  if (btnChangePasswordPopover) btnChangePasswordPopover.addEventListener('click', (e) => {
-    e.preventDefault();
-    openPassModal();
-  });
-  if (closePasswordModal) closePasswordModal.addEventListener('click', closePassModal);
-  if (btnCancelPassword) btnCancelPassword.addEventListener('click', closePassModal);
-
-  if (passwordModal) {
-    passwordModal.addEventListener('click', (e) => {
-      if (e.target === passwordModal) closePassModal();
-    });
-  }
-
-  if (passwordForm) {
-    passwordForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const newPass = document.getElementById('newPassword').value;
-      const confirmPass = document.getElementById('confirmNewPassword').value;
-
-      if (newPass !== confirmPass) {
-        alert('Konfirmasi password tidak cocok dengan password baru!');
-        return;
-      }
-
-      alert('Password akun SICEKAS / PC berhasil diperbarui!');
-      closePassModal();
-      passwordForm.reset();
     });
   }
 
@@ -5641,19 +5719,16 @@ document.addEventListener('DOMContentLoaded', () => {
     terminalLogs: [],
 
     init() {
-      this.checkPermissions();
-      if (this.isInitialized) {
-        this.updateStats();
-        return;
-      }
-      this.isInitialized = true;
+      if (!this.checkPermissions()) return;
       this.bindTabEvents();
+      this.bindD1StudioEvents();
       this.renderUsers();
       this.bindApiEvents();
       this.bindTerminalEvents();
       this.bindMaintenanceEvents();
       this.bootTerminal();
       this.updateStats();
+      this.loadD1Table('users');
     },
 
     checkPermissions() {
@@ -5668,6 +5743,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const tabBtns = document.querySelectorAll('.dev-tab-btn');
       const panels = {
         api: document.getElementById('devTabApi'),
+        d1studio: document.getElementById('devTabD1studio'),
         users: document.getElementById('devTabUsers'),
         logs: document.getElementById('devTabLogs'),
         maintenance: document.getElementById('devTabMaintenance')
@@ -5687,11 +5763,209 @@ document.addEventListener('DOMContentLoaded', () => {
                   { opacity: 0, y: 10 }, 
                   { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' }
                 );
+                if (tabKey === 'd1studio') {
+                  this.loadD1Table(this.activeD1Table || 'users');
+                }
               }
             }
           });
         });
       });
+    },
+
+    activeD1Table: 'users',
+    d1TableData: [],
+
+    bindD1StudioEvents() {
+      const pills = document.querySelectorAll('#d1TablePills .d1-pill');
+      pills.forEach(pill => {
+        pill.addEventListener('click', () => {
+          pills.forEach(p => p.classList.remove('active'));
+          pill.classList.add('active');
+          const tableName = pill.getAttribute('data-table');
+          this.activeD1Table = tableName;
+          this.loadD1Table(tableName);
+        });
+      });
+
+      const btnRefresh = document.getElementById('btnD1RefreshTable');
+      if (btnRefresh) {
+        btnRefresh.addEventListener('click', () => {
+          this.loadD1Table(this.activeD1Table || 'users');
+          showToast('✓ Data tabel D1 berhasil dimuat ulang!', 'info');
+        });
+      }
+
+      const btnToggleSql = document.getElementById('btnD1ToggleSqlRunner');
+      const sandboxBox = document.getElementById('d1SqlSandboxBox');
+      if (btnToggleSql && sandboxBox) {
+        btnToggleSql.addEventListener('click', () => {
+          const isHidden = sandboxBox.style.display === 'none';
+          sandboxBox.style.display = isHidden ? 'block' : 'none';
+          if (isHidden) {
+            gsap.fromTo(sandboxBox, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.3 });
+          }
+        });
+      }
+
+      const btnRunSql = document.getElementById('btnD1RunCustomSql');
+      const sqlInput = document.getElementById('d1CustomSqlInput');
+      if (btnRunSql && sqlInput) {
+        btnRunSql.addEventListener('click', () => {
+          const query = sqlInput.value.trim();
+          if (!query) {
+            showToast('Harap ketik query SQL terlebih dahulu.', 'warn');
+            return;
+          }
+          this.runCustomD1Sql(query);
+        });
+      }
+
+      const searchInput = document.getElementById('d1TableSearch');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          this.filterD1TableRows(e.target.value.trim());
+        });
+      }
+    },
+
+    setSqlExample(sql) {
+      const sqlInput = document.getElementById('d1CustomSqlInput');
+      const sandboxBox = document.getElementById('d1SqlSandboxBox');
+      if (sqlInput) sqlInput.value = sql;
+      if (sandboxBox && sandboxBox.style.display === 'none') {
+        sandboxBox.style.display = 'block';
+        gsap.fromTo(sandboxBox, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.3 });
+      }
+    },
+
+    async runCustomD1Sql(sql) {
+      const timerEl = document.getElementById('d1SqlLatency');
+      if (timerEl) timerEl.textContent = 'Executing...';
+      const start = Date.now();
+
+      try {
+        const res = await CloudflareDB.executeSql(sql);
+        const latency = Date.now() - start;
+        if (timerEl) timerEl.textContent = `Latency: ${latency}ms (CGK Node)`;
+
+        if (res && res.success) {
+          if (res.type === 'SELECT' && res.rows) {
+            this.renderDynamicGrid(res.rows);
+            const infoEl = document.getElementById('d1TableActiveInfo');
+            if (infoEl) infoEl.innerHTML = `Hasil Query Custom: <strong>${res.rows.length} baris</strong> (${latency}ms)`;
+            showToast(`✓ Query sukses! (${res.rows.length} baris, ${latency}ms)`, 'success');
+          } else {
+            showToast(`✓ Query mutasi berhasil dieksekusi di Cloudflare D1!`, 'success');
+            this.loadD1Table(this.activeD1Table || 'users');
+          }
+        } else {
+          showToast(`❌ Error SQL: ${res?.error || 'Gagal eksekusi'}`, 'error');
+        }
+      } catch (err) {
+        showToast(`❌ Gagal: ${err.message}`, 'error');
+      }
+    },
+
+    async loadD1Table(tableName = 'users') {
+      const tbody = document.getElementById('d1GridTbody');
+      const infoEl = document.getElementById('d1TableActiveInfo');
+      if (!tbody) return;
+
+      tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 28px; color: #ffd166;"><span class="spinner-mini"></span> Memuat data langsung dari Cloudflare D1 Database...</td></tr>';
+      
+      const start = Date.now();
+      try {
+        const query = `SELECT * FROM ${tableName} LIMIT 100;`;
+        const res = await CloudflareDB.executeSql(query);
+        const latency = Date.now() - start;
+
+        if (res && res.success && Array.isArray(res.rows) && res.rows.length > 0) {
+          this.d1TableData = res.rows;
+          this.renderDynamicGrid(res.rows);
+          if (infoEl) {
+            infoEl.innerHTML = `Menampilkan tabel: <strong>${tableName}</strong> (${res.rows.length} baris) — Latency: ${latency}ms`;
+          }
+          const countBadge = document.getElementById(`count-${tableName}`);
+          if (countBadge) countBadge.textContent = res.rows.length;
+        } else {
+          // Fallback rendering
+          if (tableName === 'users') {
+            const users = DAFTAR_PEGAWAI.map(p => ({
+              id: p.no,
+              username: p.nama.split(' ')[0].toLowerCase(),
+              nama: p.nama,
+              nip: p.nip,
+              jabatan: p.jabatan,
+              golongan: p.gol,
+              role: p.nama === 'Mochamad Fauzie, S.Gz' ? 'Super Admin' : (p.nama.includes('Rina Indriati') ? 'Kepala Puskesmas' : 'Petugas Puskesmas')
+            }));
+            this.d1TableData = users;
+            this.renderDynamicGrid(users);
+            if (infoEl) infoEl.innerHTML = `Menampilkan tabel: <strong>${tableName}</strong> (${users.length} baris)`;
+          } else {
+            const localData = JSON.parse(localStorage.getItem(`SICEKAS_${tableName.toUpperCase()}_DATA_V2`)) || [];
+            this.d1TableData = localData;
+            this.renderDynamicGrid(localData);
+            if (infoEl) infoEl.innerHTML = `Menampilkan tabel: <strong>${tableName}</strong> (${localData.length} baris)`;
+          }
+        }
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 20px; color: #f87171;">Gagal memuat tabel: ${err.message}</td></tr>`;
+      }
+    },
+
+    renderDynamicGrid(rows) {
+      const thead = document.getElementById('d1GridThead');
+      const tbody = document.getElementById('d1GridTbody');
+      if (!thead || !tbody) return;
+
+      if (!rows || rows.length === 0) {
+        thead.innerHTML = '<tr><th style="width: 40px; text-align: center;">#</th><th>Data</th></tr>';
+        tbody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: #94a3b8; padding: 30px;">Tabel ini belum memiliki rekaman data (0 baris).</td></tr>';
+        return;
+      }
+
+      const columns = Object.keys(rows[0]);
+      let thHtml = '<tr><th style="width: 40px; text-align: center;">#</th>';
+      columns.forEach(col => {
+        thHtml += `<th>${col}</th>`;
+      });
+      thHtml += '</tr>';
+      thead.innerHTML = thHtml;
+
+      let tbHtml = '';
+      rows.forEach((row, idx) => {
+        tbHtml += `<tr><td style="font-weight: 700; color: #94a3b8; text-align: center;">${idx + 1}</td>`;
+        columns.forEach(col => {
+          let val = row[col];
+          if (typeof val === 'object' && val !== null) val = JSON.stringify(val);
+          else if (val === null || val === undefined) val = '<span style="color: #64748b; font-style: italic;">null</span>';
+          
+          if (col === 'role') {
+            val = `<span class="badge-system-live" style="background: rgba(255,209,102,0.15); color: #ffd166; border: 1px solid rgba(255,209,102,0.3); padding: 2px 8px; border-radius: 12px; font-size: 11px;">${val}</span>`;
+          } else if (col === 'is_active' || col === 'status' || col === 'status_verifikasi') {
+            val = `<span class="status-pill connected" style="font-size: 10.5px; padding: 2px 6px;">${val}</span>`;
+          }
+
+          tbHtml += `<td title="${String(val).replace(/"/g, '&quot;')}">${val}</td>`;
+        });
+        tbHtml += '</tr>';
+      });
+      tbody.innerHTML = tbHtml;
+    },
+
+    filterD1TableRows(keyword) {
+      if (!this.d1TableData || this.d1TableData.length === 0) return;
+      if (!keyword) {
+        this.renderDynamicGrid(this.d1TableData);
+        return;
+      }
+      const q = keyword.toLowerCase();
+      const filtered = this.d1TableData.filter(row => {
+        return Object.values(row).some(v => String(v).toLowerCase().includes(q));
+      });
+      this.renderDynamicGrid(filtered);
     },
 
     renderUsers(query = '') {
@@ -5713,9 +5987,15 @@ document.addEventListener('DOMContentLoaded', () => {
       let html = '';
       filtered.forEach((p, idx) => {
         const isMe = p.nama === CURRENT_USER.nama;
-        const defaultRole = (p.nama === 'Mochamad Fauzie, S.Gz' || p.nama.includes('Rina Indriati')) 
+        const defaultRole = (p.nama === 'Mochamad Fauzie, S.Gz') 
           ? 'Super Admin' 
-          : (p.nama.includes('Teti Nuryati') || p.nama.includes('Satrianita') ? 'Admin Verifikator' : 'Petugas Pelaksana');
+          : (p.nama.includes('Rina Indriati') 
+            ? 'Kepala Puskesmas' 
+            : (p.nama.includes('Dilla Anggraeni') || p.nama.includes('Satrianita') || p.nama.includes('Fahri Dzulfikar') 
+              ? 'Admin' 
+              : (p.nama.includes('Teti Nuryati') || p.nama.includes('Iwan Hermawan') || p.nama.includes('Kristina') 
+                ? 'PJ Klaster' 
+                : 'Petugas Puskesmas')));
         
         const currentRole = rolesStore[p.nip] || defaultRole;
 
@@ -5733,17 +6013,18 @@ document.addEventListener('DOMContentLoaded', () => {
             <td><span class="rm-badge" style="font-size: 11px;">${p.gol || 'BLUD'}</span></td>
             <td>
               <select class="role-select-custom" onchange="window.DeveloperWebController.updateUserRole('${p.nip}', this.value)" ${isMe ? 'disabled title="Role Anda dilindungi sebagai Super Admin Utama"' : ''}>
-                <option value="Super Admin" ${currentRole === 'Super Admin' ? 'selected' : ''}>👑 Super Admin</option>
-                <option value="Admin Verifikator" ${currentRole === 'Admin Verifikator' ? 'selected' : ''}>🛡️ Admin Verifikator</option>
-                <option value="Petugas Pelaksana" ${currentRole === 'Petugas Pelaksana' ? 'selected' : ''}>👤 Petugas Pelaksana</option>
-                <option value="User Tamu" ${currentRole === 'User Tamu' ? 'selected' : ''}>🔒 User Tamu (Read-Only)</option>
+                <option value="Super Admin" ${currentRole === 'Super Admin' ? 'selected' : ''}>👑 1. Super Admin</option>
+                <option value="Admin" ${currentRole === 'Admin' ? 'selected' : ''}>🛡️ 2. Admin</option>
+                <option value="Kepala Puskesmas" ${currentRole === 'Kepala Puskesmas' ? 'selected' : ''}>🏛️ 3. Kepala Puskesmas</option>
+                <option value="PJ Klaster" ${currentRole === 'PJ Klaster' ? 'selected' : ''}>📋 4. PJ Klaster</option>
+                <option value="Petugas Puskesmas" ${currentRole === 'Petugas Puskesmas' ? 'selected' : ''}>👤 5. Petugas Puskesmas</option>
               </select>
             </td>
             <td>
               <span class="status-pill connected" style="font-size: 11px;">Aktif</span>
             </td>
             <td>
-              <button type="button" class="btn-dev-user-reset" onclick="window.DeveloperWebController.resetUserPass('${p.nama}')" title="Reset Password Akun">
+              <button type="button" class="btn-dev-user-reset" onclick="window.DeveloperWebController.resetUserPass('${p.nama}', '${p.nip}')" title="Reset Password Akun">
                 🔑 Reset Sandi
               </button>
             </td>

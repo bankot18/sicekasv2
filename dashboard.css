@@ -6780,6 +6780,199 @@ body {
   color: #38bdf8 !important;
 }
 
+/* ============================================================================
+   CLOUDFLARE D1 STUDIO & LIVE TABLE EXPLORER
+   ============================================================================ */
+.d1-table-selector-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: rgba(10, 15, 26, 0.7);
+  border: 1px solid rgba(255, 209, 102, 0.15);
+  border-radius: 14px;
+  margin: 16px 0 20px 0;
+  flex-wrap: wrap;
+}
+
+.d1-sel-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffd166;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.d1-pills-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.d1-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.d1-pill:hover {
+  background: rgba(255, 209, 102, 0.15);
+  border-color: rgba(255, 209, 102, 0.4);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.d1-pill.active {
+  background: linear-gradient(135deg, rgba(255, 209, 102, 0.25) 0%, rgba(204, 160, 68, 0.35) 100%);
+  border-color: #ffd166;
+  color: #ffd166;
+  box-shadow: 0 0 15px rgba(255, 209, 102, 0.2);
+}
+
+.d1-pill-count {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.d1-sql-sandbox-box {
+  background: rgba(7, 10, 18, 0.95);
+  border: 1px solid rgba(255, 209, 102, 0.3);
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.d1-sql-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.d1-sql-timer {
+  font-size: 11.5px;
+  font-family: monospace;
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.1);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+
+.d1-sql-textarea {
+  width: 100%;
+  background: rgba(15, 21, 33, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #f8fafc;
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.d1-sql-textarea:focus {
+  outline: none;
+  border-color: #ffd166;
+  box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.2);
+}
+
+.d1-sql-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.d1-sql-quick-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-sql-tag {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-sql-tag:hover {
+  background: rgba(255, 209, 102, 0.2);
+  color: #ffd166;
+  border-color: rgba(255, 209, 102, 0.4);
+}
+
+.d1-table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.d1-table-info {
+  font-size: 12.5px;
+  color: #94a3b8;
+}
+
+.d1-table-info strong {
+  color: #ffd166;
+  font-family: monospace;
+}
+
+.d1-dynamic-table th {
+  background: rgba(18, 24, 38, 0.95) !important;
+  color: #ffd166 !important;
+  font-size: 11.5px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  padding: 12px 14px !important;
+  white-space: nowrap !important;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  border-bottom: 2px solid rgba(255, 209, 102, 0.3) !important;
+}
+
+.d1-dynamic-table td {
+  padding: 10px 14px !important;
+  font-size: 12.5px !important;
+  color: #e2e8f0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  white-space: nowrap !important;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.d1-dynamic-table tr:hover td {
+  background: rgba(255, 209, 102, 0.04) !important;
+}
+
+
 
 
 
