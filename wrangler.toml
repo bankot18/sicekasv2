@@ -4,7 +4,10 @@
 
 name = "sicekas-v2"
 compatibility_date = "2026-08-01"
-pages_build_output_dir = "."
+main = "functions/api/[[route]].js"
+
+[assets]
+directory = "."
 
 # Cloudflare D1 Database Binding
 [[d1_databases]]
