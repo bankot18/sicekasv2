@@ -612,14 +612,37 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // API Routes Handler
+    // 1. API Routes Handler
     if (url.pathname.startsWith('/api')) {
       return handleApiRequest(request, env, ctx);
     }
 
-    // Static Assets Handler (Cloudflare Workers Assets) - Direct serve without redirect bounce
+    // 2. Static Assets Handler (Cloudflare Workers Static Assets)
     if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-      return env.ASSETS.fetch(request);
+      let pathname = url.pathname;
+      if (pathname === '/' || pathname === '' || pathname === '/login') {
+        pathname = '/index.html';
+      } else if (pathname === '/dashboard') {
+        pathname = '/dashboard.html';
+      }
+
+      // Fetch the mapped static asset
+      const assetUrl = new URL(pathname, url.origin);
+      const assetRequest = new Request(assetUrl.toString(), request);
+      const response = await env.ASSETS.fetch(assetRequest);
+
+      if (response.status !== 404) {
+        return response;
+      }
+
+      // Fallback to original request
+      const origRes = await env.ASSETS.fetch(request);
+      if (origRes.status !== 404) {
+        return origRes;
+      }
+
+      // Default fallback for SPA
+      return env.ASSETS.fetch(new Request(new URL('/index.html', url.origin), request));
     }
 
     return handleApiRequest(request, env, ctx);
