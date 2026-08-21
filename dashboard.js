@@ -784,6 +784,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Quick Navigation Tiles in Beranda
+  const quickNavCards = document.querySelectorAll('[data-quick-nav]');
+  quickNavCards.forEach(card => {
+    card.addEventListener('click', () => {
+      const targetView = card.getAttribute('data-quick-nav');
+      if (targetView) {
+        navLinks.forEach(l => {
+          if (l.getAttribute('data-view') === targetView) {
+            l.classList.add('active');
+          } else {
+            l.classList.remove('active');
+          }
+        });
+        switchView(targetView);
+        gsap.fromTo(card, { scale: 0.97 }, { scale: 1, duration: 0.2, ease: 'power2.out' });
+      }
+    });
+  });
+
   // ==========================================================================
   // 4. SIDEBAR SEARCH FILTER
   // ==========================================================================
@@ -4345,28 +4364,28 @@ document.addEventListener('DOMContentLoaded', () => {
   updateTpPolDocHeader();
 
   // Entrance animations for Beranda view
-  gsap.from('.welcome-hero-card', {
-    y: 20,
+  gsap.from('.beranda-compact-hero', {
+    y: 15,
     opacity: 0,
-    duration: 0.6,
+    duration: 0.5,
     ease: 'power2.out'
   });
 
-  gsap.from('.profile-bento-grid .dash-card', {
-    y: 20,
+  gsap.from('.beranda-kpi-card', {
+    y: 15,
     opacity: 0,
-    duration: 0.5,
-    stagger: 0.1,
-    delay: 0.1,
+    duration: 0.4,
+    stagger: 0.06,
+    delay: 0.08,
     ease: 'power2.out'
   });
 
-  gsap.from('.kpi-card', {
-    y: 20,
+  gsap.from('.module-launch-tile', {
+    y: 15,
     opacity: 0,
-    duration: 0.5,
-    stagger: 0.08,
-    delay: 0.2,
+    duration: 0.4,
+    stagger: 0.06,
+    delay: 0.15,
     ease: 'power2.out'
   });
 
