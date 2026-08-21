@@ -2459,12 +2459,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (select && select.value === 'CUSTOM') {
         nama = inputNama ? inputNama.value : '';
-        nip = inputNip ? inputNip.value : '';
+        nip = inputNip ? inputNip.value.replace(/^(NIP|NRP)\.?\s*/i, '').trim() : '';
         ket = inputKet ? inputKet.value : '';
       } else if (select && select.selectedIndex > 0) {
         const opt = select.options[select.selectedIndex];
         nama = opt.value;
-        nip = inputNip && inputNip.value !== '' ? inputNip.value : (opt.getAttribute('data-nip') || '');
+        const rawNip = inputNip && inputNip.value !== '' ? inputNip.value : (opt.getAttribute('data-nip') || '');
+        nip = rawNip.replace(/^(NIP|NRP)\.?\s*/i, '').trim();
         ket = inputKet && inputKet.value !== '' ? inputKet.value : (opt.getAttribute('data-ket') || '');
       }
 
@@ -2800,7 +2801,9 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           if (select.selectedIndex > 0) {
             const opt = select.options[select.selectedIndex];
-            if (inputNip) inputNip.value = opt.getAttribute('data-nip') || '';
+            const rawNip = opt.getAttribute('data-nip') || '';
+            const cleanNip = rawNip.replace(/^(NIP|NRP)\.?\s*/i, '').trim();
+            if (inputNip) inputNip.value = cleanNip;
             if (inputKet) inputKet.value = opt.getAttribute('data-ket') || '';
           } else {
             if (inputNip) inputNip.value = '';
