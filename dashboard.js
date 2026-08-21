@@ -674,6 +674,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (topbarCategory) topbarCategory.textContent = 'PERENCANAAN & PELAPORAN';
       if (topbarTitle) topbarTitle.textContent = 'POA Bulanan';
       if (topbarSubtitle) topbarSubtitle.textContent = 'Plan of Action — Rencana kegiatan bulanan petugas Puskesmas Banjaran Kota';
+      if (typeof renderPoaCalendar === 'function') {
+        const selM = parseInt(document.getElementById('poaSelectMonth')?.value || '8', 10);
+        const selY = parseInt(document.getElementById('poaSelectYear')?.value || '2026', 10);
+        const selO = (typeof getPoaOfficerName === 'function') ? getPoaOfficerName() : 'Mochamad Fauzie, S.Gz';
+        renderPoaCalendar(selM, selY, selO);
+      }
     } else if (targetView === 'tppol-jaspel') {
       if (viewTpPol) {
         viewTpPol.style.display = 'block';
@@ -996,32 +1002,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
-  // Default tasks for nutrition & health officer
-  const DEFAULT_ACTIVITIES_AUG_2026 = {
-    '2026-08-01': 'Pelayanan Poli Gizi',
-    '2026-08-03': 'Konseling Dietetik Rawat Jalan',
-    '2026-08-04': 'Pelayanan Poli Gizi & Laktasi',
-    '2026-08-05': 'Posyandu Balita Mawar RW 02',
-    '2026-08-06': 'Pelayanan Poli Gizi',
-    '2026-08-07': 'Penyuluhan Gizi Seimbang Bumil',
-    '2026-08-10': 'Puskesmas Keliling Desa Banjaran',
-    '2026-08-11': 'Pelayanan Poli Gizi',
-    '2026-08-12': 'Pendampingan Balita Stunting RW 04',
-    '2026-08-13': 'Pelayanan Konseling Diet DM/Hipertensi',
-    '2026-08-14': 'Distribusi PMT Balita & Ibu Hamil KEK',
-    '2026-08-18': 'Konseling Gizi & Dev SICEKAS',
-    '2026-08-19': 'Posyandu Balita Melati RW 05',
-    '2026-08-20': 'Pelayanan Poli Gizi',
-    '2026-08-21': 'Evaluasi SPM Gizi Triwulan',
-    '2026-08-24': 'Audit Kasus Stunting Wilayah',
-    '2026-08-26': 'Pusling & Skrining Anemia Remaja',
-    '2026-08-27': 'Pelayanan Poli Gizi',
-    '2026-08-28': 'Rekapitulasi Pelaporan e-PPGBM',
-    '2026-08-31': 'Lokakarya Mini Bulanan Puskesmas'
-  };
+  // State store for POA activities (strictly initialized empty & populated from Cloudflare D1)
+  const poaActivitiesState = {};
 
-  // State store for activities
-  const poaActivitiesState = { ...DEFAULT_ACTIVITIES_AUG_2026 };
+  // Sync POA calendar data live from Cloudflare D1 Database
+  const syncPoaFromCloud = async (month, year, officerName) => {
+    // Clear existing in-memory map
+    for (const k in poaActivitiesState) delete poaActivitiesState[k];
+    
+    try {
+      const items = await CloudflareDB.fetchJadwal(month, year);
+      if (!Array.isArray(items)) return;
+
+      const normSearch = (officerName || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+
+      items.forEach(it => {
+        const itemOfficer = (it.petugas_nama || '').toLowerCase();
+        const collabs = Array.isArray(it.rekan_kolaborasi) ? it.rekan_kolaborasi : [];
+        const isCollabMatch = collabs.some(c => {
+          const cName = (typeof c === 'string' ? c : (c.nama || '')).toLowerCase();
+          return cName.includes(normSearch) || normSearch.includes(cName);
+        });
+        const isPrimaryMatch = itemOfficer.includes(normSearch) || normSearch.includes(itemOfficer);
+
+        if ((isPrimaryMatch || isCollabMatch) && it.tanggal) {
+          poaActivitiesState[it.tanggal] = it.nama_kegiatan;
+        }
+      });
+    } catch (e) {
+      console.warn('Error fetching POA data from Cloudflare D1:', e);
+    }
+  };
 
   // ==========================================================================
   // 8. DYNAMIC POA CALENDAR ENGINE
@@ -1059,9 +1070,20 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${year}-${mm}-${dd}`;
   };
 
-  // Render Full Calendar
-  const renderPoaCalendar = (month, year, officerName) => {
+  const getPoaOfficerName = () => {
+    if (!poaSelectOfficer || poaSelectOfficer.selectedIndex < 0) return 'Mochamad Fauzie, S.Gz';
+    const opt = poaSelectOfficer.options[poaSelectOfficer.selectedIndex];
+    if (opt.value && isNaN(Number(opt.value))) return opt.value;
+    return opt.text.split('(')[0].replace(/^\d+\.\s*/, '').trim();
+  };
+
+  // Render Full Calendar (Connected directly to Cloudflare D1)
+  const renderPoaCalendar = async (month, year, officerName) => {
     if (!poaCalendarGrid) return;
+
+    // Fetch and synchronize strictly from Cloudflare D1
+    await syncPoaFromCloud(month, year, officerName);
+
     poaCalendarGrid.innerHTML = '';
 
     const monthIndex = month - 1; // 0-indexed
@@ -1134,7 +1156,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
 
-      // Task Activities
+      // Task Activities from Cloudflare D1
       const currentTask = poaActivitiesState[dateKey] || '';
       let taskHtml = '';
       if (currentTask) {
@@ -1214,35 +1236,50 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Handle Single Activity Form Save
+  // Handle Single Activity Form Save (Persist to Cloudflare D1)
   if (singleActivityForm) {
-    singleActivityForm.addEventListener('submit', (e) => {
+    singleActivityForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const val = activityInput.value.trim();
+      const selectedMonth = parseInt(poaSelectMonth.value, 10);
+      const selectedYear = parseInt(poaSelectYear.value, 10);
+      const officerText = getPoaOfficerName();
+      const officerObj = DAFTAR_PEGAWAI.find(p => p.nama === officerText) || {};
+
       if (currentActiveDateKey) {
+        const scheduleId = `poa-${currentActiveDateKey}-${(officerObj.nip || 'user').replace(/[^a-zA-Z0-9]/g, '')}`;
+
         if (val) {
           poaActivitiesState[currentActiveDateKey] = val;
+          await CloudflareDB.saveJadwal({
+            id: scheduleId,
+            tanggal: currentActiveDateKey,
+            bulan: selectedMonth,
+            tahun: selectedYear,
+            nama_kegiatan: val,
+            keterangan: (activityDesc ? activityDesc.value.trim() : ''),
+            lokasi: 'Puskesmas / Wilayah Kerja',
+            petugas_nip: officerObj.nip || '',
+            petugas_nama: officerText,
+            petugas_jabatan: officerObj.jabatan || '',
+            rekan_kolaborasi: [],
+            status: 'Disetujui'
+          });
+          if (typeof showToast === 'function') showToast('✅ Kegiatan POA berhasil disimpan ke Cloud D1!', 'success');
         } else {
           delete poaActivitiesState[currentActiveDateKey];
+          await CloudflareDB.deleteJadwal(scheduleId);
+          if (typeof showToast === 'function') showToast('Kegiatan POA dihapus dari Cloud D1.', 'info');
         }
 
         // Re-render calendar to reflect update
-        const selectedMonth = parseInt(poaSelectMonth.value, 10);
-        const selectedYear = parseInt(poaSelectYear.value, 10);
-        const officerText = poaSelectOfficer.options[poaSelectOfficer.selectedIndex].text.split('(')[0].trim();
-        renderPoaCalendar(selectedMonth, selectedYear, officerText);
+        await renderPoaCalendar(selectedMonth, selectedYear, officerText);
       }
       closeSingleActivityModal();
       singleActivityForm.reset();
     });
   }
 
-  const getPoaOfficerName = () => {
-    if (!poaSelectOfficer || poaSelectOfficer.selectedIndex < 0) return 'Mochamad Fauzie, S.Gz';
-    const opt = poaSelectOfficer.options[poaSelectOfficer.selectedIndex];
-    if (opt.value && isNaN(Number(opt.value))) return opt.value;
-    return opt.text.split('(')[0].replace(/^\d+\.\s*/, '').trim();
-  };
 
   // Populate Bulk Table for Selected Month & Year
   const populateBulkTable = (month, year) => {
@@ -1318,28 +1355,54 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Handle Bulk Form Save
+  // Handle Bulk Form Save (Persist to Cloudflare D1)
   if (bulkActivityForm) {
-    bulkActivityForm.addEventListener('submit', (e) => {
+    bulkActivityForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      const inputs = bulkActivityForm.querySelectorAll('.input-kegiatan');
-      inputs.forEach(input => {
-        const dateKey = input.getAttribute('data-datekey');
-        const val = input.value.trim();
-        if (val) {
-          poaActivitiesState[dateKey] = val;
-        } else {
-          delete poaActivitiesState[dateKey];
-        }
-      });
-
       const selectedMonth = parseInt(poaSelectMonth.value, 10);
       const selectedYear = parseInt(poaSelectYear.value, 10);
       const officerText = getPoaOfficerName();
-      renderPoaCalendar(selectedMonth, selectedYear, officerText);
+      const officerObj = DAFTAR_PEGAWAI.find(p => p.nama === officerText) || {};
 
-      alert(`Semua rencana kegiatan POA ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear} berhasil disimpan!`);
+      const inputs = bulkActivityForm.querySelectorAll('.input-kegiatan');
+      let savedCount = 0;
+
+      for (const input of inputs) {
+        const dateKey = input.getAttribute('data-datekey');
+        const val = input.value.trim();
+        const scheduleId = `poa-${dateKey}-${(officerObj.nip || 'user').replace(/[^a-zA-Z0-9]/g, '')}`;
+
+        if (val) {
+          poaActivitiesState[dateKey] = val;
+          await CloudflareDB.saveJadwal({
+            id: scheduleId,
+            tanggal: dateKey,
+            bulan: selectedMonth,
+            tahun: selectedYear,
+            nama_kegiatan: val,
+            keterangan: '',
+            lokasi: 'Puskesmas / Wilayah Kerja',
+            petugas_nip: officerObj.nip || '',
+            petugas_nama: officerText,
+            petugas_jabatan: officerObj.jabatan || '',
+            rekan_kolaborasi: [],
+            status: 'Disetujui'
+          });
+          savedCount++;
+        } else if (poaActivitiesState[dateKey]) {
+          delete poaActivitiesState[dateKey];
+          await CloudflareDB.deleteJadwal(scheduleId);
+        }
+      }
+
+      await renderPoaCalendar(selectedMonth, selectedYear, officerText);
+
+      if (typeof showToast === 'function') {
+        showToast(`✅ ${savedCount} agenda kegiatan POA berhasil disimpan ke Cloud D1!`, 'success');
+      } else {
+        alert(`Semua rencana kegiatan POA berhasil disimpan ke Cloud D1!`);
+      }
       closeBulkModalFunc();
     });
   }
