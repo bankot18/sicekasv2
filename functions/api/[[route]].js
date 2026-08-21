@@ -17,45 +17,45 @@ const jsonResponse = (data, status = 200) => {
 };
 
 const OFFICIAL_39_USERS = [
-  [1, 'rina', '213117', '19740404 201411 2 001', 'NIP. 19740404 201411 2 001', 'dr. Rina Indriati', 'Kepala Puskesmas', 'III/d', 'Kepala Puskesmas', 'RI'],
-  [2, 'teti', '213117', '19750816 200701 2 012', 'NIP. 19750816 200701 2 012', 'Teti Nuryati, S.Keb, Bdn', 'Satker/Bidan Mahir', 'III/b', 'PJ Klaster', 'TN'],
-  [3, 'satrianita', '213117', '19730908 199403 2 006', 'NIP. 19730908 199403 2 006', 'Satrianita, SKM', 'Sanitarian Ahli Muda', 'IV/b', 'Admin', 'SN'],
-  [4, 'asepyanto', '213117', '19690623 199103 1 002', 'NIP. 19690623 199103 1 002', 'Asep Yanto, AMKG', 'Perawat Gigi Penyelia', 'III/d', 'Petugas Puskesmas', 'AY'],
-  [5, 'yayat', '213117', '19690613 198903 2 005', 'NIP. 19690613 198903 2 005', 'N. Yayat Rohayati, AM.Keb', 'Bidan Penyelia', 'III/d', 'Petugas Puskesmas', 'YR'],
-  [6, 'tetimulyati', '213117', '19680825 199003 2 008', 'NIP. 19680825 199003 2 008', 'Rd Teti Mulyati, Amd.Kep', 'Perawat Penyelia', 'III/d', 'Petugas Puskesmas', 'TM'],
-  [7, 'indri', '213117', '19681004 199103 2 007', 'NIP. 19681004 199103 2 007', 'Indri Yusiana, Amd.Kep', 'Perawat Penyelia', 'III/d', 'Petugas Puskesmas', 'IY'],
-  [8, 'santi', '213117', '19781014 200501 2 007', 'NIP. 19781014 200501 2 007', 'Santi Sentri Yanti, S.Keb', 'Bidan Pelaksana', 'III/d', 'Petugas Puskesmas', 'SS'],
-  [9, 'imas', '213117', '19690524 200604 2 004', 'NIP. 19690524 200604 2 004', 'Imas Winarti, AM.Keb', 'Bidan Pelaksana', 'III/a', 'Petugas Puskesmas', 'IW'],
-  [10, 'eva', '213117', '19840508 201704 2 011', 'NIP. 19840508 201704 2 011', 'Eva Farida, S.Keb', 'Bidan Mahir', 'III/a', 'Petugas Puskesmas', 'EF'],
-  [11, 'nengyulia', '213117', '19860725 201704 2 007', 'NIP. 19860725 201704 2 007', 'Neng Yulia Ernawati, S.Keb', 'Bidan Pelaksana', 'III/a', 'Petugas Puskesmas', 'NY'],
-  [12, 'evasolina', '213117', '19821219 201704 2 003', 'NIP. 19821219 201704 2 003', 'Eva Solina, S.Keb', 'Bidan Pelaksana', 'III/a', 'Petugas Puskesmas', 'ES'],
-  [13, 'riza', '213117', '19910127 202203 2 010', 'NIP. 19910127 202203 2 010', 'Riza Nur Multiani, A.Md.AK', 'Penata Laboratorium Kesehatan Terampil', 'II/c', 'Petugas Puskesmas', 'RN'],
-  [14, 'drg_regina', '213117', '19930805 202505 2 002', 'NIP. 19930805 202505 2 002', 'drg. Regina Desi Gresiana Simamora', 'Dokter Gigi Ahli Pertama', 'III/b', 'Petugas Puskesmas', 'RG'],
-  [15, 'nurul', '213117', '20001224 202505 2 002', 'NIP. 20001224 202505 2 002', 'Nurul Hidayah, Amd.Kes', 'Terapis Gigi dan Mulut Terampil', 'II/c', 'Petugas Puskesmas', 'NH'],
-  [16, 'dadi', '213117', '19840525 202221 1 001', 'NIP. 19840525 202221 1 001', 'Dadi Permadi, SKM', 'Penyuluh Kesehatan Ahli Pertama', 'IX', 'PJ Klaster', 'DP'],
-  [17, 'anisa', '213117', '19880321 202321 2 001', 'NIP. 19880321 202321 2 001', 'Anisa Rohmatunisa, AM.Keb', 'Bidan Terampil', 'VII', 'Petugas Puskesmas', 'AR'],
-  [18, 'nina', '213117', '19960728 202321 2 005', 'NIP. 19960728 202321 2 005', 'Nina Mariyana, Amd.Kep', 'Perawat Terampil', 'VII', 'Petugas Puskesmas', 'NM'],
-  [19, 'sheila', '213117', '19930713 202321 2 003', 'NIP. 19930713 202321 2 003', 'Sheila Nurlaila, A.Md.Gz', 'Nutrisionis Terampil', 'VII', 'Petugas Puskesmas', 'SN'],
-  [20, 'debby', '213117', '19921004 202521 2 044', 'NIP. 19921004 202521 2 044', 'Debby Nadia Lofika, S.Farm. Apt', 'Apoteker', 'IX', 'Petugas Puskesmas', 'DL'],
-  [21, 'lutfiyatun', '213117', '873.3204.10.02.005', 'NRP. 873.3204.10.02.005', 'Lutfiyatun Oktaviana, S.Kep.Ners', 'Perawat', 'PPTK PW', 'Petugas Puskesmas', 'LO'],
-  [22, 'dr_dinar', '213117', '873.3204.07.05.005', 'NRP. 873.3204.07.05.005', 'dr. Dinar Dwi Restika Agustin', 'Dokter Umum', 'BLUD', 'Petugas Puskesmas', 'DD'],
-  [23, 'dr_putri', '213117', '873.3204.08.06.029', 'NRP. 873.3204.08.06.029', 'dr. Putri Tasya Afifah', 'Dokter Umum', 'BLUD', 'Petugas Puskesmas', 'PT'],
-  [24, 'drg_intan', '213117', '873.3204.08.06.019', 'NRP. 873.3204.08.06.019', 'drg. Intan Nur Atsila', 'Dokter Gigi', 'BLUD', 'Petugas Puskesmas', 'IN'],
-  [25, 'rini', '213117', '873.06.02.021', 'NRP. 873.06.02.021', 'Rini Julianti, SE', 'Akuntan', 'BLUD', 'Petugas Puskesmas', 'RJ'],
-  [26, 'andriana', '213117', '873.120.10.03', 'NRP. 873.120.10.03', 'Andriana Mahardhytia, Amd.Kes', 'Rekam Medis', 'BLUD', 'Petugas Puskesmas', 'AM'],
-  [27, 'dilla', '213117', '873.3204.13.03.012', 'NRP. 873.3204.13.03.012', 'Dilla Anggraeni Pratiwi, A.Md.Akun', 'Admin BOK', 'BLUD', 'Admin', 'DA'],
-  [28, 'ozie', '213117', '873.3204.16.02.008', 'NRP. 873.3204.16.02.008', 'Mochamad Fauzie, S.Gz', 'Nutrisionis', 'BLUD', 'Super Admin', 'MF'],
-  [29, 'ilham', '213117', '873.3204.11.06.011', 'NRP. 873.3204.11.06.011', 'Ilham Ardiansyah Isnandar, SKM', 'Epidemiolog', 'BLUD', 'Petugas Puskesmas', 'IA'],
-  [30, 'rian', '213117', '873.3204.12.06.007', 'NRP. 873.3204.12.06.007', 'Rian Sidik Sudiana, Amd.Kes', 'Rekam Medis', 'BLUD', 'Petugas Puskesmas', 'RS'],
-  [31, 'fahri', '213117', '873.3204.13.07.037', 'NRP. 873.3204.13.07.037', 'Fahri Dzulfikar Rismayanto, A.Md. Bns', 'Admin BLUD', 'BLUD', 'Admin', 'FD'],
-  [32, 'mutiara', '213117', '873.3204.05.05.005', 'NRP. 873.3204.05.05.005', 'Mutiara Sofiatussirri, Amd.', 'ATLM', 'BLUD', 'Petugas Puskesmas', 'MS'],
-  [33, 'faridz', '213117', '873.3204.14.05.040', 'NRP. 873.3204.14.05.040', 'Muhamad Faridz Alparizy, Amd.Kep', 'Perawat', 'BLUD', 'Petugas Puskesmas', 'FA'],
-  [34, 'nengsafitri', '213117', '873.3204.09.06.106', 'NRP. 873.3204.09.06.106', 'Neng Safitri Nur Ladyawati, AM.Keb', 'Bidan Desa', 'BLUD', 'Petugas Puskesmas', 'NS'],
-  [35, 'dani', '213117', '873.3204.18.01.002', 'NRP. 873.3204.18.01.002', 'Dani Setiadi, S.Farm', 'TTK', 'BLUD', 'Petugas Puskesmas', 'DS'],
-  [36, 'ripan', '213117', 'BLUD-SEC-01', 'NRP. BLUD-SEC-01', 'Ripan Sutiana', 'Petugas Keamanan', 'BLUD', 'Petugas Puskesmas', 'RS'],
-  [37, 'mevi', '213117', 'BLUD-CL-01', 'NRP. BLUD-CL-01', 'Mevi Riyanayasti', 'Petugas Kebersihan', 'BLUD', 'Petugas Puskesmas', 'MR'],
-  [38, 'adeboy', '213117', 'BLUD-DRV-01', 'NRP. BLUD-DRV-01', 'Ade Boy', 'Supir', 'BLUD', 'Petugas Puskesmas', 'AB'],
-  [39, 'suhara', '213117', 'BLUD-SEC-02', 'NRP. BLUD-SEC-02', 'Suhara', 'Petugas Keamanan', 'BLUD', 'Petugas Puskesmas', 'SH']
+  [1, 'rina', 'bankot2026', '19740404 201411 2 001', 'NIP. 19740404 201411 2 001', 'dr. Rina Indriati', 'Kepala Puskesmas', 'III/d', 'Kepala Puskesmas', 'RI'],
+  [2, 'teti', 'bankot2026', '19750816 200701 2 012', 'NIP. 19750816 200701 2 012', 'Teti Nuryati, S.Keb, Bdn', 'Satker/Bidan Mahir', 'III/b', 'PJ Klaster', 'TN'],
+  [3, 'satrianita', 'bankot2026', '19730908 199403 2 006', 'NIP. 19730908 199403 2 006', 'Satrianita, SKM', 'Sanitarian Ahli Muda', 'IV/b', 'Admin', 'SN'],
+  [4, 'asepyanto', 'bankot2026', '19690623 199103 1 002', 'NIP. 19690623 199103 1 002', 'Asep Yanto, AMKG', 'Perawat Gigi Penyelia', 'III/d', 'Petugas Puskesmas', 'AY'],
+  [5, 'yayat', 'bankot2026', '19690613 198903 2 005', 'NIP. 19690613 198903 2 005', 'N. Yayat Rohayati, AM.Keb', 'Bidan Penyelia', 'III/d', 'Petugas Puskesmas', 'YR'],
+  [6, 'tetimulyati', 'bankot2026', '19680825 199003 2 008', 'NIP. 19680825 199003 2 008', 'Rd Teti Mulyati, Amd.Kep', 'Perawat Penyelia', 'III/d', 'Petugas Puskesmas', 'TM'],
+  [7, 'indri', 'bankot2026', '19681004 199103 2 007', 'NIP. 19681004 199103 2 007', 'Indri Yusiana, Amd.Kep', 'Perawat Penyelia', 'III/d', 'Petugas Puskesmas', 'IY'],
+  [8, 'santi', 'bankot2026', '19781014 200501 2 007', 'NIP. 19781014 200501 2 007', 'Santi Sentri Yanti, S.Keb', 'Bidan Pelaksana', 'III/d', 'Petugas Puskesmas', 'SS'],
+  [9, 'imas', 'bankot2026', '19690524 200604 2 004', 'NIP. 19690524 200604 2 004', 'Imas Winarti, AM.Keb', 'Bidan Pelaksana', 'III/a', 'Petugas Puskesmas', 'IW'],
+  [10, 'eva', 'bankot2026', '19840508 201704 2 011', 'NIP. 19840508 201704 2 011', 'Eva Farida, S.Keb', 'Bidan Mahir', 'III/a', 'Petugas Puskesmas', 'EF'],
+  [11, 'nengyulia', 'bankot2026', '19860725 201704 2 007', 'NIP. 19860725 201704 2 007', 'Neng Yulia Ernawati, S.Keb', 'Bidan Pelaksana', 'III/a', 'Petugas Puskesmas', 'NY'],
+  [12, 'evasolina', 'bankot2026', '19821219 201704 2 003', 'NIP. 19821219 201704 2 003', 'Eva Solina, S.Keb', 'Bidan Pelaksana', 'III/a', 'Petugas Puskesmas', 'ES'],
+  [13, 'riza', 'bankot2026', '19910127 202203 2 010', 'NIP. 19910127 202203 2 010', 'Riza Nur Multiani, A.Md.AK', 'Penata Laboratorium Kesehatan Terampil', 'II/c', 'Petugas Puskesmas', 'RN'],
+  [14, 'drg_regina', 'bankot2026', '19930805 202505 2 002', 'NIP. 19930805 202505 2 002', 'drg. Regina Desi Gresiana Simamora', 'Dokter Gigi Ahli Pertama', 'III/b', 'Petugas Puskesmas', 'RG'],
+  [15, 'nurul', 'bankot2026', '20001224 202505 2 002', 'NIP. 20001224 202505 2 002', 'Nurul Hidayah, Amd.Kes', 'Terapis Gigi dan Mulut Terampil', 'II/c', 'Petugas Puskesmas', 'NH'],
+  [16, 'dadi', 'bankot2026', '19840525 202221 1 001', 'NIP. 19840525 202221 1 001', 'Dadi Permadi, SKM', 'Penyuluh Kesehatan Ahli Pertama', 'IX', 'PJ Klaster', 'DP'],
+  [17, 'anisa', 'bankot2026', '19880321 202321 2 001', 'NIP. 19880321 202321 2 001', 'Anisa Rohmatunisa, AM.Keb', 'Bidan Terampil', 'VII', 'Petugas Puskesmas', 'AR'],
+  [18, 'nina', 'bankot2026', '19960728 202321 2 005', 'NIP. 19960728 202321 2 005', 'Nina Mariyana, Amd.Kep', 'Perawat Terampil', 'VII', 'Petugas Puskesmas', 'NM'],
+  [19, 'sheila', 'bankot2026', '19930713 202321 2 003', 'NIP. 19930713 202321 2 003', 'Sheila Nurlaila, A.Md.Gz', 'Nutrisionis Terampil', 'VII', 'Petugas Puskesmas', 'SN'],
+  [20, 'debby', 'bankot2026', '19921004 202521 2 044', 'NIP. 19921004 202521 2 044', 'Debby Nadia Lofika, S.Farm. Apt', 'Apoteker', 'IX', 'Petugas Puskesmas', 'DL'],
+  [21, 'lutfiyatun', 'bankot2026', '873.3204.10.02.005', 'NRP. 873.3204.10.02.005', 'Lutfiyatun Oktaviana, S.Kep.Ners', 'Perawat', 'PPTK PW', 'Petugas Puskesmas', 'LO'],
+  [22, 'dr_dinar', 'bankot2026', '873.3204.07.05.005', 'NRP. 873.3204.07.05.005', 'dr. Dinar Dwi Restika Agustin', 'Dokter Umum', 'BLUD', 'Petugas Puskesmas', 'DD'],
+  [23, 'dr_putri', 'bankot2026', '873.3204.08.06.029', 'NRP. 873.3204.08.06.029', 'dr. Putri Tasya Afifah', 'Dokter Umum', 'BLUD', 'Petugas Puskesmas', 'PT'],
+  [24, 'drg_intan', 'bankot2026', '873.3204.08.06.019', 'NRP. 873.3204.08.06.019', 'drg. Intan Nur Atsila', 'Dokter Gigi', 'BLUD', 'Petugas Puskesmas', 'IN'],
+  [25, 'rini', 'bankot2026', '873.06.02.021', 'NRP. 873.06.02.021', 'Rini Julianti, SE', 'Akuntan', 'BLUD', 'Petugas Puskesmas', 'RJ'],
+  [26, 'andriana', 'bankot2026', '873.120.10.03', 'NRP. 873.120.10.03', 'Andriana Mahardhytia, Amd.Kes', 'Rekam Medis', 'BLUD', 'Petugas Puskesmas', 'AM'],
+  [27, 'dilla', 'bankot2026', '873.3204.13.03.012', 'NRP. 873.3204.13.03.012', 'Dilla Anggraeni Pratiwi, A.Md.Akun', 'Admin BOK', 'BLUD', 'Admin', 'DA'],
+  [28, 'ozie', 'bankot2026', '873.3204.16.02.008', 'NRP. 873.3204.16.02.008', 'Mochamad Fauzie, S.Gz', 'Nutrisionis', 'BLUD', 'Super Admin', 'MF'],
+  [29, 'ilham', 'bankot2026', '873.3204.11.06.011', 'NRP. 873.3204.11.06.011', 'Ilham Ardiansyah Isnandar, SKM', 'Epidemiolog', 'BLUD', 'Petugas Puskesmas', 'IA'],
+  [30, 'rian', 'bankot2026', '873.3204.12.06.007', 'NRP. 873.3204.12.06.007', 'Rian Sidik Sudiana, Amd.Kes', 'Rekam Medis', 'BLUD', 'Petugas Puskesmas', 'RS'],
+  [31, 'fahri', 'bankot2026', '873.3204.13.07.037', 'NRP. 873.3204.13.07.037', 'Fahri Dzulfikar Rismayanto, A.Md. Bns', 'Admin BLUD', 'BLUD', 'Admin', 'FD'],
+  [32, 'mutiara', 'bankot2026', '873.3204.05.05.005', 'NRP. 873.3204.05.05.005', 'Mutiara Sofiatussirri, Amd.', 'ATLM', 'BLUD', 'Petugas Puskesmas', 'MS'],
+  [33, 'faridz', 'bankot2026', '873.3204.14.05.040', 'NRP. 873.3204.14.05.040', 'Muhamad Faridz Alparizy, Amd.Kep', 'Perawat', 'BLUD', 'Petugas Puskesmas', 'FA'],
+  [34, 'nengsafitri', 'bankot2026', '873.3204.09.06.106', 'NRP. 873.3204.09.06.106', 'Neng Safitri Nur Ladyawati, AM.Keb', 'Bidan Desa', 'BLUD', 'Petugas Puskesmas', 'NS'],
+  [35, 'dani', 'bankot2026', '873.3204.18.01.002', 'NRP. 873.3204.18.01.002', 'Dani Setiadi, S.Farm', 'TTK', 'BLUD', 'Petugas Puskesmas', 'DS'],
+  [36, 'ripan', 'bankot2026', 'BLUD-SEC-01', 'NRP. BLUD-SEC-01', 'Ripan Sutiana', 'Petugas Keamanan', 'BLUD', 'Petugas Puskesmas', 'RS'],
+  [37, 'mevi', 'bankot2026', 'BLUD-CL-01', 'NRP. BLUD-CL-01', 'Mevi Riyanayasti', 'Petugas Kebersihan', 'BLUD', 'Petugas Puskesmas', 'MR'],
+  [38, 'adeboy', 'bankot2026', 'BLUD-DRV-01', 'NRP. BLUD-DRV-01', 'Ade Boy', 'Supir', 'BLUD', 'Petugas Puskesmas', 'AB'],
+  [39, 'suhara', 'bankot2026', 'BLUD-SEC-02', 'NRP. BLUD-SEC-02', 'Suhara', 'Petugas Keamanan', 'BLUD', 'Petugas Puskesmas', 'SH']
 ];
 
 async function handleApiRequest(request, env, ctx) {
@@ -142,40 +142,156 @@ async function handleApiRequest(request, env, ctx) {
     }
 
     // ------------------------------------------------------------------------
-    // 3. USERS MANAGEMENT (/api/users, /api/seed-users, /api/users/update-role, /api/users/reset-pass)
+    // ------------------------------------------------------------------------
+    // 3. USERS MANAGEMENT (/api/users, /api/users/save, /api/users/update-role, /api/users/update-status, /api/users/delete, /api/users/reset-pass)
     // ------------------------------------------------------------------------
     if (pathname === '/api/users' && method === 'GET') {
-      let { results } = await db.prepare('SELECT id, no_urut, username, nip, nip_full, nama, jabatan, golongan, role, avatar, is_active, updated_at FROM users ORDER BY no_urut ASC').all();
+      let { results } = await db.prepare('SELECT id, no_urut, username, nip, nip_full, nama, jabatan, golongan, role, avatar, is_active, updated_at FROM users ORDER BY no_urut ASC, id ASC').all();
       
-      // Auto seed & purge dummy accounts if table is empty or contains legacy dummy users
-      const hasDummy = results.some(u => ['cucu', 'wiwi', 'nuraini', 'anissa', 'deden', 'dr_fauzan'].includes(u.username));
-      if (!results || results.length === 0 || hasDummy) {
-        const validUsernames = OFFICIAL_39_USERS.map(u => `'${u[1]}'`).join(',');
-        await db.prepare(`DELETE FROM users WHERE username NOT IN (${validUsernames})`).run();
+      // Auto seed official accounts if table is completely empty
+      if (!results || results.length === 0) {
         for (const u of OFFICIAL_39_USERS) {
           await db.prepare(`
             INSERT INTO users (no_urut, username, password_hash, nip, nip_full, nama, jabatan, golongan, role, avatar, is_active)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-            ON CONFLICT(username) DO UPDATE SET
-              no_urut = excluded.no_urut,
-              nip = excluded.nip,
-              nip_full = excluded.nip_full,
-              nama = excluded.nama,
-              jabatan = excluded.jabatan,
-              golongan = excluded.golongan,
-              avatar = excluded.avatar
+            ON CONFLICT(username) DO NOTHING
           `).bind(u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7], u[8], u[9]).run();
         }
-        const refreshed = await db.prepare('SELECT id, no_urut, username, nip, nip_full, nama, jabatan, golongan, role, avatar, is_active, updated_at FROM users ORDER BY no_urut ASC').all();
+        const refreshed = await db.prepare('SELECT id, no_urut, username, nip, nip_full, nama, jabatan, golongan, role, avatar, is_active, updated_at FROM users ORDER BY no_urut ASC, id ASC').all();
         results = refreshed.results;
       }
 
       return jsonResponse({ success: true, total: results.length, users: results });
     }
 
-    if ((pathname === '/api/seed-users' || pathname === '/api/users/sync') && (method === 'GET' || method === 'POST')) {
+    if (pathname === '/api/users/save' && method === 'POST') {
+      const body = await request.json();
+      const { id, nama, nip, nip_full, username, jabatan, golongan, role, is_active, password } = body;
+
+      if (!nama || !nip || !username) {
+        return jsonResponse({ success: false, error: 'Nama Lengkap, NIP/NRP, dan Username wajib diisi!' }, 400);
+      }
+
+      const cleanUsername = String(username).toLowerCase().trim().replace(/[^a-z0-9_]/g, '');
+      const cleanNip = String(nip).trim();
+      const fullNip = nip_full || (cleanNip.startsWith('19') ? `NIP. ${cleanNip}` : `NRP. ${cleanNip}`);
+      const userRole = role || 'Petugas Puskesmas';
+      const userGol = golongan || 'BLUD';
+      const userActive = (is_active === 0 || is_active === false || is_active === '0') ? 0 : 1;
+      const avatarLetters = (nama || 'MF').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+
+      if (id) {
+        // Update existing user
+        if (password && password.trim().length >= 6) {
+          await db.prepare(`
+            UPDATE users SET
+              nama = ?, nip = ?, nip_full = ?, username = ?, jabatan = ?,
+              golongan = ?, role = ?, is_active = ?, avatar = ?, password_hash = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? OR nip = ?
+          `).bind(nama, cleanNip, fullNip, cleanUsername, jabatan, userGol, userRole, userActive, avatarLetters, password.trim(), id, cleanNip).run();
+        } else {
+          await db.prepare(`
+            UPDATE users SET
+              nama = ?, nip = ?, nip_full = ?, username = ?, jabatan = ?,
+              golongan = ?, role = ?, is_active = ?, avatar = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? OR nip = ?
+          `).bind(nama, cleanNip, fullNip, cleanUsername, jabatan, userGol, userRole, userActive, avatarLetters, id, cleanNip).run();
+        }
+
+        await db.prepare(
+          'INSERT INTO audit_logs (user_nip, user_nama, category, action, details) VALUES (?, ?, ?, ?, ?)'
+        ).bind(cleanNip, nama, 'USER_MGT', 'UPDATE_USER', `Data pegawai [${nama}] (${cleanNip}) diperbarui`).run();
+
+        return jsonResponse({ success: true, message: `Data pegawai [${nama}] berhasil diperbarui di Cloudflare D1!` });
+      } else {
+        // Insert new user
+        const maxNo = await db.prepare('SELECT MAX(no_urut) as max_no FROM users').first();
+        const nextNo = (maxNo?.max_no || 39) + 1;
+        const passHash = (password && password.trim()) ? password.trim() : 'bankot2026';
+
+        await db.prepare(`
+          INSERT INTO users (no_urut, username, password_hash, nip, nip_full, nama, jabatan, golongan, role, avatar, is_active)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(nextNo, cleanUsername, passHash, cleanNip, fullNip, nama, jabatan, userGol, userRole, avatarLetters, userActive).run();
+
+        await db.prepare(
+          'INSERT INTO audit_logs (user_nip, user_nama, category, action, details) VALUES (?, ?, ?, ?, ?)'
+        ).bind(cleanNip, nama, 'USER_MGT', 'CREATE_USER', `Akun pegawai baru [${nama}] (${cleanUsername}) didaftarkan`).run();
+
+        return jsonResponse({ success: true, message: `Akun pegawai baru [${nama}] berhasil didaftarkan ke Cloudflare D1!` });
+      }
+    }
+
+    if (pathname === '/api/users/update-role' && method === 'POST') {
+      const body = await request.json();
+      const { nip, id, role } = body;
+
+      if ((!nip && !id) || !role) {
+        return jsonResponse({ success: false, error: 'NIP/ID dan role wajib diisi!' }, 400);
+      }
+
+      if (id) {
+        await db.prepare('UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(role, id).run();
+      } else {
+        await db.prepare('UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE nip = ?').bind(role, nip).run();
+      }
+
+      await db.prepare(
+        'INSERT INTO audit_logs (user_nip, user_nama, category, action, details) VALUES (?, ?, ?, ?, ?)'
+      ).bind(nip || String(id), 'System', 'AUTH', 'UPDATE_ROLE', `Hak akses pegawai [${nip || id}] diubah menjadi ${role}`).run();
+
+      return jsonResponse({ success: true, message: `Hak akses pegawai [${nip || id}] berhasil diubah menjadi: ${role}` });
+    }
+
+    if (pathname === '/api/users/update-status' && method === 'POST') {
+      const body = await request.json();
+      const { nip, id, is_active } = body;
+
+      const activeVal = (is_active === 1 || is_active === true || is_active === '1') ? 1 : 0;
+
+      if (id) {
+        await db.prepare('UPDATE users SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(activeVal, id).run();
+      } else {
+        await db.prepare('UPDATE users SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE nip = ?').bind(activeVal, nip).run();
+      }
+
+      const statusText = activeVal === 1 ? 'Aktif' : 'Nonaktif';
+      await db.prepare(
+        'INSERT INTO audit_logs (user_nip, user_nama, category, action, details) VALUES (?, ?, ?, ?, ?)'
+      ).bind(nip || String(id), 'System', 'AUTH', 'UPDATE_STATUS', `Status akun pegawai [${nip || id}] diubah menjadi ${statusText}`).run();
+
+      return jsonResponse({ success: true, message: `Status akun pegawai [${nip || id}] berhasil diubah menjadi: ${statusText}` });
+    }
+
+    if (pathname === '/api/users/delete' && (method === 'POST' || method === 'DELETE')) {
+      const body = await request.json();
+      const { nip, id, username } = body;
+
+      if (!nip && !id && !username) {
+        return jsonResponse({ success: false, error: 'Identitas pegawai (NIP/ID/Username) wajib disertakan!' }, 400);
+      }
+
+      if (username === 'ozie' || nip === '873.3204.16.02.008') {
+        return jsonResponse({ success: false, error: 'Akun Super Admin Utama dilindungi dan tidak dapat dihapus!' }, 403);
+      }
+
+      if (id) {
+        await db.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
+      } else if (nip) {
+        await db.prepare('DELETE FROM users WHERE nip = ?').bind(nip).run();
+      } else if (username) {
+        await db.prepare('DELETE FROM users WHERE username = ?').bind(username).run();
+      }
+
+      await db.prepare(
+        'INSERT INTO audit_logs (user_nip, user_nama, category, action, details) VALUES (?, ?, ?, ?, ?)'
+      ).bind(nip || username || String(id), 'System', 'USER_MGT', 'DELETE_USER', `Akun pegawai [${nip || username || id}] dihapus dari sistem`).run();
+
+      return jsonResponse({ success: true, message: 'Akun pegawai berhasil dihapus dari Cloudflare D1 Database.' });
+    }
+
+    if (pathname === '/api/seed-users' || pathname === '/api/users/sync') {
       const validUsernames = OFFICIAL_39_USERS.map(u => `'${u[1]}'`).join(',');
-      await db.prepare(`DELETE FROM users WHERE username NOT IN (${validUsernames})`).run();
       for (const u of OFFICIAL_39_USERS) {
         await db.prepare(`
           INSERT INTO users (no_urut, username, password_hash, nip, nip_full, nama, jabatan, golongan, role, avatar, is_active)
@@ -190,42 +306,30 @@ async function handleApiRequest(request, env, ctx) {
             avatar = excluded.avatar
         `).bind(u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7], u[8], u[9]).run();
       }
-      const { results } = await db.prepare('SELECT id, no_urut, username, nip, nip_full, nama, jabatan, golongan, role, avatar, is_active, updated_at FROM users ORDER BY no_urut ASC').all();
+      const { results } = await db.prepare('SELECT id, no_urut, username, nip, nip_full, nama, jabatan, golongan, role, avatar, is_active, updated_at FROM users ORDER BY no_urut ASC, id ASC').all();
       return jsonResponse({
         success: true,
-        message: '39 Akun Resmi Pegawai Puskesmas Banjaran Kota berhasil disinkronkan & akun dummy telah dihapus!',
+        message: '39 Akun Resmi Pegawai Puskesmas Banjaran Kota berhasil disinkronkan!',
         total: results.length,
         users: results
       });
     }
 
-    if (pathname === '/api/users/update-role' && method === 'POST') {
-      const body = await request.json();
-      const { nip, role } = body;
-
-      if (!nip || !role) {
-        return jsonResponse({ success: false, error: 'NIP dan role wajib diisi!' }, 400);
-      }
-
-      await db.prepare('UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE nip = ?').bind(role, nip).run();
-
-      await db.prepare(
-        'INSERT INTO audit_logs (user_nip, user_nama, category, action, details) VALUES (?, ?, ?, ?, ?)'
-      ).bind(nip, 'System', 'AUTH', 'UPDATE_ROLE', `Hak akses pegawai NIP ${nip} diubah menjadi ${role}`).run();
-
-      return jsonResponse({ success: true, message: `Hak akses pegawai [${nip}] berhasil diubah menjadi: ${role}` });
-    }
-
     if (pathname === '/api/users/reset-pass' && method === 'POST') {
       const body = await request.json();
-      const { nip } = body;
+      const { nip, id } = body;
 
-      if (!nip) {
-        return jsonResponse({ success: false, error: 'NIP pegawai wajib diisi!' }, 400);
+      if (!nip && !id) {
+        return jsonResponse({ success: false, error: 'NIP atau ID pegawai wajib diisi!' }, 400);
       }
 
-      await db.prepare('UPDATE users SET password_hash = "213117", updated_at = CURRENT_TIMESTAMP WHERE nip = ?').bind(nip).run();
-      return jsonResponse({ success: true, message: `Kata sandi pegawai [${nip}] berhasil di-reset ke default.` });
+      if (id) {
+        await db.prepare('UPDATE users SET password_hash = "bankot2026", updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(id).run();
+      } else {
+        await db.prepare('UPDATE users SET password_hash = "bankot2026", updated_at = CURRENT_TIMESTAMP WHERE nip = ?').bind(nip).run();
+      }
+
+      return jsonResponse({ success: true, message: `Kata sandi pegawai [${nip || id}] berhasil di-reset ke default (bankot2026).` });
     }
 
     if (pathname === '/api/users/change-password' && method === 'POST') {

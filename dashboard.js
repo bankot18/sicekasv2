@@ -196,6 +196,18 @@ document.addEventListener('DOMContentLoaded', () => {
           const json = await res.json();
           if (json.success && json.users) {
             localStorage.setItem('SICEKAS_D1_USERS_CACHE', JSON.stringify(json.users));
+            // Sync in-memory DAFTAR_PEGAWAI
+            if (Array.isArray(window.DAFTAR_PEGAWAI)) {
+              json.users.forEach(u => {
+                const idx = window.DAFTAR_PEGAWAI.findIndex(p => p.nip === u.nip || p.nama === u.nama);
+                if (idx >= 0) {
+                  window.DAFTAR_PEGAWAI[idx].role = u.role;
+                  window.DAFTAR_PEGAWAI[idx].jabatan = u.jabatan;
+                  window.DAFTAR_PEGAWAI[idx].gol = u.golongan;
+                  window.DAFTAR_PEGAWAI[idx].is_active = u.is_active;
+                }
+              });
+            }
             return json.users;
           }
         }
@@ -205,16 +217,38 @@ document.addEventListener('DOMContentLoaded', () => {
       return JSON.parse(localStorage.getItem('SICEKAS_D1_USERS_CACHE')) || DAFTAR_PEGAWAI;
     },
 
-    async updateUserRole(nip, role) {
+    async saveUser(userData) {
+      try {
+        const res = await fetch('/api/users/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userData)
+        });
+        if (res.ok) {
+          const json = await res.json();
+          await this.fetchUsers();
+          return json;
+        } else {
+          const err = await res.json();
+          return { success: false, error: err?.error || 'Gagal menyimpan data pegawai.' };
+        }
+      } catch (e) {
+        console.warn('Save user error:', e);
+        return { success: false, error: 'Koneksi ke API Cloudflare terputus.' };
+      }
+    },
+
+    async updateUserRole(nip, role, id) {
       try {
         const res = await fetch('/api/users/update-role', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nip, role })
+          body: JSON.stringify({ nip, role, id })
         });
         if (res.ok) {
           const json = await res.json();
-          if (json.success) return json;
+          await this.fetchUsers();
+          return json;
         }
       } catch (e) {
         console.warn('Saving role locally due to offline mode', e);
@@ -226,12 +260,51 @@ document.addEventListener('DOMContentLoaded', () => {
       return { success: true, localOnly: true };
     },
 
-    async resetUserPass(nip) {
+    async updateUserStatus(nip, is_active, id) {
+      try {
+        const res = await fetch('/api/users/update-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nip, is_active, id })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          await this.fetchUsers();
+          return json;
+        }
+      } catch (e) {
+        console.warn('Update user status error:', e);
+      }
+      return { success: true, localOnly: true };
+    },
+
+    async deleteUser(nip, id, username) {
+      try {
+        const res = await fetch('/api/users/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nip, id, username })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          await this.fetchUsers();
+          return json;
+        } else {
+          const err = await res.json();
+          return { success: false, error: err?.error || 'Gagal menghapus akun pegawai.' };
+        }
+      } catch (e) {
+        console.warn('Delete user error:', e);
+        return { success: false, error: 'Koneksi ke API terputus.' };
+      }
+    },
+
+    async resetUserPass(nip, id) {
       try {
         const res = await fetch('/api/users/reset-pass', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nip })
+          body: JSON.stringify({ nip, id })
         });
         if (res.ok) return await res.json();
       } catch (e) {
@@ -5799,6 +5872,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!this.checkPermissions()) return;
       this.bindTabEvents();
       this.bindD1StudioEvents();
+      this.bindUserEvents();
       this.renderUsers();
       this.bindApiEvents();
       this.bindTerminalEvents();
@@ -5842,6 +5916,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
                 if (tabKey === 'd1studio') {
                   this.loadD1Table(this.activeD1Table || 'users');
+                } else if (tabKey === 'users') {
+                  this.renderUsers();
                 }
               }
             }
@@ -5852,6 +5928,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     activeD1Table: 'users',
     d1TableData: [],
+    loadedUsers: [],
 
     bindD1StudioEvents() {
       const pills = document.querySelectorAll('#d1TablePills .d1-pill');
@@ -5937,58 +6014,42 @@ document.addEventListener('DOMContentLoaded', () => {
             this.loadD1Table(this.activeD1Table || 'users');
           }
         } else {
-          showToast(`❌ Error SQL: ${res?.error || 'Gagal eksekusi'}`, 'error');
+          showToast(`❌ SQL Error: ${res?.error || 'Gagal eksekusi query'}`, 'error');
         }
       } catch (err) {
-        showToast(`❌ Gagal: ${err.message}`, 'error');
+        showToast(`❌ Error: ${err.message}`, 'error');
       }
     },
 
-    async loadD1Table(tableName = 'users') {
-      const tbody = document.getElementById('d1GridTbody');
+    async loadD1Table(tableName) {
+      const countEl = document.getElementById(`count-${tableName}`);
       const infoEl = document.getElementById('d1TableActiveInfo');
-      if (!tbody) return;
+      if (infoEl) infoEl.innerHTML = `Menghubungkan ke Cloudflare D1... (Tabel: <strong>${tableName}</strong>)`;
 
-      tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 28px; color: #ffd166;"><span class="spinner-mini"></span> Memuat data langsung dari Cloudflare D1 Database...</td></tr>';
-      
-      const start = Date.now();
       try {
-        const query = `SELECT * FROM ${tableName} LIMIT 100;`;
-        const res = await CloudflareDB.executeSql(query);
-        const latency = Date.now() - start;
-
-        if (res && res.success && Array.isArray(res.rows) && res.rows.length > 0) {
-          this.d1TableData = res.rows;
-          this.renderDynamicGrid(res.rows);
-          if (infoEl) {
-            infoEl.innerHTML = `Menampilkan tabel: <strong>${tableName}</strong> (${res.rows.length} baris) — Latency: ${latency}ms`;
-          }
-          const countBadge = document.getElementById(`count-${tableName}`);
-          if (countBadge) countBadge.textContent = res.rows.length;
-        } else {
-          // Fallback rendering
-          if (tableName === 'users') {
-            const users = DAFTAR_PEGAWAI.map(p => ({
-              id: p.no,
-              username: p.nama.split(' ')[0].toLowerCase(),
-              nama: p.nama,
-              nip: p.nip,
-              jabatan: p.jabatan,
-              golongan: p.gol,
-              role: p.nama === 'Mochamad Fauzie, S.Gz' ? 'Super Admin' : (p.nama.includes('Rina Indriati') ? 'Kepala Puskesmas' : 'Petugas Puskesmas')
-            }));
-            this.d1TableData = users;
-            this.renderDynamicGrid(users);
-            if (infoEl) infoEl.innerHTML = `Menampilkan tabel: <strong>${tableName}</strong> (${users.length} baris)`;
-          } else {
-            const localData = JSON.parse(localStorage.getItem(`SICEKAS_${tableName.toUpperCase()}_DATA_V2`)) || [];
-            this.d1TableData = localData;
-            this.renderDynamicGrid(localData);
-            if (infoEl) infoEl.innerHTML = `Menampilkan tabel: <strong>${tableName}</strong> (${localData.length} baris)`;
-          }
+        let rows = [];
+        if (tableName === 'users') {
+          rows = await CloudflareDB.fetchUsers();
+        } else if (tableName === 'jadwal_kegiatan') {
+          rows = await CloudflareDB.fetchJadwal();
+        } else if (tableName === 'poa_bulanan') {
+          rows = await CloudflareDB.fetchPoa();
+        } else if (tableName === 'tppol_jaspel') {
+          rows = await CloudflareDB.fetchTppol();
+        } else if (tableName === 'sppd_lpt') {
+          rows = await CloudflareDB.fetchSppd();
+        } else if (tableName === 'audit_logs') {
+          rows = await CloudflareDB.fetchAuditLogs();
         }
-      } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; padding: 20px; color: #f87171;">Gagal memuat tabel: ${err.message}</td></tr>`;
+
+        this.d1TableData = Array.isArray(rows) ? rows : [];
+        if (countEl) countEl.textContent = this.d1TableData.length;
+        if (infoEl) infoEl.innerHTML = `Menampilkan tabel Cloudflare D1: <strong>${tableName}</strong> (${this.d1TableData.length} baris)`;
+
+        this.renderDynamicGrid(this.d1TableData);
+      } catch (e) {
+        console.error('Error loading D1 table:', e);
+        if (infoEl) infoEl.innerHTML = `<span style="color:#ef4444;">Gagal memuat tabel ${tableName} dari cloud.</span>`;
       }
     },
 
@@ -6045,51 +6106,80 @@ document.addEventListener('DOMContentLoaded', () => {
       this.renderDynamicGrid(filtered);
     },
 
-    renderUsers(query = '') {
+    bindUserEvents() {
+      const btnAdd = document.getElementById('btnDevAddUser');
+      const btnRefresh = document.getElementById('btnDevRefreshUsers');
+      const btnCloseModal = document.getElementById('closeDevUserModal');
+      const btnCancel = document.getElementById('btnCancelDevUser');
+      const userForm = document.getElementById('devUserForm');
+      const modal = document.getElementById('devUserModal');
+
+      if (btnAdd) btnAdd.addEventListener('click', () => this.openAddUserModal());
+      if (btnRefresh) btnRefresh.addEventListener('click', async () => {
+        showToast('Memuat ulang data akun pegawai dari Cloudflare D1...', 'info');
+        await this.renderUsers();
+        showToast('✓ Data akun pegawai berhasil diperbarui dari Cloudflare D1!', 'success');
+      });
+      if (btnCloseModal) btnCloseModal.addEventListener('click', () => this.closeUserModal());
+      if (btnCancel) btnCancel.addEventListener('click', () => this.closeUserModal());
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) this.closeUserModal();
+        });
+      }
+      if (userForm) userForm.addEventListener('submit', (e) => this.handleUserFormSubmit(e));
+    },
+
+    async renderUsers(query = '') {
       const tbody = document.getElementById('devUserListBody');
       const searchInput = document.getElementById('devSearchUser');
+      const countTitle = document.getElementById('devUserCountTitle');
       if (!tbody) return;
 
-      const rolesStore = JSON.parse(localStorage.getItem('SICEKAS_USER_ROLES')) || {};
-      const officers = typeof DAFTAR_PEGAWAI !== 'undefined' ? DAFTAR_PEGAWAI : [];
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:24px;">⏳ Memuat data akun pegawai dari Cloudflare D1...</td></tr>';
 
-      const filtered = officers.filter(p => {
+      // Always fetch freshest live users from Cloudflare D1
+      const users = await CloudflareDB.fetchUsers();
+      this.loadedUsers = Array.isArray(users) ? users : [];
+
+      if (countTitle) {
+        countTitle.textContent = `Manajemen Hak Akses & Akun Pegawai (${this.loadedUsers.length} Pegawai)`;
+      }
+
+      const filtered = this.loadedUsers.filter(p => {
         if (!query) return true;
         const q = query.toLowerCase();
         return (p.nama && p.nama.toLowerCase().includes(q)) ||
                (p.nip && p.nip.toLowerCase().includes(q)) ||
+               (p.username && p.username.toLowerCase().includes(q)) ||
                (p.jabatan && p.jabatan.toLowerCase().includes(q));
       });
 
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:30px;">Tidak ada data pegawai yang sesuai dengan pencarian.</td></tr>';
+        return;
+      }
+
       let html = '';
       filtered.forEach((p, idx) => {
-        const isMe = p.nama === CURRENT_USER.nama;
-        const defaultRole = (p.nama === 'Mochamad Fauzie, S.Gz') 
-          ? 'Super Admin' 
-          : (p.nama.includes('Rina Indriati') 
-            ? 'Kepala Puskesmas' 
-            : (p.nama.includes('Dilla Anggraeni') || p.nama.includes('Satrianita') || p.nama.includes('Fahri Dzulfikar') 
-              ? 'Admin' 
-              : (p.nama.includes('Teti Nuryati') || p.nama.includes('Iwan Hermawan') || p.nama.includes('Kristina') 
-                ? 'PJ Klaster' 
-                : 'Petugas Puskesmas')));
-        
-        const currentRole = rolesStore[p.nip] || defaultRole;
+        const isMe = (p.username === CURRENT_USER.username || p.nip === CURRENT_USER.nip || p.nama === CURRENT_USER.nama);
+        const currentRole = p.role || 'Petugas Puskesmas';
+        const isActive = (p.is_active === 1 || p.is_active === true || p.is_active === '1' || p.is_active === undefined);
 
         html += `
           <tr>
-            <td style="font-weight: 700; color: #94a3b8; text-align: center;">${p.no || idx + 1}</td>
+            <td style="font-weight: 700; color: #94a3b8; text-align: center;">${p.no_urut || p.no || idx + 1}</td>
             <td>
               <div style="font-weight: 700; color: #ffffff; display: flex; align-items: center; gap: 6px;">
                 ${p.nama}
                 ${isMe ? '<span class="badge-system-live" style="font-size: 10px; padding: 1px 6px;">Anda</span>' : ''}
               </div>
-              <div style="font-size: 11.5px; color: #94a3b8; font-family: monospace;">${p.nipFull || p.nip}</div>
+              <div style="font-size: 11.5px; color: #94a3b8; font-family: monospace;">${p.nip_full || p.nipFull || p.nip} <span style="color:#64748b;">(@${p.username || '-'})</span></div>
             </td>
-            <td><span style="font-weight: 600; color: #cbd5e1;">${p.jabatan}</span></td>
-            <td><span class="rm-badge" style="font-size: 11px;">${p.gol || 'BLUD'}</span></td>
+            <td><span style="font-weight: 600; color: #cbd5e1;">${p.jabatan || '-'}</span></td>
+            <td><span class="rm-badge" style="font-size: 11px;">${p.golongan || p.gol || 'BLUD'}</span></td>
             <td>
-              <select class="role-select-custom" onchange="window.DeveloperWebController.updateUserRole('${p.nip}', this.value)" ${isMe ? 'disabled title="Role Anda dilindungi sebagai Super Admin Utama"' : ''}>
+              <select class="role-select-custom" onchange="window.DeveloperWebController.updateUserRole('${p.nip}', this.value, ${p.id || 'null'})" ${isMe ? 'disabled title="Role Anda dilindungi sebagai Super Admin Utama"' : ''}>
                 <option value="Super Admin" ${currentRole === 'Super Admin' ? 'selected' : ''}>👑 1. Super Admin</option>
                 <option value="Admin" ${currentRole === 'Admin' ? 'selected' : ''}>🛡️ 2. Admin</option>
                 <option value="Kepala Puskesmas" ${currentRole === 'Kepala Puskesmas' ? 'selected' : ''}>🏛️ 3. Kepala Puskesmas</option>
@@ -6097,13 +6187,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 <option value="Petugas Puskesmas" ${currentRole === 'Petugas Puskesmas' ? 'selected' : ''}>👤 5. Petugas Puskesmas</option>
               </select>
             </td>
-            <td>
-              <span class="status-pill connected" style="font-size: 11px;">Aktif</span>
+            <td style="text-align: center;">
+              ${isActive ? 
+                `<button type="button" class="btn-dev-status-toggle active" onclick="window.DeveloperWebController.toggleUserStatus('${p.nip}', 0, ${p.id || 'null'})" ${isMe ? 'disabled title="Akun Anda aktif"' : 'title="Klik untuk Nonaktifkan Akun"'}>🟢 Aktif</button>` :
+                `<button type="button" class="btn-dev-status-toggle inactive" onclick="window.DeveloperWebController.toggleUserStatus('${p.nip}', 1, ${p.id || 'null'})" title="Klik untuk Aktifkan Akun">🔴 Nonaktif</button>`
+              }
             </td>
-            <td>
-              <button type="button" class="btn-dev-user-reset" onclick="window.DeveloperWebController.resetUserPass('${p.nama}', '${p.nip}')" title="Reset Password Akun">
-                🔑 Reset Sandi
-              </button>
+            <td style="text-align: center;">
+              <div style="display: inline-flex; align-items: center; gap: 5px;">
+                <button type="button" class="btn-dev-action-mini edit" onclick="window.DeveloperWebController.openEditUserModal('${p.nip}')" title="Edit Data Pegawai">
+                  ✏️ Edit
+                </button>
+                <button type="button" class="btn-dev-action-mini reset" onclick="window.DeveloperWebController.resetUserPass('${p.nama}', '${p.nip}', ${p.id || 'null'})" title="Reset Kata Sandi Akun ke Default (bankot2026)">
+                  🔑 Reset
+                </button>
+                ${!isMe ? `
+                  <button type="button" class="btn-dev-action-mini delete" onclick="window.DeveloperWebController.deleteUser('${p.nama}', '${p.nip}', ${p.id || 'null'})" title="Hapus Akun Pegawai">
+                    🗑️
+                  </button>
+                ` : ''}
+              </div>
             </td>
           </tr>
         `;
@@ -6114,21 +6217,250 @@ document.addEventListener('DOMContentLoaded', () => {
       if (searchInput && !searchInput.dataset.bound) {
         searchInput.dataset.bound = 'true';
         searchInput.addEventListener('input', (e) => {
-          this.renderUsers(e.target.value);
+          this.filterUsersLocal(e.target.value);
         });
       }
     },
 
-    async updateUserRole(nip, newRole) {
-      await CloudflareDB.updateUserRole(nip, newRole);
-      this.log('AUTH', `Hak akses pegawai [${nip}] diperbarui menjadi: ${newRole} (Cloudflare D1)`, 'term-auth');
-      showToast(`✓ Hak akses berhasil disimpan ke Cloudflare D1: ${newRole}`, 'success');
+    filterUsersLocal(query = '') {
+      if (!this.loadedUsers) return;
+      const q = (query || '').toLowerCase().trim();
+      const tbody = document.getElementById('devUserListBody');
+      if (!tbody) return;
+
+      const filtered = this.loadedUsers.filter(p => {
+        if (!q) return true;
+        return (p.nama && p.nama.toLowerCase().includes(q)) ||
+               (p.nip && p.nip.toLowerCase().includes(q)) ||
+               (p.username && p.username.toLowerCase().includes(q)) ||
+               (p.jabatan && p.jabatan.toLowerCase().includes(q));
+      });
+
+      let html = '';
+      filtered.forEach((p, idx) => {
+        const isMe = (p.username === CURRENT_USER.username || p.nip === CURRENT_USER.nip || p.nama === CURRENT_USER.nama);
+        const currentRole = p.role || 'Petugas Puskesmas';
+        const isActive = (p.is_active === 1 || p.is_active === true || p.is_active === '1' || p.is_active === undefined);
+
+        html += `
+          <tr>
+            <td style="font-weight: 700; color: #94a3b8; text-align: center;">${p.no_urut || p.no || idx + 1}</td>
+            <td>
+              <div style="font-weight: 700; color: #ffffff; display: flex; align-items: center; gap: 6px;">
+                ${p.nama}
+                ${isMe ? '<span class="badge-system-live" style="font-size: 10px; padding: 1px 6px;">Anda</span>' : ''}
+              </div>
+              <div style="font-size: 11.5px; color: #94a3b8; font-family: monospace;">${p.nip_full || p.nipFull || p.nip} <span style="color:#64748b;">(@${p.username || '-'})</span></div>
+            </td>
+            <td><span style="font-weight: 600; color: #cbd5e1;">${p.jabatan || '-'}</span></td>
+            <td><span class="rm-badge" style="font-size: 11px;">${p.golongan || p.gol || 'BLUD'}</span></td>
+            <td>
+              <select class="role-select-custom" onchange="window.DeveloperWebController.updateUserRole('${p.nip}', this.value, ${p.id || 'null'})" ${isMe ? 'disabled title="Role Anda dilindungi sebagai Super Admin Utama"' : ''}>
+                <option value="Super Admin" ${currentRole === 'Super Admin' ? 'selected' : ''}>👑 1. Super Admin</option>
+                <option value="Admin" ${currentRole === 'Admin' ? 'selected' : ''}>🛡️ 2. Admin</option>
+                <option value="Kepala Puskesmas" ${currentRole === 'Kepala Puskesmas' ? 'selected' : ''}>🏛️ 3. Kepala Puskesmas</option>
+                <option value="PJ Klaster" ${currentRole === 'PJ Klaster' ? 'selected' : ''}>📋 4. PJ Klaster</option>
+                <option value="Petugas Puskesmas" ${currentRole === 'Petugas Puskesmas' ? 'selected' : ''}>👤 5. Petugas Puskesmas</option>
+              </select>
+            </td>
+            <td style="text-align: center;">
+              ${isActive ? 
+                `<button type="button" class="btn-dev-status-toggle active" onclick="window.DeveloperWebController.toggleUserStatus('${p.nip}', 0, ${p.id || 'null'})" ${isMe ? 'disabled title="Akun Anda aktif"' : 'title="Klik untuk Nonaktifkan Akun"'}>🟢 Aktif</button>` :
+                `<button type="button" class="btn-dev-status-toggle inactive" onclick="window.DeveloperWebController.toggleUserStatus('${p.nip}', 1, ${p.id || 'null'})" title="Klik untuk Aktifkan Akun">🔴 Nonaktif</button>`
+              }
+            </td>
+            <td style="text-align: center;">
+              <div style="display: inline-flex; align-items: center; gap: 5px;">
+                <button type="button" class="btn-dev-action-mini edit" onclick="window.DeveloperWebController.openEditUserModal('${p.nip}')" title="Edit Data Pegawai">
+                  ✏️ Edit
+                </button>
+                <button type="button" class="btn-dev-action-mini reset" onclick="window.DeveloperWebController.resetUserPass('${p.nama}', '${p.nip}', ${p.id || 'null'})" title="Reset Kata Sandi Akun ke Default (bankot2026)">
+                  🔑 Reset
+                </button>
+                ${!isMe ? `
+                  <button type="button" class="btn-dev-action-mini delete" onclick="window.DeveloperWebController.deleteUser('${p.nama}', '${p.nip}', ${p.id || 'null'})" title="Hapus Akun Pegawai">
+                    🗑️
+                  </button>
+                ` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
     },
 
-    async resetUserPass(nama, nip) {
-      await CloudflareDB.resetUserPass(nip || nama);
+    openAddUserModal() {
+      const modal = document.getElementById('devUserModal');
+      const form = document.getElementById('devUserForm');
+      const title = document.getElementById('devUserModalTitle');
+      if (!modal || !form) return;
+
+      form.reset();
+      document.getElementById('devUserId').value = '';
+      document.getElementById('devUserRole').value = 'Petugas Puskesmas';
+      document.getElementById('devUserStatus').value = '1';
+      document.getElementById('devUserPassword').placeholder = 'Default: bankot2026';
+      if (title) title.textContent = 'Daftarkan Akun Pegawai Baru';
+      modal.style.display = 'flex';
+    },
+
+    openEditUserModal(nipOrId) {
+      const modal = document.getElementById('devUserModal');
+      const form = document.getElementById('devUserForm');
+      const title = document.getElementById('devUserModalTitle');
+      if (!modal || !form) return;
+
+      const user = (this.loadedUsers || []).find(u => u.nip === nipOrId || String(u.id) === String(nipOrId));
+      if (!user) {
+        showToast('Data pegawai tidak ditemukan!', 'error');
+        return;
+      }
+
+      document.getElementById('devUserId').value = user.id || '';
+      document.getElementById('devUserNama').value = user.nama || '';
+      document.getElementById('devUserNip').value = user.nip || '';
+      document.getElementById('devUserUsername').value = user.username || '';
+      document.getElementById('devUserJabatan').value = user.jabatan || '';
+      document.getElementById('devUserGolongan').value = user.golongan || user.gol || 'BLUD';
+      document.getElementById('devUserRole').value = user.role || 'Petugas Puskesmas';
+      document.getElementById('devUserStatus').value = (user.is_active === 0 || user.is_active === false || user.is_active === '0') ? '0' : '1';
+      document.getElementById('devUserPassword').value = '';
+      document.getElementById('devUserPassword').placeholder = 'Kosongkan jika tidak ingin mengubah sandi';
+
+      if (title) title.textContent = `Edit Data Pegawai: ${user.nama}`;
+      modal.style.display = 'flex';
+    },
+
+    closeUserModal() {
+      const modal = document.getElementById('devUserModal');
+      if (modal) modal.style.display = 'none';
+    },
+
+    async handleUserFormSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('devUserId')?.value;
+      const nama = document.getElementById('devUserNama')?.value?.trim();
+      const nip = document.getElementById('devUserNip')?.value?.trim();
+      const username = document.getElementById('devUserUsername')?.value?.trim();
+      const jabatan = document.getElementById('devUserJabatan')?.value?.trim();
+      const golongan = document.getElementById('devUserGolongan')?.value?.trim();
+      const role = document.getElementById('devUserRole')?.value;
+      const is_active = parseInt(document.getElementById('devUserStatus')?.value || '1', 10);
+      const password = document.getElementById('devUserPassword')?.value?.trim();
+
+      if (!nama || !nip || !username || !jabatan) {
+        showToast('Harap lengkapi semua field bertanda bintang (*)!', 'warning');
+        return;
+      }
+
+      showToast('Menyimpan data ke Cloudflare D1 Database...', 'info');
+      const res = await CloudflareDB.saveUser({
+        id: id || undefined,
+        nama,
+        nip,
+        username,
+        jabatan,
+        golongan,
+        role,
+        is_active,
+        password: password || undefined
+      });
+
+      if (res && res.success) {
+        this.log('USER_MGT', `Data pegawai [${nama}] (${nip}) berhasil disimpan ke Cloud D1`, 'term-success');
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'success',
+            title: 'Berhasil Disimpan!',
+            text: res.message || `Data akun pegawai [${nama}] berhasil disimpan di Cloudflare D1 Database.`,
+            confirmButtonText: 'Selesai',
+            customClass: { popup: 'sicekas-swal-modal', confirmButton: 'btn-swal-teal' }
+          });
+        } else {
+          showToast(`✓ ${res.message || 'Data pegawai berhasil disimpan!'}`, 'success');
+        }
+        this.closeUserModal();
+        await this.renderUsers();
+      } else {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'error',
+            title: 'Gagal Menyimpan',
+            text: res?.error || 'Terjadi kesalahan saat menyimpan ke database.',
+            confirmButtonText: 'Tutup',
+            customClass: { popup: 'sicekas-swal-modal', confirmButton: 'btn-swal-danger' }
+          });
+        } else {
+          showToast(`❌ ${res?.error || 'Gagal menyimpan data.'}`, 'error');
+        }
+      }
+    },
+
+    async updateUserRole(nip, newRole, id) {
+      showToast(`Menyimpan role [${newRole}] ke Cloudflare D1...`, 'info');
+      const res = await CloudflareDB.updateUserRole(nip, newRole, id);
+      if (res && res.success) {
+        this.log('AUTH', `Hak akses pegawai [${nip}] diperbarui menjadi: ${newRole} (Cloudflare D1)`, 'term-auth');
+        showToast(`✓ Hak akses berhasil disimpan ke Cloudflare D1: ${newRole}`, 'success');
+        const u = (this.loadedUsers || []).find(x => x.nip === nip || (id && x.id === id));
+        if (u) u.role = newRole;
+      } else {
+        showToast('❌ Gagal memperbarui hak akses di Cloudflare D1.', 'error');
+      }
+    },
+
+    async toggleUserStatus(nip, newStatus, id) {
+      const statusText = newStatus === 1 ? 'Aktifkan' : 'Nonaktifkan';
+      const confirmed = await (typeof SicekasAlert !== 'undefined' ? 
+        SicekasAlert.confirm(`Konfirmasi Status Akun`, `Apakah Anda yakin ingin mengubah status akun ini menjadi ${newStatus === 1 ? 'AKTIF' : 'NONAKTIF'}?`, `${statusText} Akun`, 'Batal', newStatus === 0) :
+        confirm(`Apakah Anda yakin ingin ${statusText} akun ini?`)
+      );
+
+      if (!confirmed) return;
+
+      showToast(`Memperbarui status akun di Cloudflare D1...`, 'info');
+      const res = await CloudflareDB.updateUserStatus(nip, newStatus, id);
+      if (res && res.success) {
+        this.log('AUTH', `Status akun pegawai [${nip}] diubah menjadi ${newStatus === 1 ? 'Aktif' : 'Nonaktif'}`, 'term-warn');
+        showToast(`✓ Status akun berhasil diperbarui menjadi ${newStatus === 1 ? 'Aktif' : 'Nonaktif'}!`, 'success');
+        await this.renderUsers();
+      } else {
+        showToast('❌ Gagal memperbarui status akun.', 'error');
+      }
+    },
+
+    async deleteUser(nama, nip, id) {
+      const confirmed = await (typeof SicekasAlert !== 'undefined' ?
+        SicekasAlert.confirm(`Hapus Akun Pegawai`, `Apakah Anda yakin ingin menghapus akun [${nama}] (${nip}) secara permanen dari Cloudflare D1 Database?`, 'Ya, Hapus Akun', 'Batal', true) :
+        confirm(`Hapus akun ${nama} (${nip})?`)
+      );
+
+      if (!confirmed) return;
+
+      showToast(`Menghapus akun dari Cloudflare D1...`, 'info');
+      const res = await CloudflareDB.deleteUser(nip, id);
+      if (res && res.success) {
+        this.log('USER_MGT', `Akun pegawai [${nama}] (${nip}) telah dihapus dari Cloudflare D1`, 'term-danger');
+        showToast(`✓ Akun [${nama}] berhasil dihapus.`, 'success');
+        await this.renderUsers();
+      } else {
+        showToast(`❌ ${res?.error || 'Gagal menghapus akun.'}`, 'error');
+      }
+    },
+
+    async resetUserPass(nama, nip, id) {
+      const confirmed = await (typeof SicekasAlert !== 'undefined' ?
+        SicekasAlert.confirm(`Reset Kata Sandi`, `Reset kata sandi akun [${nama}] ke sandi default: bankot2026?`, 'Ya, Reset Sandi', 'Batal') :
+        confirm(`Reset kata sandi untuk ${nama}?`)
+      );
+
+      if (!confirmed) return;
+
+      await CloudflareDB.resetUserPass(nip || nama, id);
       this.log('AUTH', `Admin me-reset sandi login untuk pegawai: ${nama} (Cloudflare D1)`, 'term-warn');
-      showToast(`✓ Sandi sementara untuk ${nama} telah di-reset ke default!`, 'success');
+      showToast(`✓ Sandi untuk ${nama} berhasil di-reset ke default (bankot2026)!`, 'success');
     },
 
     bindApiEvents() {
