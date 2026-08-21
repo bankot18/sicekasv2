@@ -78,8 +78,10 @@ document.addEventListener('DOMContentLoaded', () => {
       showConfirmButton: false,
       timer: 3500,
       timerProgressBar: true,
+      backdrop: false,
       customClass: {
-        popup: 'sicekas-swal-toast'
+        popup: 'sicekas-swal-toast',
+        container: 'sicekas-swal-toast-container'
       },
       didOpen: (toast) => {
         toast.addEventListener('mouseenter', Swal.stopTimer);
