@@ -6141,6 +6141,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Always fetch freshest live users from Cloudflare D1
       const users = await CloudflareDB.fetchUsers();
       this.loadedUsers = Array.isArray(users) ? users : [];
+      const rolesStore = JSON.parse(localStorage.getItem('SICEKAS_USER_ROLES')) || {};
 
       if (countTitle) {
         countTitle.textContent = `Manajemen Hak Akses & Akun Pegawai (${this.loadedUsers.length} Pegawai)`;
@@ -6163,7 +6164,8 @@ document.addEventListener('DOMContentLoaded', () => {
       let html = '';
       filtered.forEach((p, idx) => {
         const isMe = (p.username === CURRENT_USER.username || p.nip === CURRENT_USER.nip || p.nama === CURRENT_USER.nama);
-        const currentRole = p.role || 'Petugas Puskesmas';
+        const cleanNip = String(p.nip || '').replace(/\s+/g, '');
+        const currentRole = rolesStore[cleanNip] || rolesStore[p.nip] || p.role || 'Petugas Puskesmas';
         const isActive = (p.is_active === 1 || p.is_active === true || p.is_active === '1' || p.is_active === undefined);
 
         html += `
@@ -6226,6 +6228,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!this.loadedUsers) return;
       const q = (query || '').toLowerCase().trim();
       const tbody = document.getElementById('devUserListBody');
+      const rolesStore = JSON.parse(localStorage.getItem('SICEKAS_USER_ROLES')) || {};
       if (!tbody) return;
 
       const filtered = this.loadedUsers.filter(p => {
@@ -6239,7 +6242,8 @@ document.addEventListener('DOMContentLoaded', () => {
       let html = '';
       filtered.forEach((p, idx) => {
         const isMe = (p.username === CURRENT_USER.username || p.nip === CURRENT_USER.nip || p.nama === CURRENT_USER.nama);
-        const currentRole = p.role || 'Petugas Puskesmas';
+        const cleanNip = String(p.nip || '').replace(/\s+/g, '');
+        const currentRole = rolesStore[cleanNip] || rolesStore[p.nip] || p.role || 'Petugas Puskesmas';
         const isActive = (p.is_active === 1 || p.is_active === true || p.is_active === '1' || p.is_active === undefined);
 
         html += `
@@ -6400,12 +6404,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async updateUserRole(nip, newRole, id) {
       showToast(`Menyimpan role [${newRole}] ke Cloudflare D1...`, 'info');
+      
+      const cleanNip = String(nip || '').replace(/\s+/g, '');
+      const rolesStore = JSON.parse(localStorage.getItem('SICEKAS_USER_ROLES')) || {};
+      rolesStore[nip] = newRole;
+      rolesStore[cleanNip] = newRole;
+      localStorage.setItem('SICEKAS_USER_ROLES', JSON.stringify(rolesStore));
+
+      if (Array.isArray(this.loadedUsers)) {
+        this.loadedUsers.forEach(u => {
+          const uClean = String(u.nip || '').replace(/\s+/g, '');
+          if (u.nip === nip || uClean === cleanNip || (id && u.id === id)) {
+            u.role = newRole;
+          }
+        });
+        localStorage.setItem('SICEKAS_D1_USERS_CACHE', JSON.stringify(this.loadedUsers));
+      }
+
+      if (Array.isArray(window.DAFTAR_PEGAWAI)) {
+        window.DAFTAR_PEGAWAI.forEach(p => {
+          const pClean = String(p.nip || '').replace(/\s+/g, '');
+          if (p.nip === nip || pClean === cleanNip) {
+            p.role = newRole;
+          }
+        });
+      }
+
       const res = await CloudflareDB.updateUserRole(nip, newRole, id);
       if (res && res.success) {
         this.log('AUTH', `Hak akses pegawai [${nip}] diperbarui menjadi: ${newRole} (Cloudflare D1)`, 'term-auth');
         showToast(`✓ Hak akses berhasil disimpan ke Cloudflare D1: ${newRole}`, 'success');
-        const u = (this.loadedUsers || []).find(x => x.nip === nip || (id && x.id === id));
-        if (u) u.role = newRole;
       } else {
         showToast('❌ Gagal memperbarui hak akses di Cloudflare D1.', 'error');
       }
