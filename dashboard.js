@@ -4426,169 +4426,96 @@ document.addEventListener('DOMContentLoaded', () => {
   const STORAGE_BOK_DATA = 'SICEKAS_BOK_DATA_V2';
   const STORAGE_BOK_COLLAB = 'SICEKAS_BOK_COLLAB_V2';
 
-  // Current logged in user (defaults to Mochamad Fauzie, S.Gz)
+  // Current logged in user - DYNAMIC from login session (no more hardcoded)
+  const sessionRaw = localStorage.getItem('SICEKAS_CURRENT_USER');
+  const sessionUser = sessionRaw ? JSON.parse(sessionRaw) : null;
   const CURRENT_USER = {
-    username: 'ozie',
-    nama: 'Mochamad Fauzie, S.Gz',
-    jabatan: 'Nutrisionis',
-    nip: '873.3204.16.02.008',
-    role: 'Super Admin',
-    avatar: 'MF'
+    username: sessionUser?.username || 'ozie',
+    nama: sessionUser?.nama || 'Mochamad Fauzie, S.Gz',
+    jabatan: sessionUser?.jabatan || 'Nutrisionis',
+    nip: sessionUser?.nip || '873.3204.16.02.008',
+    role: sessionUser?.role || 'Super Admin',
+    avatar: sessionUser?.avatar || 'MF'
   };
   window.CURRENT_USER = CURRENT_USER;
 
-  // Seed sample data if empty
-  const initSeedBokData = () => {
-    if (!localStorage.getItem(STORAGE_BOK_DATA)) {
-      const sampleBok = [
-        {
-          id: 'bok-1',
-          tanggal: '2026-08-04',
-          noKegiatan: 9,
-          namaKegiatan: KEGIATAN_BOK_LIST[8],
-          keterangan: 'Kunjungan pemantauan balita stunting di Posyandu Melati RW 03 Desa Banjaran',
-          username: 'ozie',
-          namaUser: 'Mochamad Fauzie, S.Gz',
-          jabatan: 'Nutrisionis',
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: 'bok-2',
-          tanggal: '2026-08-07',
-          noKegiatan: 4,
-          namaKegiatan: KEGIATAN_BOK_LIST[3],
-          keterangan: 'Edukasi gizi seimbang & USG pada Kelas Ibu Hamil [Kolaborasi dengan Bidan Teti]',
-          username: 'ozie',
-          namaUser: 'Mochamad Fauzie, S.Gz',
-          jabatan: 'Nutrisionis',
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: 'bok-3',
-          tanggal: '2026-08-11',
-          noKegiatan: 12,
-          namaKegiatan: KEGIATAN_BOK_LIST[11],
-          keterangan: 'Pelayanan imunisasi balita rutin di Posyandu Mawar Desa Tarajusari',
-          username: 'teti_nuryati',
-          namaUser: 'Teti Nuryati, S.Keb, Bdn',
-          jabatan: 'Bidan Mahir',
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: 'bok-4',
-          tanggal: '2026-08-14',
-          noKegiatan: 17,
-          namaKegiatan: KEGIATAN_BOK_LIST[16],
-          keterangan: 'Inspeksi sanitasi TPP dan sarana air minum Desa Margahurip',
-          username: 'satrianita',
-          namaUser: 'Satrianita, SKM',
-          jabatan: 'Sanitarian Ahli Muda',
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: 'bok-5',
-          tanggal: '2026-08-19',
-          noKegiatan: 10,
-          namaKegiatan: KEGIATAN_BOK_LIST[9],
-          keterangan: 'Pemantauan tumbuh kembang & penimbangan serentak di Posyandu Anggrek',
-          username: 'ozie',
-          namaUser: 'Mochamad Fauzie, S.Gz',
-          jabatan: 'Nutrisionis',
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: 'bok-6',
-          tanggal: '2026-08-21',
-          noKegiatan: 6,
-          namaKegiatan: KEGIATAN_BOK_LIST[5],
-          keterangan: 'Skrining kesehatan berkala & pembinaan gizi remaja di SMPN 1 Banjaran',
-          username: 'sheila_nurlaila',
-          namaUser: 'Sheila Nurlaila, A.Md.Gz',
-          jabatan: 'Nutrisionis Terampil',
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: 'bok-7',
-          tanggal: '2026-08-25',
-          noKegiatan: 16,
-          namaKegiatan: KEGIATAN_BOK_LIST[15],
-          keterangan: 'Deteksi dini dan cek kesehatan gratis PTM di Posbindu Desa Ciapus',
-          username: 'dadi_permadi',
-          namaUser: 'Dadi Permadi, SKM',
-          jabatan: 'Penyuluh Kesehatan Ahli Pertama',
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: 'bok-8',
-          tanggal: '2026-08-28',
-          noKegiatan: 34,
-          namaKegiatan: KEGIATAN_BOK_LIST[33],
-          keterangan: 'Pendampingan implementasi Integrasi Layanan Primer (ILP) di Pustu Sindangpanon',
-          username: 'ozie',
-          namaUser: 'Mochamad Fauzie, S.Gz',
-          jabatan: 'Nutrisionis',
-          createdAt: new Date().toISOString()
-        }
-      ];
-      localStorage.setItem(STORAGE_BOK_DATA, JSON.stringify(sampleBok));
+  // No dummy seed data - all kegiatan data comes from Cloudflare D1 cloud database
+  // Clean up any old dummy/seed data from localStorage (legacy cleanup)
+  try {
+    const oldBokData = JSON.parse(localStorage.getItem(STORAGE_BOK_DATA) || '[]');
+    const hasDummyIds = oldBokData.some(item => 
+      ['bok-1', 'bok-2', 'bok-3', 'bok-4', 'bok-5', 'bok-6', 'bok-7', 'bok-8'].includes(item.id)
+    );
+    if (hasDummyIds) {
+      localStorage.removeItem(STORAGE_BOK_DATA);
+      console.info('[SICEKAS] Old dummy kegiatan data cleaned from localStorage.');
     }
-
-    if (!localStorage.getItem(STORAGE_BOK_COLLAB)) {
-      const sampleCollab = [
-        {
-          id: 'collab-101',
-          fromUser: 'teti_nuryati',
-          fromNama: 'Teti Nuryati, S.Keb, Bdn',
-          fromJabatan: 'Bidan Mahir',
-          toUser: 'ozie',
-          toNama: 'Mochamad Fauzie, S.Gz',
-          tanggal: '2026-08-26',
-          noKegiatan: 5,
-          namaKegiatan: KEGIATAN_BOK_LIST[4],
-          keterangan: 'Mohon bantuan materi gizi MP-ASI pada Kelas Ibu Balita di RW 05 Desa Kiangroke.',
-          status: 'pending',
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: 'collab-102',
-          fromUser: 'sheila_nurlaila',
-          fromNama: 'Sheila Nurlaila, A.Md.Gz',
-          fromJabatan: 'Nutrisionis Terampil',
-          toUser: 'ozie',
-          toNama: 'Mochamad Fauzie, S.Gz',
-          tanggal: '2026-08-29',
-          noKegiatan: 33,
-          namaKegiatan: KEGIATAN_BOK_LIST[32],
-          keterangan: 'Pelatihan pembuatan PMT Pangan Lokal bersama kader di Aula Desa Pasirmulya.',
-          status: 'pending',
-          createdAt: new Date().toISOString()
-        }
-      ];
-      localStorage.setItem(STORAGE_BOK_COLLAB, JSON.stringify(sampleCollab));
+    const oldCollabData = JSON.parse(localStorage.getItem(STORAGE_BOK_COLLAB) || '[]');
+    const hasDummyCollabs = oldCollabData.some(item => 
+      ['collab-101', 'collab-102'].includes(item.id)
+    );
+    if (hasDummyCollabs) {
+      localStorage.removeItem(STORAGE_BOK_COLLAB);
+      console.info('[SICEKAS] Old dummy kolaborasi data cleaned from localStorage.');
     }
-  };
-
-  initSeedBokData();
+  } catch (e) {
+    // Silent cleanup
+  }
 
   // Jadwal BOK Controller Object
   const JadwalBOKController = {
-    currentYear: 2026,
-    currentMonth: 8,
+    currentYear: new Date().getFullYear(),
+    currentMonth: new Date().getMonth() + 1,
     selectedStaff: '',
     searchKeyword: '',
     activeTab: 'all', // 'all' | 'mine' | 'collab'
     viewMode: 'timeline', // 'timeline' | 'calendar'
+    _cachedData: null, // in-memory cache for cloud data
+    _lastFetchKey: '', // tracks last fetch params to avoid redundant calls
 
-    getData() {
+    // Fetch kegiatan from Cloudflare D1 cloud database (async)
+    async getData() {
+      const fetchKey = `${this.currentMonth}-${this.currentYear}`;
+      // Use cache if we already fetched for this month/year
+      if (this._cachedData !== null && this._lastFetchKey === fetchKey) {
+        return this._cachedData;
+      }
       try {
-        return JSON.parse(localStorage.getItem(STORAGE_BOK_DATA)) || [];
+        const cloudData = await CloudflareDB.fetchJadwal(this.currentMonth, this.currentYear);
+        // Normalize cloud data fields to match local format
+        const normalized = (cloudData || []).map(item => ({
+          id: item.id,
+          tanggal: item.tanggal,
+          noKegiatan: item.noKegiatan || 0,
+          namaKegiatan: item.namaKegiatan || item.nama_kegiatan || '',
+          keterangan: item.keterangan || '',
+          lokasi: item.lokasi || '',
+          username: item.username || '',
+          namaUser: item.namaUser || item.petugas_nama || '',
+          jabatan: item.jabatan || item.petugas_jabatan || '',
+          petugas_nip: item.petugas_nip || '',
+          rekan_kolaborasi: item.rekan_kolaborasi || [],
+          status: item.status || 'Disetujui',
+          createdAt: item.created_at || item.createdAt || ''
+        }));
+        this._cachedData = normalized;
+        this._lastFetchKey = fetchKey;
+        return normalized;
       } catch (e) {
-        return [];
+        console.warn('Error fetching jadwal from cloud, using cache', e);
+        // Fallback to localStorage cache if cloud fails
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_BOK_DATA)) || [];
+        } catch (ex) {
+          return [];
+        }
       }
     },
 
-    saveData(data) {
-      localStorage.setItem(STORAGE_BOK_DATA, JSON.stringify(data));
+    // Invalidate cache so next getData() fetches fresh from cloud
+    invalidateCache() {
+      this._cachedData = null;
+      this._lastFetchKey = '';
     },
 
     getCollabData() {
@@ -4603,13 +4530,12 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.setItem(STORAGE_BOK_COLLAB, JSON.stringify(data));
     },
 
-    init() {
+    async init() {
       this.populateSelects();
       this.populateStaffPickers();
       this.bindEvents();
-      this.render();
+      await this.render();
       this.updateCollabBadges();
-      this.renderBerandaWidget();
     },
 
     populateSelects() {
@@ -4667,41 +4593,43 @@ document.addEventListener('DOMContentLoaded', () => {
       const searchInput = document.getElementById('searchBOK');
 
       if (fBulan) {
-        fBulan.addEventListener('change', (e) => {
+        fBulan.addEventListener('change', async (e) => {
           this.currentMonth = parseInt(e.target.value);
-          this.render();
+          this.invalidateCache();
+          await this.render();
         });
       }
 
       if (fTahun) {
-        fTahun.addEventListener('change', (e) => {
+        fTahun.addEventListener('change', async (e) => {
           this.currentYear = parseInt(e.target.value);
-          this.render();
+          this.invalidateCache();
+          await this.render();
         });
       }
 
       if (fPetugas) {
-        fPetugas.addEventListener('change', (e) => {
+        fPetugas.addEventListener('change', async (e) => {
           this.selectedStaff = e.target.value;
-          this.render();
+          await this.render();
         });
       }
 
       if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
+        searchInput.addEventListener('input', async (e) => {
           this.searchKeyword = e.target.value.toLowerCase().trim();
-          this.render();
+          await this.render();
         });
       }
 
       // Quick Tabs (All / Mine / Collab)
       const tabBtns = document.querySelectorAll('.bok-tab-btn');
       tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
           tabBtns.forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
           this.activeTab = btn.getAttribute('data-filter') || 'all';
-          this.render();
+          await this.render();
         });
       });
 
@@ -4712,22 +4640,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const calendarContainer = document.getElementById('bokCalendarContainer');
 
       if (btnTimeline && btnCalendar) {
-        btnTimeline.addEventListener('click', () => {
+        btnTimeline.addEventListener('click', async () => {
           btnTimeline.classList.add('active');
           btnCalendar.classList.remove('active');
           this.viewMode = 'timeline';
           if (timelineContainer) timelineContainer.style.display = 'block';
           if (calendarContainer) calendarContainer.style.display = 'none';
-          this.render();
+          await this.render();
         });
 
-        btnCalendar.addEventListener('click', () => {
+        btnCalendar.addEventListener('click', async () => {
           btnCalendar.classList.add('active');
           btnTimeline.classList.remove('active');
           this.viewMode = 'calendar';
           if (timelineContainer) timelineContainer.style.display = 'none';
           if (calendarContainer) calendarContainer.style.display = 'block';
-          this.render();
+          await this.render();
         });
       }
 
@@ -4736,7 +4664,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const btnCalNext = document.getElementById('btnBokCalNext');
 
       if (btnCalPrev) {
-        btnCalPrev.addEventListener('click', () => {
+        btnCalPrev.addEventListener('click', async () => {
           if (this.currentMonth === 1) {
             this.currentMonth = 12;
             this.currentYear--;
@@ -4745,12 +4673,13 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           if (fBulan) fBulan.value = this.currentMonth;
           if (fTahun) fTahun.value = this.currentYear;
-          this.render();
+          this.invalidateCache();
+          await this.render();
         });
       }
 
       if (btnCalNext) {
-        btnCalNext.addEventListener('click', () => {
+        btnCalNext.addEventListener('click', async () => {
           if (this.currentMonth === 12) {
             this.currentMonth = 1;
             this.currentYear++;
@@ -4759,19 +4688,21 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           if (fBulan) fBulan.value = this.currentMonth;
           if (fTahun) fTahun.value = this.currentYear;
-          this.render();
+          this.invalidateCache();
+          await this.render();
         });
       }
 
       const btnCalToday = document.getElementById('btnBokCalToday');
       if (btnCalToday) {
-        btnCalToday.addEventListener('click', () => {
+        btnCalToday.addEventListener('click', async () => {
           const now = new Date();
           this.currentMonth = now.getMonth() + 1;
           this.currentYear = now.getFullYear();
           if (fBulan) fBulan.value = this.currentMonth;
           if (fTahun) fTahun.value = this.currentYear;
-          this.render();
+          this.invalidateCache();
+          await this.render();
         });
       }
 
@@ -4891,8 +4822,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (btnCloseDetail) btnCloseDetail.addEventListener('click', closeModalDetail);
     },
 
-    getFilteredData() {
-      const all = this.getData();
+    async getFilteredData() {
+      const all = await this.getData();
       const monthStr = String(this.currentMonth).padStart(2, '0');
       const yearMonthPrefix = `${this.currentYear}-${monthStr}`;
 
@@ -4921,8 +4852,8 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     },
 
-    render() {
-      const filtered = this.getFilteredData();
+    async render() {
+      const filtered = await this.getFilteredData();
       this.updateStats(filtered);
 
       if (this.viewMode === 'timeline') {
@@ -4932,7 +4863,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       this.updateCollabBadges();
-      this.renderBerandaWidget();
+      await this.renderBerandaWidget();
     },
 
     updateStats(items) {
@@ -5235,11 +5166,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     },
 
-    renderBerandaWidget() {
+    async renderBerandaWidget() {
       const container = document.getElementById('bokBerandaList');
       if (!container) return;
 
-      const all = this.getData();
+      const all = await this.getData();
       const todayStr = new Date().toISOString().split('T')[0];
       const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
 
@@ -5285,7 +5216,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <span class="mth">${mthStr}</span>
             </div>
             <div class="bok-beranda-info">
-              <h5 title="${item.namaKegiatan}">No.${item.noKegiatan} ${item.namaKegiatan}</h5>
+              <h5 title="${item.namaKegiatan}">${item.noKegiatan ? 'No.' + item.noKegiatan + ' ' : ''}${item.namaKegiatan}</h5>
               <div class="bok-beranda-meta">
                 <span class="bok-staff-pill ${isMine ? 'mine' : 'other'}">${isMine ? 'Jadwal Anda' : item.namaUser}</span>
                 ${isCollab ? '<span class="bok-collab-tag-pill">👥 Kolaborasi</span>' : ''}
@@ -5327,8 +5258,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (modal) modal.classList.add('active');
     },
 
-    bukaModalEdit(id) {
-      const data = this.getData();
+    async bukaModalEdit(id) {
+      const data = await this.getData();
       const item = data.find(i => i.id === id);
       if (!item) return;
 
@@ -5390,10 +5321,11 @@ document.addEventListener('DOMContentLoaded', () => {
         window.showToast(editId ? '✓ Jadwal berhasil diperbarui di Cloudflare D1!' : '✓ Jadwal berhasil ditambahkan ke Cloudflare D1!', 'success');
       }
 
-      // Close modal & refresh
+      // Close modal, invalidate cache & refresh from cloud
       const modal = document.getElementById('modalTambahJadwalBOK');
       if (modal) modal.classList.remove('active');
-      this.render();
+      this.invalidateCache();
+      await this.render();
     },
 
     async hapusJadwal(id) {
@@ -5408,7 +5340,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       await CloudflareDB.deleteJadwal(id);
       if (window.showToast) window.showToast('✓ Jadwal kegiatan berhasil dihapus dari Cloudflare D1.', 'info');
-      this.render();
+      this.invalidateCache();
+      await this.render();
     },
 
     bukaModalCollab() {
@@ -5432,7 +5365,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (modal) modal.classList.add('active');
     },
 
-    kirimRequestCollab() {
+    async kirimRequestCollab() {
       const checked = document.querySelectorAll('.collab-staff-cb:checked');
       const tanggal = document.getElementById('collabTanggal').value;
       const noKeg = parseInt(document.getElementById('collabKegiatan').value);
@@ -5478,29 +5411,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
       this.saveCollabData(collabs);
 
-      // Also ensure current user has this schedule
-      const data = this.getData();
-      const existing = data.find(i => i.tanggal === tanggal && i.noKegiatan === noKeg && i.namaUser === CURRENT_USER.nama);
-      if (!existing) {
-        data.push({
-          id: 'bok-' + Date.now(),
-          tanggal: tanggal,
-          noKegiatan: noKeg,
-          namaKegiatan: namaKegiatan,
-          keterangan: (catatan ? catatan + ' ' : '') + `[Kolaborasi dengan ${checked.length} petugas]`,
-          username: CURRENT_USER.username,
-          namaUser: CURRENT_USER.nama,
-          jabatan: CURRENT_USER.jabatan,
-          createdAt: new Date().toISOString()
-        });
-        this.saveData(data);
-      }
+      // Also save current user's schedule to cloud database
+      const collabPayload = {
+        id: 'bok-' + Date.now(),
+        tanggal: tanggal,
+        nama_kegiatan: namaKegiatan,
+        namaKegiatan: namaKegiatan,
+        noKegiatan: noKeg,
+        keterangan: (catatan ? catatan + ' ' : '') + `[Kolaborasi dengan ${checked.length} petugas]`,
+        lokasi: 'Puskesmas / Wilayah Kerja',
+        petugas_nip: CURRENT_USER.nip,
+        petugas_nama: CURRENT_USER.nama,
+        petugas_jabatan: CURRENT_USER.jabatan,
+        username: CURRENT_USER.username,
+        namaUser: CURRENT_USER.nama,
+        jabatan: CURRENT_USER.jabatan,
+        rekan_kolaborasi: Array.from(checked).map(cb => ({ nama: cb.value, jabatan: cb.dataset.jabatan || 'Petugas' })),
+        status: 'Disetujui'
+      };
+      await CloudflareDB.saveJadwal(collabPayload);
 
       const modal = document.getElementById('modalRequestKolaborasi');
       if (modal) modal.classList.remove('active');
 
       if (window.showToast) window.showToast(`Request kolaborasi berhasil dikirim ke ${checked.length} petugas!`, 'success');
-      this.render();
+      this.invalidateCache();
+      await this.render();
     },
 
     bukaModalNotif() {
@@ -5546,7 +5482,7 @@ document.addEventListener('DOMContentLoaded', () => {
       modal.classList.add('active');
     },
 
-    terimaCollab(collabId) {
+    async terimaCollab(collabId) {
       const collabs = this.getCollabData();
       const req = collabs.find(c => c.id === collabId);
       if (!req) return;
@@ -5554,20 +5490,25 @@ document.addEventListener('DOMContentLoaded', () => {
       req.status = 'accepted';
       this.saveCollabData(collabs);
 
-      // Auto-insert to user's schedule
-      const data = this.getData();
-      data.push({
+      // Auto-insert to user's schedule via cloud database
+      const acceptPayload = {
         id: 'bok-' + Date.now(),
         tanggal: req.tanggal,
-        noKegiatan: req.noKegiatan,
+        nama_kegiatan: req.namaKegiatan,
         namaKegiatan: req.namaKegiatan,
+        noKegiatan: req.noKegiatan,
         keterangan: `[Kolaborasi dari: ${req.fromNama}] ${req.keterangan || ''}`.trim(),
+        lokasi: 'Puskesmas / Wilayah Kerja',
+        petugas_nip: CURRENT_USER.nip,
+        petugas_nama: CURRENT_USER.nama,
+        petugas_jabatan: CURRENT_USER.jabatan,
         username: CURRENT_USER.username,
         namaUser: CURRENT_USER.nama,
         jabatan: CURRENT_USER.jabatan,
-        createdAt: new Date().toISOString()
-      });
-      this.saveData(data);
+        rekan_kolaborasi: [],
+        status: 'Disetujui'
+      };
+      await CloudflareDB.saveJadwal(acceptPayload);
 
       if (window.showToast) window.showToast('Kolaborasi diterima! Kegiatan otomatis masuk ke jadwal Anda.', 'success');
 
@@ -5577,10 +5518,11 @@ document.addEventListener('DOMContentLoaded', () => {
         this.bukaModalNotif();
       }
 
-      this.render();
+      this.invalidateCache();
+      await this.render();
     },
 
-    tolakCollab(collabId) {
+    async tolakCollab(collabId) {
       const collabs = this.getCollabData();
       const req = collabs.find(c => c.id === collabId);
       if (!req) return;
@@ -5595,11 +5537,11 @@ document.addEventListener('DOMContentLoaded', () => {
         this.bukaModalNotif();
       }
 
-      this.render();
+      await this.render();
     },
 
-    bukaModalDetail(id) {
-      const data = this.getData();
+    async bukaModalDetail(id) {
+      const data = await this.getData();
       const item = data.find(i => i.id === id);
       if (!item) return;
 
@@ -5658,8 +5600,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (modal) modal.classList.add('active');
     },
 
-    cetakJadwalBulanan() {
-      const filtered = this.getFilteredData();
+    async cetakJadwalBulanan() {
+      const filtered = await this.getFilteredData();
       const monthNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
       const monthTitle = `${monthNames[this.currentMonth]} ${this.currentYear}`;
 
