@@ -2356,6 +2356,101 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial render of scoring table (default: gizi)
   renderScoringTable(tppolSelectJabatan ? tppolSelectJabatan.value : 'gizi');
 
+  // Populate TP POL Signature Dropdowns from Real User Accounts & Roles
+  const populateTpPolSignatureDropdowns = () => {
+    const rolesStore = JSON.parse(localStorage.getItem('SICEKAS_USER_ROLES')) || {};
+    const staffList = window.DAFTAR_PEGAWAI || DAFTAR_PEGAWAI;
+
+    // 1. Kepala Puskesmas (Akun level 'Kepala Puskesmas' atau jabatan 'Kepala Puskesmas')
+    if (signKepala) {
+      const currentVal = signKepala.value;
+      let kapusList = staffList.filter(p => {
+        const cleanNip = (p.nip || '').replace(/[\s.]+/g, '');
+        const r = rolesStore[cleanNip] || rolesStore[p.nip] || p.role || '';
+        return r === 'Kepala Puskesmas' || p.jabatan === 'Kepala Puskesmas' || p.nama.includes('dr. Rina Indriati');
+      });
+
+      if (kapusList.length === 0) {
+        kapusList = [{ nama: 'dr. Rina Indriati', nip: '19740404 201411 2 001', jabatan: 'Kepala Puskesmas' }];
+      }
+
+      signKepala.innerHTML = kapusList.map(p => `
+        <option value="${p.nama}" data-nip="${p.nip}" ${p.nama === currentVal || p.nama === 'dr. Rina Indriati' ? 'selected' : ''}>
+          ${p.nama}
+        </option>
+      `).join('');
+
+      if (sigKepalaName && signKepala.value) {
+        sigKepalaName.textContent = signKepala.value;
+      }
+    }
+
+    // 2. Verifikator (Akun level 'PJ Klaster')
+    if (signVerifikator) {
+      const currentVal = signVerifikator.value;
+      let verifList = staffList.filter(p => {
+        const cleanNip = (p.nip || '').replace(/[\s.]+/g, '');
+        const r = rolesStore[cleanNip] || rolesStore[p.nip] || p.role || '';
+        return r === 'PJ Klaster' || r.includes('PJ') || (p.jabatan && (p.jabatan.includes('PJ') || p.jabatan.includes('Satker')));
+      });
+
+      // Default PJ Klaster / Satker if none assigned yet
+      if (verifList.length === 0) {
+        verifList = staffList.filter(p => [2, 3, 14, 25].includes(p.no));
+      }
+
+      let verifHtml = '<option value="" selected>-- Kosongkan Verifikator --</option>';
+      verifList.forEach(p => {
+        const isSelected = p.nama === currentVal;
+        const isNrp = (p.gol === 'BLUD' || (p.nip && p.nip.startsWith('873.')) || (p.nipFull && p.nipFull.startsWith('NRP')));
+        const label = isNrp ? 'NRP' : 'NIP';
+        verifHtml += `
+          <option value="${p.nama}" data-nip="${p.nip}" data-label="${label}" ${isSelected ? 'selected' : ''}>
+            ${p.no ? p.no + '. ' : ''}${p.nama} (${p.jabatan || 'PJ Klaster'})
+          </option>
+        `;
+      });
+      signVerifikator.innerHTML = verifHtml;
+    }
+
+    // 3. Petugas Yang Dinilai (Semua 39 akun pegawai, label NIP/NRP otomatis)
+    if (signPetugas) {
+      const currentVal = signPetugas.value || (CURRENT_USER ? CURRENT_USER.nama : 'Mochamad Fauzie, S.Gz');
+      let petHtml = '';
+      staffList.forEach(p => {
+        const isNrp = (p.gol === 'BLUD' || (p.status && p.status.includes('BLUD')) || (p.jabatan && p.jabatan.includes('BLUD')) || (p.nip && p.nip.startsWith('873.')) || (p.nipFull && p.nipFull.startsWith('NRP')));
+        const labelId = isNrp ? 'NRP' : 'NIP';
+        const isSelected = (p.nama === currentVal || (currentVal && p.nama.includes(currentVal)));
+        petHtml += `
+          <option value="${p.nama}" data-nip="${p.nip}" data-label="${labelId}" data-jabatan="${p.jabatan}" data-status="${p.gol || (isNrp ? 'BLUD' : 'PNS')}" ${isSelected ? 'selected' : ''}>
+            ${p.no ? p.no + '. ' : ''}${p.nama} (${p.jabatan})
+          </option>
+        `;
+      });
+      signPetugas.innerHTML = petHtml;
+
+      // Trigger initial selection update
+      const selOpt = signPetugas.options[signPetugas.selectedIndex] || signPetugas.options[0];
+      if (selOpt) {
+        const petName = selOpt.value;
+        const petNip = selOpt.getAttribute('data-nip') || '';
+        const petLabel = selOpt.getAttribute('data-label') || 'NIP';
+        const petJabatan = selOpt.getAttribute('data-jabatan') || '';
+        const petStatus = selOpt.getAttribute('data-status') || '';
+
+        if (sigPetugasName) sigPetugasName.textContent = petName;
+        if (tpPolMetaName) tpPolMetaName.textContent = petName;
+        if (tpPolMetaNip) tpPolMetaNip.textContent = petNip;
+        if (sigPetugasNip) sigPetugasNip.textContent = (petNip && petNip !== '-' ? `${petLabel}. ${petNip}` : '-');
+        if (tpPolMetaIdLabel) tpPolMetaIdLabel.textContent = petLabel;
+        if (tpPolMetaJabatan) tpPolMetaJabatan.textContent = petJabatan;
+        if (tpPolMetaStatus) tpPolMetaStatus.textContent = petStatus;
+      }
+    }
+  };
+
+  window.populateTpPolSignatureDropdowns = populateTpPolSignatureDropdowns;
+
   // Sync Signature Dropdowns
   if (signKepala && sigKepalaName) {
     signKepala.addEventListener('change', () => {
@@ -2371,8 +2466,9 @@ document.addEventListener('DOMContentLoaded', () => {
         sigVerifikatorName.textContent = val.split('(')[0].trim();
         const opt = signVerifikator.options[signVerifikator.selectedIndex];
         const nip = opt ? opt.getAttribute('data-nip') : '';
+        const label = opt ? opt.getAttribute('data-label') || 'NIP' : 'NIP';
         if (sigVerifikatorNip) {
-          sigVerifikatorNip.textContent = nip ? `NIP. ${nip}` : '';
+          sigVerifikatorNip.textContent = nip && nip !== '-' ? `${label}. ${nip}` : '';
         }
       } else {
         sigVerifikatorCol.style.display = 'none';
@@ -2383,6 +2479,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (signPetugas && sigPetugasName && tpPolMetaName) {
     signPetugas.addEventListener('change', () => {
       const opt = signPetugas.options[signPetugas.selectedIndex];
+      if (!opt) return;
       const petName = opt.value || opt.text.split('(')[0].replace(/^\d+\.\s*/, '').trim();
       const petNip = opt.getAttribute('data-nip') || '';
       const petLabel = opt.getAttribute('data-label') || 'NIP';
@@ -2392,34 +2489,19 @@ document.addEventListener('DOMContentLoaded', () => {
       sigPetugasName.textContent = petName;
       tpPolMetaName.textContent = petName;
 
-      if (petNip) {
-        if (tpPolMetaNip) tpPolMetaNip.textContent = petNip;
-        if (sigPetugasNip) sigPetugasNip.textContent = (petLabel && petNip !== '-' ? `${petLabel}. ${petNip}` : petNip);
-        if (profNip) profNip.value = petNip;
-      }
-      if (petLabel && tpPolMetaIdLabel) {
-        tpPolMetaIdLabel.textContent = petLabel;
-        if (signLabelId) signLabelId.value = petLabel;
-      }
-      if (petJabatan && tpPolMetaJabatan) {
-        tpPolMetaJabatan.textContent = petJabatan;
-        if (profJabatan) profJabatan.value = petJabatan;
-      }
-      if (petStatus && tpPolMetaStatus) {
-        tpPolMetaStatus.textContent = petStatus;
-        if (profStatus) profStatus.value = petStatus;
-      }
+      if (tpPolMetaNip) tpPolMetaNip.textContent = petNip;
+      if (sigPetugasNip) sigPetugasNip.textContent = (petNip && petNip !== '-' ? `${petLabel}. ${petNip}` : '-');
+      if (profNip) profNip.value = petNip;
+      if (tpPolMetaIdLabel) tpPolMetaIdLabel.textContent = petLabel;
+      if (tpPolMetaJabatan) tpPolMetaJabatan.textContent = petJabatan;
+      if (profJabatan) profJabatan.value = petJabatan;
+      if (tpPolMetaStatus) tpPolMetaStatus.textContent = petStatus;
+      if (profStatus) profStatus.value = petStatus;
     });
   }
 
-  if (signLabelId && tpPolMetaIdLabel && sigPetugasNip) {
-    signLabelId.addEventListener('change', () => {
-      const label = signLabelId.value;
-      tpPolMetaIdLabel.textContent = label;
-      const currentNipVal = profNip && profNip.value ? profNip.value : '873.3204.16.02.008';
-      sigPetugasNip.textContent = (currentNipVal !== '-' ? `${label}. ${currentNipVal}` : '-');
-    });
-  }
+  // Initial populate of TP POL Signatures
+  populateTpPolSignatureDropdowns();
 
   // Profile Pegawai Modal Handlers
   const openProfModal = () => {
@@ -2449,13 +2531,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const newPendidikan = profPendidikan.value.trim();
       const newStatus = profStatus.value;
       const newNip = profNip.value.trim();
-      const idLabel = signLabelId ? signLabelId.value : 'NIP';
+      const isBlud = (newStatus === 'BLUD' || newNip.startsWith('873.'));
+      const idLabel = isBlud ? 'NRP' : 'NIP';
 
       if (tpPolMetaName) tpPolMetaName.textContent = newNama;
       if (tpPolMetaJabatan) tpPolMetaJabatan.textContent = newJabatan;
       if (tpPolMetaPendidikan) tpPolMetaPendidikan.textContent = newPendidikan;
       if (tpPolMetaStatus) tpPolMetaStatus.textContent = newStatus;
       if (tpPolMetaNip) tpPolMetaNip.textContent = newNip;
+      if (tpPolMetaIdLabel) tpPolMetaIdLabel.textContent = idLabel;
       if (sigPetugasName) sigPetugasName.textContent = newNama;
       if (sigPetugasNip) sigPetugasNip.textContent = `${idLabel}. ${newNip}`;
 
@@ -6833,6 +6917,11 @@ document.addEventListener('DOMContentLoaded', () => {
             p.role = newRole;
           }
         });
+      }
+
+      // Live synchronize TP POL signature dropdowns
+      if (typeof window.populateTpPolSignatureDropdowns === 'function') {
+        window.populateTpPolSignatureDropdowns();
       }
 
       const res = await CloudflareDB.updateUserRole(nip, newRole, id);
