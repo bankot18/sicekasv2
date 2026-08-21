@@ -2107,7 +2107,7 @@ body::before {
   letter-spacing: 0.3px;
 }
 
-.modal-form input,
+.modal-form input:not([type="checkbox"]):not([type="radio"]),
 .modal-form textarea,
 .modal-form select,
 .poa-textarea,
@@ -6088,94 +6088,173 @@ input[type="date"].modal-input,
 
 /* 8. Staff Multi-Select Picker in Collab Modal */
 .collab-staff-picker-box {
-  background: var(--bg-card-inner);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  background: rgba(11, 15, 25, 0.95);
+  border: 1.5px solid rgba(71, 85, 105, 0.45);
+  border-radius: 12px;
   overflow: hidden;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.collab-staff-picker-box:focus-within {
+  border-color: #ffd166;
+  box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.15), inset 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.collab-search-staff-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: rgba(18, 24, 38, 0.85);
+  border-bottom: 1px solid rgba(71, 85, 105, 0.35);
+}
+
+.collab-search-staff-wrapper svg {
+  position: absolute;
+  left: 14px;
+  color: #94a3b8;
+  pointer-events: none;
 }
 
 .collab-search-staff-wrapper input {
-  width: 100%;
-  background: rgba(0, 0, 0, 0.35);
-  border: none;
-  border-bottom: 1px solid var(--border-subtle);
-  color: #ffffff;
-  padding: 10px 14px;
-  font-size: 12.5px;
-  outline: none;
+  width: 100% !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #f8fafc !important;
+  padding: 10px 14px 10px 38px !important;
+  font-size: 12.5px !important;
+  font-family: inherit;
+  outline: none !important;
 }
 
-.collab-search-staff-wrapper input:focus {
-  border-bottom-color: var(--border-gold-bright);
+.collab-search-staff-wrapper input::placeholder {
+  color: #64748b;
+  font-style: italic;
+  font-size: 12px;
 }
 
 .collab-staff-list {
-  max-height: 160px;
+  max-height: 180px;
   overflow-y: auto;
-  padding: 6px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+}
+
+/* Luxury Custom Dark Scrollbar for Staff Picker */
+.collab-staff-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.collab-staff-list::-webkit-scrollbar-track {
+  background: rgba(11, 15, 25, 0.6);
+  border-radius: 4px;
+}
+
+.collab-staff-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 209, 102, 0.35);
+  border-radius: 4px;
+}
+
+.collab-staff-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 209, 102, 0.65);
 }
 
 .collab-staff-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.15s ease;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 9px 12px !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
   user-select: none;
 }
 
 .collab-staff-item:hover {
-  background: rgba(255, 209, 102, 0.08);
+  background: rgba(255, 209, 102, 0.09) !important;
+  border-color: rgba(255, 209, 102, 0.3) !important;
+  transform: translateX(3px);
+}
+
+.collab-staff-item.is-checked,
+.collab-staff-item:has(input:checked) {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.15) !important;
 }
 
 .collab-staff-item input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--gold-primary);
-  cursor: pointer;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+  accent-color: #ffd166 !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
 }
 
 .collab-staff-avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, var(--gold-primary), #d4a742);
-  color: #1a170e;
-  font-size: 11.5px;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 2px 8px var(--gold-glow);
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  border-radius: 9px !important;
+  background: linear-gradient(135deg, #ffd166 0%, #f59e0b 100%) !important;
+  color: #1a170e !important;
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 2px 8px rgba(255, 209, 102, 0.35) !important;
+}
+
+.collab-staff-text {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  min-width: 0 !important;
+  flex: 1 !important;
 }
 
 .collab-staff-text h6 {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #ffffff;
-  margin: 0;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 .collab-staff-text p {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin: 0;
+  font-size: 11px !important;
+  color: #94a3b8 !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 .bok-count-pill {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 11.5px;
+  font-weight: 800;
   background: rgba(255, 209, 102, 0.15);
-  color: var(--gold-primary);
-  border: 1px solid var(--border-gold);
-  padding: 2px 8px;
-  border-radius: 6px;
+  color: #ffd166;
+  border: 1px solid rgba(255, 209, 102, 0.35);
+  padding: 3px 10px;
+  border-radius: 8px;
+  letter-spacing: 0.3px;
+  box-shadow: 0 0 10px rgba(255, 209, 102, 0.15);
 }
 
 .modal-icon-box.emerald {
