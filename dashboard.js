@@ -6289,19 +6289,21 @@ document.addEventListener('DOMContentLoaded', () => {
       if (btnResetDemo) {
         btnResetDemo.addEventListener('click', async () => {
           const confirmed = await window.SicekasAlert.confirm(
-            'Muat Ulang Data Demo?',
-            'Data contoh jadwal kegiatan akan di-reset ke nilai bawaan puskesmas.',
-            'Ya, Muat Ulang',
+            'Refresh Data dari Cloud Database?',
+            'Cache lokal akan dihapus dan data jadwal kegiatan akan di-refresh dari Cloudflare D1 Database.',
+            'Ya, Refresh Data',
             'Batal',
             false
           );
           if (confirmed) {
             localStorage.removeItem('SICEKAS_BOK_DATA_V2');
             localStorage.removeItem('SICEKAS_BOK_COLLAB_V2');
-            if (typeof initSeedBokData === 'function') initSeedBokData();
-            if (window.JadwalBOKController) window.JadwalBOKController.render();
-            this.log('SUCCESS', 'Data demo Jadwal Kegiatan berhasil di-reset ke nilai bawaan.', 'term-success');
-            showToast('✓ Data demo berhasil dimuat ulang!', 'success');
+            if (window.JadwalBOKController) {
+              window.JadwalBOKController.invalidateCache();
+              await window.JadwalBOKController.render();
+            }
+            this.log('SUCCESS', 'Cache lokal dibersihkan & data di-refresh dari Cloudflare D1 Database.', 'term-success');
+            showToast('✓ Data berhasil di-refresh dari cloud database!', 'success');
             this.updateStats();
           }
         });

@@ -144,11 +144,5 @@ INSERT OR REPLACE INTO users (no_urut, username, password_hash, nip, nip_full, n
 (38, 'adeboy', '213117', 'BLUD-DRV-01', 'NRP. BLUD-DRV-01', 'Ade Boy', 'Supir', 'BLUD', 'Petugas Puskesmas', 'AB'),
 (39, 'suhara', '213117', 'BLUD-SEC-02', 'NRP. BLUD-SEC-02', 'Suhara', 'Petugas Keamanan', 'BLUD', 'Petugas Puskesmas', 'SH');
 
-INSERT OR REPLACE INTO jadwal_kegiatan (id, tanggal, bulan, tahun, nama_kegiatan, keterangan, lokasi, petugas_nip, petugas_nama, petugas_jabatan, rekan_kolaborasi, status) VALUES
-('bok-seed-1', '2026-08-04', 8, 2026, 'Pelaksanaan Surveilans Gizi dan Penimbangan Posyandu', 'Pemantauan status gizi balita & stunting', 'Posyandu Melati 1, Desa Banjaran', '873.3204.16.02.008', 'Mochamad Fauzie, S.Gz', 'Nutrisionis', '[]', 'Disetujui'),
-('bok-seed-2', '2026-08-08', 8, 2026, 'Pemberian Makanan Tambahan (PMT) Berbahan Pangan Lokal Balita', 'Intervensi pemulihan gizi balita resti stunting', 'Posyandu Mawar 3, Desa Tarajusari', '873.3204.16.02.008', 'Mochamad Fauzie, S.Gz', 'Nutrisionis', '[]', 'Disetujui'),
-('bok-seed-3', '2026-08-11', 8, 2026, 'Pemeriksaan Kesehatan Berkala dan Skrining PTM Usila', 'Pemeriksaan tekanan darah, gula darah, dan edukasi', 'Posbindu Teratai 2, Desa Sindangpanon', '19730908 199403 2 006', 'Satrianita, SKM', 'Sanitarian Ahli Muda', '[]', 'Disetujui'),
-('bok-seed-4', '2026-08-15', 8, 2026, 'Edukasi Gizi Seimbang dan Pencegahan Anemia Remaja Putri', 'Pemberian Tablet Tambah Darah (TTD) di sekolah', 'SMPN 1 Banjaran', '873.3204.16.02.008', 'Mochamad Fauzie, S.Gz', 'Nutrisionis', '[]', 'Disetujui'),
-('bok-seed-5', '2026-08-19', 8, 2026, 'Kunjungan Rumah Balita Stunting & Pendampingan Keluarga', 'Pemantauan konsumsi makan & sanitasi lingkungan keluarga', 'Desa Banjaran Wetan', '873.3204.16.02.008', 'Mochamad Fauzie, S.Gz', 'Nutrisionis', '[]', 'Disetujui'),
-('bok-seed-6', '2026-08-25', 8, 2026, 'Kelas Ibu Balita dan Praktik Pengolahan PMT Lokal', 'Pemberdayaan ibu balita dalam penyusunan MP-ASI gizi seimbang', 'Posyandu Anggrek 4, Desa Kamasan', '873.3204.16.02.008', 'Mochamad Fauzie, S.Gz', 'Nutrisionis', '[]', 'Disetujui');
 
+-- Tidak ada data dummy jadwal_kegiatan - data diisi langsung oleh petugas via aplikasi
