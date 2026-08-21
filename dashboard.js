@@ -4879,8 +4879,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const btnNotif = document.getElementById('btnBokNotifCollab');
       const btnExport = document.getElementById('btnBokExportPdf');
       const btnBerandaKeJadwal = document.getElementById('btnBerandaKeJadwal');
+      const btnBerandaTambahJadwal = document.getElementById('btnBerandaTambahJadwal');
 
       if (btnTambah) btnTambah.addEventListener('click', () => this.bukaModalTambah());
+      if (btnBerandaTambahJadwal) btnBerandaTambahJadwal.addEventListener('click', () => this.bukaModalTambah());
       if (btnCollab) btnCollab.addEventListener('click', () => this.bukaModalCollab());
       if (btnNotif) btnNotif.addEventListener('click', () => this.bukaModalNotif());
       if (btnExport) btnExport.addEventListener('click', () => this.cetakJadwalBulanan());
@@ -5335,9 +5337,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async renderBerandaWidget() {
       const container = document.getElementById('bokBerandaList');
+      const all = await this.getData();
+
+      // Update Beranda KPI Counters
+      const totalEl = document.getElementById('berandaStatBokCount');
+      const myEl = document.getElementById('berandaStatMyBokCount');
+      if (totalEl) totalEl.textContent = `${all.length} Kegiatan`;
+      if (myEl) {
+        const myCount = all.filter(item => item.namaUser === CURRENT_USER.nama || (item.petugas_nip && item.petugas_nip === CURRENT_USER.nip)).length;
+        myEl.textContent = `${myCount} Kegiatan`;
+      }
+
       if (!container) return;
 
-      const all = await this.getData();
       const todayStr = new Date().toISOString().split('T')[0];
       const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
 
@@ -5345,7 +5357,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const upcoming = all
         .filter(item => item.tanggal >= todayStr)
         .sort((a, b) => a.tanggal.localeCompare(b.tanggal))
-        .slice(0, 4);
+        .slice(0, 6);
 
       if (upcoming.length === 0) {
         container.innerHTML = `
