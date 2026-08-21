@@ -1542,10 +1542,359 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Cetak POA Action
+  const btnDownloadPdfPoa = document.getElementById('btnDownloadPdfPoa');
+
+  // Build Pure A4 Landscape Document HTML for POA Bulanan
+  const generatePoaDocumentHtml = (month, year, officerName) => {
+    const monthIndex = month - 1;
+    const monthName = MONTH_NAMES[monthIndex];
+    const totalDays = new Date(year, month, 0).getDate();
+    const firstDayOfWeek = new Date(year, monthIndex, 1).getDay();
+    const startOffset = (firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1);
+
+    let officerNip = '19950818 202406 1 002';
+    let officerJabatan = 'Nutrisionis';
+    if (typeof ALL_PETUGAS !== 'undefined' && Array.isArray(ALL_PETUGAS)) {
+      const found = ALL_PETUGAS.find(p => p.nama === officerName || (p.nama && p.nama.includes(officerName)));
+      if (found) {
+        officerNip = found.nip || officerNip;
+        officerJabatan = found.jabatan || officerJabatan;
+      }
+    } else if (officerName === CURRENT_USER.nama) {
+      officerNip = CURRENT_USER.nip || officerNip;
+      officerJabatan = CURRENT_USER.jabatan || officerJabatan;
+    }
+
+    const dayHeaders = ['SENIN', 'SELASA', 'RABU', 'KAMIS', 'JUMAT', 'SABTU', 'MINGGU'];
+    const headerRowHtml = dayHeaders.map((dh, idx) => `
+      <th style="width: 14.28%; background: ${idx === 6 ? '#ffe4e6' : '#f1f5f9'}; color: ${idx === 6 ? '#be123c' : '#0f172a'}; font-weight: 800; font-size: 10.5px; padding: 6px 4px; border: 1.5px solid #000000; text-align: center;">
+        ${dh}
+      </th>
+    `).join('');
+
+    let dayCount = 1;
+    let tableRowsHtml = '';
+    const totalRendered = startOffset + totalDays;
+    const totalWeeks = Math.ceil(totalRendered / 7);
+
+    for (let w = 0; w < totalWeeks; w++) {
+      let rowCells = '';
+      for (let c = 0; c < 7; c++) {
+        const cellIndex = w * 7 + c;
+        if (cellIndex < startOffset || dayCount > totalDays) {
+          rowCells += `<td style="background: #f8fafc; border: 1.5px solid #000000; vertical-align: top; height: 64px; padding: 4px;"></td>`;
+        } else {
+          const day = dayCount;
+          const dateKey = getFormattedDateKey(year, month, day);
+          const holidayInfo = INDONESIAN_HOLIDAYS[dateKey];
+          const isSunday = (c === 6);
+          const isHoliday = (holidayInfo && holidayInfo.type === 'national');
+          const isCuti = (holidayInfo && holidayInfo.type === 'cuti');
+          const task = poaActivitiesState[dateKey] || '';
+
+          let holidayTag = '';
+          if (isHoliday) {
+            holidayTag = `<div style="color: #dc2626; font-size: 8px; font-weight: bold; line-height: 1.1; margin-bottom: 2px;">🔴 ${holidayInfo.name}</div>`;
+          } else if (isCuti) {
+            holidayTag = `<div style="color: #d97706; font-size: 8px; font-weight: bold; line-height: 1.1; margin-bottom: 2px;">🟠 ${holidayInfo.name}</div>`;
+          }
+
+          let taskContent = '';
+          if (task) {
+            taskContent = `<div style="background: #f0fdf4; border: 1px solid #16a34a; color: #14532d; font-size: 8.5px; font-weight: 700; padding: 2px 3px; border-radius: 2px; line-height: 1.25; word-break: break-word;">${task}</div>`;
+          }
+
+          const cellBg = isSunday || isHoliday ? '#fff1f2' : (isCuti ? '#fffbeb' : '#ffffff');
+          const numColor = isSunday || isHoliday ? '#e11d48' : '#000000';
+
+          rowCells += `
+            <td style="background: ${cellBg}; border: 1.5px solid #000000; vertical-align: top; height: 64px; padding: 3px 4px; position: relative;">
+              <div style="text-align: right; font-weight: 800; font-size: 10.5px; color: ${numColor}; margin-bottom: 2px;">${day}</div>
+              ${holidayTag}
+              ${taskContent}
+            </td>
+          `;
+          dayCount++;
+        }
+      }
+      tableRowsHtml += `<tr>${rowCells}</tr>`;
+    }
+
+    return `
+      <!DOCTYPE html>
+      <html lang="id">
+      <head>
+        <meta charset="UTF-8">
+        <title>POA_${officerName.replace(/[^a-zA-Z0-9]/g, '_')}_${monthName}_${year}</title>
+        <style>
+          @page {
+            size: A4 landscape;
+            margin: 6mm 8mm 6mm 8mm;
+          }
+          * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          body {
+            font-family: Arial, Helvetica, sans-serif;
+            color: #000000;
+            background: #ffffff;
+            margin: 0;
+            padding: 0;
+            font-size: 9.5px;
+            line-height: 1.3;
+          }
+          .poa-sheet {
+            width: 280mm;
+            max-width: 280mm;
+            margin: 0 auto;
+            background: #ffffff;
+          }
+          .kop-table {
+            width: 100%;
+            border-bottom: 3px double #000000;
+            padding-bottom: 4px;
+            margin-bottom: 6px;
+            border-collapse: collapse;
+          }
+          .kop-logo {
+            width: 60px;
+            text-align: center;
+            vertical-align: middle;
+          }
+          .kop-logo img {
+            width: 52px;
+            height: auto;
+          }
+          .kop-text {
+            text-align: center;
+            vertical-align: middle;
+          }
+          .kop-text h4 {
+            font-size: 11.5px;
+            font-weight: bold;
+            margin: 0;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+          }
+          .kop-text h3 {
+            font-size: 13.5px;
+            font-weight: 800;
+            margin: 2px 0;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+          }
+          .kop-text p {
+            font-size: 8.5px;
+            margin: 1px 0;
+          }
+          .doc-header-block {
+            text-align: center;
+            margin-bottom: 6px;
+          }
+          .doc-main-title {
+            font-size: 12.5px;
+            font-weight: 800;
+            text-decoration: underline;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0 0 2px 0;
+          }
+          .meta-info-table {
+            width: 100%;
+            margin-bottom: 6px;
+            border-collapse: collapse;
+            font-size: 10px;
+          }
+          .meta-info-table td {
+            padding: 1.5px 0;
+          }
+          .cal-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+            table-layout: fixed;
+          }
+          .sig-name {
+            font-weight: bold;
+            text-decoration: underline;
+            margin: 0;
+          }
+          .sig-nip {
+            margin: 1px 0 0 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="poa-sheet" id="poaPrintTarget">
+          <!-- Kop Surat Resmi Puskesmas -->
+          <table class="kop-table">
+            <tr>
+              <td class="kop-logo">
+                <img src="logopoa.png" alt="Logo Puskesmas" onerror="this.src='LOGO.png'">
+              </td>
+              <td class="kop-text">
+                <h4>PEMERINTAH KABUPATEN BANDUNG</h4>
+                <h4>DINAS KESEHATAN</h4>
+                <h3>UPTD PUSKESMAS BANJARAN KOTA</h3>
+                <p>Jl. Raya Banjaran No. 248, Kec. Banjaran, Kab. Bandung, Jawa Barat 40377</p>
+                <p>Email: pusk.banjarankota@gmail.com | Laman: sicekas.web.id</p>
+              </td>
+              <td style="width: 60px;"></td>
+            </tr>
+          </table>
+
+          <!-- Judul Dokumen -->
+          <div class="doc-header-block">
+            <div class="doc-main-title">RENCANA KEGIATAN BULANAN (PLAN OF ACTION - POA)</div>
+          </div>
+
+          <!-- Metadata Petugas -->
+          <table class="meta-info-table">
+            <tr>
+              <td style="width: 13%;"><strong>Nama Petugas</strong></td>
+              <td style="width: 2%;">:</td>
+              <td style="width: 45%; font-weight: bold;">${officerName}</td>
+              <td style="width: 12%;"><strong>Bulan / Tahun</strong></td>
+              <td style="width: 2%;">:</td>
+              <td style="width: 26%; font-weight: bold;">${monthName.toUpperCase()} ${year}</td>
+            </tr>
+            <tr>
+              <td><strong>NIP</strong></td>
+              <td>:</td>
+              <td>${officerNip}</td>
+              <td><strong>Jabatan / Satker</strong></td>
+              <td>:</td>
+              <td>${officerJabatan}</td>
+            </tr>
+          </table>
+
+          <!-- Kalender POA Table -->
+          <table class="cal-table">
+            <thead>
+              <tr>
+                ${headerRowHtml}
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRowsHtml}
+            </tbody>
+          </table>
+
+          <!-- Tanda Tangan Resmi -->
+          <table style="width: 100%; border-collapse: collapse; margin-top: 6px; page-break-inside: avoid;">
+            <tr>
+              <td style="width: 48%; text-align: center; vertical-align: top; font-size: 10px;">
+                Mengetahui,<br>
+                <strong>Kepala UPTD Puskesmas Banjaran Kota</strong>
+                <div style="height: 42px;"></div>
+                <p class="sig-name">dr. Rina Indriati</p>
+                <p class="sig-nip">NIP. 19740404 201411 2 001</p>
+              </td>
+              <td style="width: 4%;"></td>
+              <td style="width: 48%; text-align: center; vertical-align: top; font-size: 10px;">
+                Banjaran, 01 ${monthName} ${year}<br>
+                <strong>Yang Membuat Rencana Kegiatan,</strong>
+                <div style="height: 42px;"></div>
+                <p class="sig-name">${officerName}</p>
+                <p class="sig-nip">NIP. ${officerNip}</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </body>
+      </html>
+    `;
+  };
+
+  // Cetak POA (A4 Landscape Pop-up Window)
+  const printPoaIsolated = (month, year, officerName) => {
+    const htmlContent = generatePoaDocumentHtml(month, year, officerName);
+    const printWin = window.open('', '_blank', 'width=1150,height=800');
+    if (!printWin) {
+      alert('Mohon izinkan pop-up browser untuk mencetak POA Bulanan.');
+      return;
+    }
+    printWin.document.open();
+    printWin.document.write(htmlContent);
+    printWin.document.close();
+    setTimeout(() => {
+      printWin.focus();
+      printWin.print();
+    }, 450);
+  };
+
+  // Direct Download PDF (Pure A4 Landscape via html2pdf)
+  const exportDirectPoaPdf = async (month, year, officerName) => {
+    if (typeof html2pdf === 'undefined') {
+      printPoaIsolated(month, year, officerName);
+      return;
+    }
+
+    if (typeof showToast === 'function') {
+      showToast('Membuat file PDF POA (A4 Landscape)...', 'info');
+    }
+
+    const monthIndex = month - 1;
+    const monthName = MONTH_NAMES[monthIndex];
+    const fullHtml = generatePoaDocumentHtml(month, year, officerName);
+
+    // Create isolated container for PDF compilation
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '-99999px';
+    wrapper.style.top = '0';
+    wrapper.style.width = '285mm';
+    wrapper.style.background = '#ffffff';
+    wrapper.style.color = '#000000';
+    wrapper.innerHTML = fullHtml;
+
+    document.body.appendChild(wrapper);
+
+    const targetEl = wrapper.querySelector('#poaPrintTarget') || wrapper;
+    const filename = `POA_${officerName.replace(/[^a-zA-Z0-9]/g, '_')}_${monthName}_${year}.pdf`;
+
+    const opt = {
+      margin: [5, 6, 5, 6],
+      filename: filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff', logging: false },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+      pagebreak: { mode: ['css', 'legacy'] }
+    };
+
+    try {
+      await html2pdf().set(opt).from(targetEl).save();
+      if (typeof showToast === 'function') {
+        showToast('✓ PDF POA Bulanan (A4 Landscape) berhasil diunduh!', 'success');
+      }
+    } catch (err) {
+      console.error('POA PDF export error:', err);
+      printPoaIsolated(month, year, officerName);
+    } finally {
+      if (wrapper.parentNode) {
+        document.body.removeChild(wrapper);
+      }
+    }
+  };
+
+  // Event Listeners for Cetak POA & Download PDF
   if (btnCetakPoa) {
     btnCetakPoa.addEventListener('click', () => {
-      window.print();
+      const selectedMonth = parseInt(poaSelectMonth ? poaSelectMonth.value : '8', 10);
+      const selectedYear = parseInt(poaSelectYear ? poaSelectYear.value : '2026', 10);
+      const officerText = getPoaOfficerName();
+      printPoaIsolated(selectedMonth, selectedYear, officerText);
+    });
+  }
+
+  if (btnDownloadPdfPoa) {
+    btnDownloadPdfPoa.addEventListener('click', () => {
+      const selectedMonth = parseInt(poaSelectMonth ? poaSelectMonth.value : '8', 10);
+      const selectedYear = parseInt(poaSelectYear ? poaSelectYear.value : '2026', 10);
+      const officerText = getPoaOfficerName();
+      exportDirectPoaPdf(selectedMonth, selectedYear, officerText);
     });
   }
 
