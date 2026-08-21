@@ -16,8 +16,7 @@ const jsonResponse = (data, status = 200) => {
   });
 };
 
-export async function onRequest(context) {
-  const { request, env, params } = context;
+async function handleApiRequest(request, env, ctx) {
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
   const pathname = url.pathname;
@@ -506,7 +505,40 @@ export async function onRequest(context) {
   } catch (error) {
     return jsonResponse({
       success: false,
-      error: error.message || 'Internal Server Error pada Cloudflare Pages Functions & D1'
+      error: error.message || 'Internal Server Error pada Cloudflare & D1 Database'
     }, 500);
   }
 }
+
+// 1. Support Cloudflare Pages Functions
+export async function onRequest(context) {
+  return handleApiRequest(context.request, context.env, context);
+}
+
+// 2. Support Cloudflare Workers (Format ES Module - Wajib untuk D1 Database Binding)
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    // API Routes Handler
+    if (url.pathname.startsWith('/api')) {
+      return handleApiRequest(request, env, ctx);
+    }
+
+    // Static Assets Handler (Cloudflare Workers Assets)
+    if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+      const res = await env.ASSETS.fetch(request);
+      if (res.status === 404) {
+        if (url.pathname === '/dashboard') {
+          return env.ASSETS.fetch(new Request(new URL('/dashboard.html', request.url), request));
+        }
+        if (url.pathname === '/login') {
+          return env.ASSETS.fetch(new Request(new URL('/index.html', request.url), request));
+        }
+      }
+      return res;
+    }
+
+    return handleApiRequest(request, env, ctx);
+  }
+};
