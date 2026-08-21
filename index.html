@@ -4,6 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SICEKAS v2.0 - Sign in | Puskesmas Banjaran Kota</title>
+  <script>
+    // AUTO FORWARD: Jika sudah login, otomatis masuk ke dashboard
+    (function() {
+      try {
+        var u = localStorage.getItem('SICEKAS_CURRENT_USER');
+        if (u) {
+          var p = JSON.parse(u);
+          if (p && (p.username || p.nip)) { window.location.replace('dashboard.html'); }
+        }
+      } catch (e) {}
+    })();
+  </script>
   
   <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">

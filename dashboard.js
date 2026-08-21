@@ -476,6 +476,65 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================================================
+  // SYNC AUTHENTICATED USER SESSION & PROFILE UI
+  // ==========================================================================
+  try {
+    const rawCurrentUser = localStorage.getItem('SICEKAS_CURRENT_USER');
+    if (!rawCurrentUser) {
+      window.location.replace('index.html');
+      return;
+    }
+    const currentUser = JSON.parse(rawCurrentUser);
+    if (currentUser) {
+      const profileNameEls = document.querySelectorAll('.profile-name, .popover-user-info h4');
+      const profileRoleEls = document.querySelectorAll('.profile-role');
+      const profileEmailEl = document.querySelector('.popover-user-info p');
+      
+      if (currentUser.nama) {
+        profileNameEls.forEach(el => el.textContent = currentUser.nama);
+      }
+      if (currentUser.role || currentUser.jabatan) {
+        profileRoleEls.forEach(el => el.textContent = `${currentUser.role || 'Petugas'} • ${currentUser.jabatan || 'Puskesmas'}`);
+      }
+      if (profileEmailEl) {
+        profileEmailEl.textContent = `${(currentUser.username || 'pegawai').toLowerCase()}@puskesmasbanjaran.go.id`;
+      }
+    }
+  } catch (err) {
+    console.warn('Error syncing user session', err);
+  }
+
+  // Handle Logout Buttons
+  const logoutButtons = document.querySelectorAll('.popover-item.logout, a.logout');
+  logoutButtons.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'question',
+          title: 'Konfirmasi Keluar',
+          text: 'Apakah Anda yakin ingin keluar dari akun ini?',
+          showCancelButton: true,
+          confirmButtonText: 'Ya, Keluar',
+          cancelButtonText: 'Batal',
+          reverseButtons: true,
+          customClass: { popup: 'sicekas-swal-modal', confirmButton: 'btn-swal-danger', cancelButton: 'btn-swal-gold' }
+        }).then((res) => {
+          if (res.isConfirmed) {
+            localStorage.removeItem('SICEKAS_CURRENT_USER');
+            window.location.replace('index.html');
+          }
+        });
+      } else {
+        if (confirm('Apakah Anda yakin ingin keluar?')) {
+          localStorage.removeItem('SICEKAS_CURRENT_USER');
+          window.location.replace('index.html');
+        }
+      }
+    });
+  });
+
+  // ==========================================================================
   // PASSWORD MODAL & CLOUD DATABASE CHANGE PASSWORD INTEGRATION
   // ==========================================================================
   const passwordModal = document.getElementById('passwordModal');

@@ -4,6 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SICEKAS - Puskesmas Banjaran Kota</title>
+  <script>
+    // AUTH GUARD: Jika belum login, langsung tendang ke menu login (index.html)
+    (function() {
+      try {
+        var u = localStorage.getItem('SICEKAS_CURRENT_USER');
+        if (!u) { window.location.replace('index.html'); }
+      } catch (e) { window.location.replace('index.html'); }
+    })();
+  </script>
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
