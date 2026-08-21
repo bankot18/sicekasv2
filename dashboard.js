@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
         title: title,
         text: text,
         confirmButtonText: 'Selesai',
-        customClass: { popup: 'sicekas-swal-modal', confirmButton: 'btn-swal-gold' }
+        customClass: { popup: 'sicekas-swal-modal', confirmButton: 'btn-swal-teal' }
       });
     },
     error: (title, text = '') => {
@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         title: title,
         text: text,
         confirmButtonText: 'Mengerti',
-        customClass: { popup: 'sicekas-swal-modal', confirmButton: 'btn-swal-gold' }
+        customClass: { popup: 'sicekas-swal-modal', confirmButton: 'btn-swal-teal' }
       });
     },
     confirm: async (title, text = '', confirmText = 'Ya, Lanjutkan', cancelText = 'Batal', isDanger = false) => {
@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reverseButtons: true,
         customClass: {
           popup: 'sicekas-swal-modal',
-          confirmButton: isDanger ? 'btn-swal-danger' : 'btn-swal-gold',
+          confirmButton: isDanger ? 'btn-swal-danger' : 'btn-swal-teal',
           cancelButton: 'btn-swal-cancel'
         }
       });
@@ -520,7 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
           confirmButtonText: 'Ya, Keluar',
           cancelButtonText: 'Batal',
           reverseButtons: true,
-          customClass: { popup: 'sicekas-swal-modal', confirmButton: 'btn-swal-danger', cancelButton: 'btn-swal-gold' }
+          customClass: { popup: 'sicekas-swal-modal', confirmButton: 'btn-swal-danger', cancelButton: 'btn-swal-cancel' }
         }).then((res) => {
           if (res.isConfirmed) {
             localStorage.removeItem('SICEKAS_CURRENT_USER');

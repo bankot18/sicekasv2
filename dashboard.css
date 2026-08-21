@@ -6469,16 +6469,18 @@ body::before {
 }
 
 /* ==========================================================================
-   SWEETALERT2 LUXURY OBSIDIAN DARK & GOLD THEME
+   SWEETALERT2 LUXURY OBSIDIAN & NEON TEAL THEME
    ========================================================================== */
 
 .swal2-container {
   z-index: 999999 !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
 }
 
 body.swal2-shown:not(.swal2-toast-shown) .swal2-container.swal2-backdrop-show {
-  backdrop-filter: blur(10px) !important;
-  background: rgba(5, 7, 12, 0.75) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  background: rgba(6, 8, 13, 0.82) !important;
 }
 
 /* Toast Container: Absolutely Transparent, No Backdrop Blur, No Click Blocking */
@@ -6501,19 +6503,23 @@ body.swal2-toast-shown .swal2-container {
   pointer-events: auto !important;
 }
 
-/* Modal Popup */
+/* Modal Popup (Universal for all SweetAlert2 Dialogs) */
+.swal2-popup,
 .swal2-popup.sicekas-swal-modal {
-  background: linear-gradient(145deg, rgba(24, 30, 42, 0.98) 0%, rgba(14, 18, 26, 0.98) 100%) !important;
-  border: 1px solid var(--border-gold-bright) !important;
-  border-radius: 20px !important;
-  padding: 30px 32px !important;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(255, 209, 102, 0.18) !important;
+  background: linear-gradient(145deg, rgba(14, 19, 28, 0.98) 0%, rgba(8, 11, 17, 0.98) 100%) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(45, 212, 191, 0.35) !important;
+  border-radius: 22px !important;
+  padding: 32px 36px !important;
+  box-shadow: 0 25px 65px rgba(0, 0, 0, 0.85), 0 0 35px rgba(45, 212, 191, 0.15) !important;
   color: #ffffff !important;
   font-family: 'Plus Jakarta Sans', sans-serif !important;
-  position: relative;
-  overflow: hidden;
+  position: relative !important;
+  overflow: hidden !important;
 }
 
+.swal2-popup::before,
 .swal2-popup.sicekas-swal-modal::before {
   content: '';
   position: absolute;
@@ -6521,7 +6527,7 @@ body.swal2-toast-shown .swal2-container {
   left: 0;
   right: 0;
   height: 3px;
-  background: var(--gold-gradient);
+  background: linear-gradient(90deg, #2dd4bf 0%, #10b981 50%, #ffd166 100%);
 }
 
 .swal2-title {
@@ -6530,18 +6536,48 @@ body.swal2-toast-shown .swal2-container {
   color: #ffffff !important;
   font-size: 20px !important;
   letter-spacing: -0.3px !important;
-  margin-top: 10px !important;
+  margin-top: 14px !important;
 }
 
 .swal2-html-container {
   font-family: 'Plus Jakarta Sans', sans-serif !important;
-  color: #cbd5e1 !important;
+  color: #94a3b8 !important;
   font-size: 14px !important;
   line-height: 1.6 !important;
-  margin: 12px 0 20px 0 !important;
+  margin: 12px 0 24px 0 !important;
 }
 
-/* Modal Buttons */
+/* Modal Actions and Buttons */
+.swal2-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  margin-top: 10px !important;
+  width: 100% !important;
+}
+
+.swal2-confirm,
+.btn-swal-teal {
+  background: var(--teal-gradient) !important;
+  color: #06080d !important;
+  font-weight: 800 !important;
+  font-size: 13.5px !important;
+  padding: 12px 24px !important;
+  border-radius: 10px !important;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(45, 212, 191, 0.35) !important;
+  cursor: pointer !important;
+  transition: all 0.25s ease !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+
+.swal2-confirm:hover,
+.btn-swal-teal:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px rgba(45, 212, 191, 0.55) !important;
+}
+
 .btn-swal-gold {
   background: var(--gold-gradient) !important;
   color: #1a170e !important;
@@ -6550,7 +6586,7 @@ body.swal2-toast-shown .swal2-container {
   padding: 12px 24px !important;
   border-radius: 10px !important;
   border: none !important;
-  box-shadow: 0 4px 15px var(--gold-glow) !important;
+  box-shadow: 0 4px 16px rgba(255, 209, 102, 0.35) !important;
   cursor: pointer !important;
   transition: all 0.25s ease !important;
   font-family: 'Plus Jakarta Sans', sans-serif !important;
@@ -6558,18 +6594,18 @@ body.swal2-toast-shown .swal2-container {
 
 .btn-swal-gold:hover {
   transform: translateY(-2px) !important;
-  box-shadow: 0 8px 25px var(--gold-glow) !important;
+  box-shadow: 0 8px 25px rgba(255, 209, 102, 0.5) !important;
 }
 
 .btn-swal-danger {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  background: linear-gradient(135deg, #f43f5e 0%, #be123c 100%) !important;
   color: #ffffff !important;
   font-weight: 800 !important;
   font-size: 13.5px !important;
   padding: 12px 24px !important;
   border-radius: 10px !important;
   border: none !important;
-  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4) !important;
+  box-shadow: 0 4px 16px rgba(244, 63, 94, 0.4) !important;
   cursor: pointer !important;
   transition: all 0.25s ease !important;
   font-family: 'Plus Jakarta Sans', sans-serif !important;
@@ -6577,43 +6613,48 @@ body.swal2-toast-shown .swal2-container {
 
 .btn-swal-danger:hover {
   transform: translateY(-2px) !important;
-  box-shadow: 0 8px 25px rgba(239, 68, 68, 0.5) !important;
+  box-shadow: 0 8px 25px rgba(244, 63, 94, 0.55) !important;
 }
 
+.swal2-cancel,
 .btn-swal-cancel {
   background: rgba(255, 255, 255, 0.08) !important;
-  color: #e2e8f0 !important;
+  color: #f8fafc !important;
   font-weight: 700 !important;
   font-size: 13.5px !important;
   padding: 12px 22px !important;
   border-radius: 10px !important;
-  border: 1px solid var(--border-subtle) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
   cursor: pointer !important;
   transition: all 0.25s ease !important;
-  margin-right: 10px !important;
   font-family: 'Plus Jakarta Sans', sans-serif !important;
 }
 
+.swal2-cancel:hover,
 .btn-swal-cancel:hover {
-  background: rgba(255, 255, 255, 0.14) !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
   color: #ffffff !important;
+  transform: translateY(-2px) !important;
 }
 
 /* Toast Notifications */
-.swal2-popup.sicekas-swal-toast {
-  background: linear-gradient(135deg, rgba(26, 32, 45, 0.97) 0%, rgba(16, 20, 28, 0.97) 100%) !important;
+.swal2-popup.sicekas-swal-toast,
+.swal2-popup.swal2-toast {
+  background: linear-gradient(135deg, rgba(14, 19, 28, 0.98) 0%, rgba(8, 11, 17, 0.98) 100%) !important;
   backdrop-filter: blur(20px) !important;
   -webkit-backdrop-filter: blur(20px) !important;
-  border: 1px solid var(--border-gold) !important;
+  border: 1px solid rgba(45, 212, 191, 0.35) !important;
   border-radius: 14px !important;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.7), 0 0 25px rgba(255, 209, 102, 0.2) !important;
-  padding: 14px 18px !important;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.75), 0 0 25px rgba(45, 212, 191, 0.15) !important;
+  padding: 12px 18px !important;
   display: flex !important;
   align-items: center !important;
   gap: 12px !important;
 }
 
-.sicekas-swal-toast .swal2-title {
+.sicekas-swal-toast .swal2-title,
+.swal2-toast .swal2-title {
   font-size: 13.5px !important;
   font-weight: 700 !important;
   color: #ffffff !important;
@@ -6621,44 +6662,61 @@ body.swal2-toast-shown .swal2-container {
   line-height: 1.4 !important;
 }
 
-.sicekas-swal-toast .swal2-icon {
+.sicekas-swal-toast .swal2-icon,
+.swal2-toast .swal2-icon {
   margin: 0 !important;
   transform: scale(0.75) !important;
 }
 
-.sicekas-swal-toast .swal2-timer-progress-bar {
-  background: var(--gold-gradient) !important;
+.sicekas-swal-toast .swal2-timer-progress-bar,
+.swal2-toast .swal2-timer-progress-bar {
+  background: var(--teal-gradient) !important;
   height: 3px !important;
 }
 
-/* SweetAlert2 Icon Custom Colors */
+/* SweetAlert2 Glowing Cyber Icons */
+.swal2-icon.swal2-question {
+  border-color: rgba(45, 212, 191, 0.6) !important;
+  color: #2dd4bf !important;
+  background: rgba(45, 212, 191, 0.1) !important;
+  box-shadow: 0 0 25px rgba(45, 212, 191, 0.25) !important;
+}
+
 .swal2-icon.swal2-success {
-  border-color: #34d399 !important;
-  color: #34d399 !important;
+  border-color: rgba(16, 185, 129, 0.6) !important;
+  color: #10b981 !important;
+  background: rgba(16, 185, 129, 0.1) !important;
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.25) !important;
 }
 .swal2-icon.swal2-success [class^='swal2-success-line'] {
-  background-color: #34d399 !important;
+  background-color: #10b981 !important;
 }
 .swal2-icon.swal2-success .swal2-success-ring {
-  border: 4px solid rgba(52, 211, 153, 0.3) !important;
+  border: 4px solid rgba(16, 185, 129, 0.3) !important;
 }
 
 .swal2-icon.swal2-error {
-  border-color: #f87171 !important;
-  color: #f87171 !important;
+  border-color: rgba(244, 63, 94, 0.6) !important;
+  color: #f43f5e !important;
+  background: rgba(244, 63, 94, 0.1) !important;
+  box-shadow: 0 0 25px rgba(244, 63, 94, 0.25) !important;
 }
 .swal2-icon.swal2-error [class^='swal2-x-mark-line'] {
-  background-color: #f87171 !important;
+  background-color: #f43f5e !important;
 }
 
 .swal2-icon.swal2-warning {
-  border-color: #fbbf24 !important;
-  color: #fbbf24 !important;
+  border-color: rgba(255, 209, 102, 0.6) !important;
+  color: #ffd166 !important;
+  background: rgba(255, 209, 102, 0.1) !important;
+  box-shadow: 0 0 25px rgba(255, 209, 102, 0.25) !important;
 }
 
 .swal2-icon.swal2-info {
-  border-color: #38bdf8 !important;
+  border-color: rgba(56, 189, 248, 0.6) !important;
   color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.1) !important;
+  box-shadow: 0 0 25px rgba(56, 189, 248, 0.25) !important;
 }
 
 /* ============================================================================
