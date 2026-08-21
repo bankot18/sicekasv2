@@ -7540,6 +7540,226 @@ body.swal2-toast-shown .swal2-container {
   background: rgba(255, 209, 102, 0.04) !important;
 }
 
+/* ==========================================================================
+   UNIVERSAL DEVICE-ADAPTIVE RESPONSIVE SYSTEM (SICEKAS FLUID ENGINE)
+   Scales seamlessly on Mobile, Tablets, Laptops (1366x768), 1080p, and 4K
+   ========================================================================== */
+
+/* 1. Global Viewport & Container Scaling */
+html {
+  font-size: clamp(13px, 0.9vw + 4px, 16px);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+.dashboard-layout {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  width: 100%;
+}
+
+.main-content {
+  flex: 1;
+  min-width: 0;
+  padding: clamp(14px, 2vw, 32px);
+  box-sizing: border-box;
+}
+
+/* 2. Responsive Modal System (Never Overflow Off-Screen) */
+.modal-backdrop {
+  padding: clamp(10px, 2.5vw, 24px) !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.modal-card {
+  width: 100% !important;
+  max-width: min(500px, 94vw) !important;
+  max-height: min(88vh, 88dvh) !important;
+  padding: clamp(18px, 3vw, 30px) !important;
+  border-radius: clamp(12px, 2vw, 20px) !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+  overscroll-behavior: contain !important;
+}
+
+.modal-card.modal-card-lg,
+.modal-card-large {
+  max-width: min(720px, 95vw) !important;
+}
+
+.modal-card::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-card::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+.modal-card::-webkit-scrollbar-thumb {
+  background: rgba(255, 209, 102, 0.3);
+  border-radius: 4px;
+}
+
+/* 3. Responsive Header & Topbar */
+.dashboard-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: clamp(16px, 2vw, 28px);
+}
+
+.header-left-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dashboard-title {
+  font-size: clamp(18px, 2.2vw, 26px) !important;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1.2vw, 16px);
+  flex-wrap: wrap;
+}
+
+/* 4. Responsive KPI & Bento Grids */
+.stats-bento-grid,
+.poa-stats-grid,
+.bok-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)) !important;
+  gap: clamp(10px, 1.5vw, 20px) !important;
+}
+
+.beranda-split-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: clamp(14px, 2vw, 24px);
+}
+
+/* 5. Responsive Stage & Document Containers */
+.document-stage,
+.sppd-preview-wrapper,
+.poa-calendar-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+}
+
+.scoring-doc-sheet-exact {
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* 6. Tablet & Small Laptop Media Query (<= 1180px) */
+@media screen and (max-width: 1180px) {
+  .beranda-split-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .poa-header-card,
+  .sppd-studio-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 16px;
+  }
+
+  .poa-header-right,
+  .sppd-studio-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .poa-filter-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+/* 7. Mobile & Small Tablet Media Query (<= 768px) */
+@media screen and (max-width: 768px) {
+  .sidebar {
+    width: 72px !important;
+    min-width: 72px !important;
+  }
+
+  .sidebar .nav-label,
+  .sidebar .sidebar-brand-text,
+  .sidebar .sidebar-search-box,
+  .sidebar .badge-super-admin-nav,
+  .sidebar .sidebar-badge-counter {
+    display: none !important;
+  }
+
+  .sidebar .nav-link {
+    justify-content: center !important;
+    padding: 12px !important;
+  }
+
+  .sidebar .nav-icon {
+    margin: 0 !important;
+  }
+
+  .main-content {
+    padding: 12px !important;
+  }
+
+  .poa-filter-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .modal-card {
+    padding: 16px !important;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+    width: 100%;
+  }
+
+  .modal-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .doc-signatures-exact {
+    flex-direction: column !important;
+    gap: 20px !important;
+    align-items: center !important;
+  }
+}
+
+/* 8. Extra Small Screens (<= 480px) */
+@media screen and (max-width: 480px) {
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .topbar-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .user-profile-badge {
+    padding: 4px 8px;
+  }
+}
+
 
 
 

@@ -54,8 +54,10 @@ html, body {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  padding: 30px 16px;
+  min-height: 100dvh;
+  padding: clamp(12px, 3vw, 32px);
   background-color: var(--bg-space);
+  box-sizing: border-box;
 }
 
 .ambient-mesh-glow {
@@ -122,8 +124,9 @@ html, body {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 530px;
-  border-radius: 22px;
+  max-width: min(510px, 95vw);
+  max-height: min(94vh, 94dvh);
+  border-radius: clamp(16px, 3vw, 24px);
   padding: 2.5px; /* Creates slot for animated border tracer */
   box-shadow: 
     0 40px 100px rgba(0, 0, 0, 0.95), 
@@ -259,11 +262,14 @@ html, body {
 
 /* Window Content Area */
 .mac-window-content {
-  padding: 28px 26px 34px 26px;
+  padding: clamp(18px, 3.5vw, 28px) clamp(16px, 3vw, 26px) clamp(22px, 4vw, 34px) clamp(16px, 3vw, 26px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: clamp(12px, 2vw, 18px);
+  overflow-y: auto;
+  max-height: calc(94dvh - 46px);
+  box-sizing: border-box;
 }
 
 /* SICEKAS Official Centered Branding Block */
