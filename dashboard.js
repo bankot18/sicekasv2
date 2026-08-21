@@ -451,6 +451,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return JSON.parse(localStorage.getItem('SICEKAS_TPPOL_DATA_V2')) || [];
     },
 
+    async fetchTppol(bulan, tahun, nip) {
+      return this.fetchTpPol(bulan, tahun, nip);
+    },
+
     async saveTpPol(item) {
       try {
         const res = await fetch('/api/tppol/save', {
@@ -477,7 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (e) {
         console.warn('Fallback fetch SPPD', e);
       }
-      return null;
+      return JSON.parse(localStorage.getItem('SICEKAS_SPPD_DATA_V2')) || [];
     },
 
     async saveSppd(item) {
@@ -492,6 +496,20 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('Fallback save SPPD', e);
       }
       return { success: true };
+    },
+
+    // 6. Audit Logs
+    async fetchAuditLogs() {
+      try {
+        const res = await fetch('/api/audit-logs');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) return json.data;
+        }
+      } catch (e) {
+        console.warn('Fallback fetch audit logs', e);
+      }
+      return JSON.parse(localStorage.getItem('SICEKAS_AUDIT_LOGS_CACHE')) || [];
     },
 
     // 6. Direct SQL Runner (Super Admin)
@@ -6021,25 +6039,36 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     },
 
-    async loadD1Table(tableName) {
+    async loadD1Table(tableName = 'users') {
       const countEl = document.getElementById(`count-${tableName}`);
       const infoEl = document.getElementById('d1TableActiveInfo');
+      const thead = document.getElementById('d1GridThead');
+      const tbody = document.getElementById('d1GridTbody');
+
       if (infoEl) infoEl.innerHTML = `Menghubungkan ke Cloudflare D1... (Tabel: <strong>${tableName}</strong>)`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; color:#ffd166; padding:24px;"><span class="spinner-mini"></span> Memuat data tabel [${tableName}] dari Cloudflare D1...</td></tr>`;
 
       try {
         let rows = [];
-        if (tableName === 'users') {
-          rows = await CloudflareDB.fetchUsers();
-        } else if (tableName === 'jadwal_kegiatan') {
-          rows = await CloudflareDB.fetchJadwal();
-        } else if (tableName === 'poa_bulanan') {
-          rows = await CloudflareDB.fetchPoa();
-        } else if (tableName === 'tppol_jaspel') {
-          rows = await CloudflareDB.fetchTppol();
-        } else if (tableName === 'sppd_lpt') {
-          rows = await CloudflareDB.fetchSppd();
-        } else if (tableName === 'audit_logs') {
-          rows = await CloudflareDB.fetchAuditLogs();
+        // 1. Direct query via Cloudflare D1 executeSql for 100% table compatibility
+        const sqlRes = await CloudflareDB.executeSql(`SELECT * FROM ${tableName} LIMIT 200;`);
+        if (sqlRes && sqlRes.success && Array.isArray(sqlRes.rows)) {
+          rows = sqlRes.rows;
+        } else {
+          // 2. Fallback via specialized API endpoints
+          if (tableName === 'users') {
+            rows = await CloudflareDB.fetchUsers();
+          } else if (tableName === 'jadwal_kegiatan') {
+            rows = await CloudflareDB.fetchJadwal();
+          } else if (tableName === 'poa_bulanan') {
+            rows = await CloudflareDB.fetchPoa();
+          } else if (tableName === 'tppol_jaspel') {
+            rows = await CloudflareDB.fetchTpPol();
+          } else if (tableName === 'sppd_lpt') {
+            rows = await CloudflareDB.fetchSppd();
+          } else if (tableName === 'audit_logs') {
+            rows = await CloudflareDB.fetchAuditLogs();
+          }
         }
 
         this.d1TableData = Array.isArray(rows) ? rows : [];
@@ -6049,7 +6078,8 @@ document.addEventListener('DOMContentLoaded', () => {
         this.renderDynamicGrid(this.d1TableData);
       } catch (e) {
         console.error('Error loading D1 table:', e);
-        if (infoEl) infoEl.innerHTML = `<span style="color:#ef4444;">Gagal memuat tabel ${tableName} dari cloud.</span>`;
+        if (infoEl) infoEl.innerHTML = `<span style="color:#ef4444;">Gagal memuat tabel ${tableName} dari cloud: ${e.message}</span>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #f87171; padding: 20px;">Gagal memuat data dari cloud database.</td></tr>`;
       }
     },
 

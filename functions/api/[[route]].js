@@ -646,7 +646,15 @@ async function handleApiRequest(request, env, ctx) {
     }
 
     // ------------------------------------------------------------------------
-    // 8. SUPER ADMIN SQL RUNNER CONSOLE (/api/sql)
+    // 8. AUDIT LOGS (/api/audit-logs)
+    // ------------------------------------------------------------------------
+    if (pathname === '/api/audit-logs' && method === 'GET') {
+      const { results } = await db.prepare('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 200').all();
+      return jsonResponse({ success: true, total: results.length, data: results });
+    }
+
+    // ------------------------------------------------------------------------
+    // 9. SUPER ADMIN SQL RUNNER CONSOLE (/api/sql)
     // ------------------------------------------------------------------------
     if (pathname === '/api/sql' && method === 'POST') {
       const body = await request.json();
