@@ -266,10 +266,23 @@ html, body {
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  overflow-x: hidden !important;
-  overflow-y: visible;
   box-sizing: border-box;
   width: 100%;
+}
+
+.mac-window-frame,
+.mac-window-inner,
+.mac-window-content {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.mac-window-frame::-webkit-scrollbar,
+.mac-window-inner::-webkit-scrollbar,
+.mac-window-content::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 /* SICEKAS Official Centered Branding Block */
