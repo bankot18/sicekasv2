@@ -1544,7 +1544,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const btnDownloadPdfPoa = document.getElementById('btnDownloadPdfPoa');
 
-  // Build Pure A4 Landscape Document HTML for POA Bulanan
+  // Build Exact Calendar Mirror HTML for POA Bulanan (Pure A4 Landscape)
   const generatePoaDocumentHtml = (month, year, officerName) => {
     const monthIndex = month - 1;
     const monthName = MONTH_NAMES[monthIndex];
@@ -1552,22 +1552,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const firstDayOfWeek = new Date(year, monthIndex, 1).getDay();
     const startOffset = (firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1);
 
-    let officerNip = '19950818 202406 1 002';
     let officerJabatan = 'Nutrisionis';
+    let officerRole = 'Super Admin';
     if (typeof ALL_PETUGAS !== 'undefined' && Array.isArray(ALL_PETUGAS)) {
       const found = ALL_PETUGAS.find(p => p.nama === officerName || (p.nama && p.nama.includes(officerName)));
       if (found) {
-        officerNip = found.nip || officerNip;
         officerJabatan = found.jabatan || officerJabatan;
+        officerRole = found.role || officerRole;
       }
     } else if (officerName === CURRENT_USER.nama) {
-      officerNip = CURRENT_USER.nip || officerNip;
       officerJabatan = CURRENT_USER.jabatan || officerJabatan;
+      officerRole = CURRENT_USER.role || officerRole;
     }
 
+    const now = new Date();
+    const currentRealYear = now.getFullYear();
+    const currentRealMonth = now.getMonth() + 1;
+    const currentRealDay = now.getDate();
+
+    // Day header matching screenshot exactly
     const dayHeaders = ['SENIN', 'SELASA', 'RABU', 'KAMIS', 'JUMAT', 'SABTU', 'MINGGU'];
     const headerRowHtml = dayHeaders.map((dh, idx) => `
-      <th style="width: 14.28%; background: ${idx === 6 ? '#ffe4e6' : '#f1f5f9'}; color: ${idx === 6 ? '#be123c' : '#0f172a'}; font-weight: 800; font-size: 10.5px; padding: 6px 4px; border: 1.5px solid #000000; text-align: center;">
+      <th style="width: 14.285%; background: ${idx === 6 ? '#fee2e2' : '#f1f5f9'}; color: ${idx === 6 ? '#dc2626' : '#1e293b'}; font-weight: 800; font-size: 11px; padding: 7px 4px; border: 1px solid #cbd5e1; border-top: none; text-align: center; text-transform: uppercase; letter-spacing: 0.5px;">
         ${dh}
       </th>
     `).join('');
@@ -1582,7 +1588,7 @@ document.addEventListener('DOMContentLoaded', () => {
       for (let c = 0; c < 7; c++) {
         const cellIndex = w * 7 + c;
         if (cellIndex < startOffset || dayCount > totalDays) {
-          rowCells += `<td style="background: #f8fafc; border: 1.5px solid #000000; vertical-align: top; height: 64px; padding: 4px;"></td>`;
+          rowCells += `<td style="background: #f8fafc; border: 1px solid #e2e8f0; vertical-align: top; height: 80px; padding: 6px;"></td>`;
         } else {
           const day = dayCount;
           const dateKey = getFormattedDateKey(year, month, day);
@@ -1590,27 +1596,37 @@ document.addEventListener('DOMContentLoaded', () => {
           const isSunday = (c === 6);
           const isHoliday = (holidayInfo && holidayInfo.type === 'national');
           const isCuti = (holidayInfo && holidayInfo.type === 'cuti');
+          const isToday = (year === currentRealYear && month === currentRealMonth && day === currentRealDay);
           const task = poaActivitiesState[dateKey] || '';
 
-          let holidayTag = '';
-          if (isHoliday) {
-            holidayTag = `<div style="color: #dc2626; font-size: 8px; font-weight: bold; line-height: 1.1; margin-bottom: 2px;">🔴 ${holidayInfo.name}</div>`;
+          let badgeHtml = '';
+          if (isToday) {
+            badgeHtml = `<span style="background: #2563eb; color: #ffffff; font-size: 8px; font-weight: 800; padding: 1.5px 5px; border-radius: 3px; letter-spacing: 0.3px;">HARI INI</span>`;
+          } else if (isHoliday) {
+            badgeHtml = `<span style="background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c; font-size: 8px; font-weight: 700; padding: 1.5px 5px; border-radius: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; display: inline-block;">🔴 ${holidayInfo.name}</span>`;
           } else if (isCuti) {
-            holidayTag = `<div style="color: #d97706; font-size: 8px; font-weight: bold; line-height: 1.1; margin-bottom: 2px;">🟠 ${holidayInfo.name}</div>`;
+            badgeHtml = `<span style="background: #fef3c7; border: 1px solid #fde68a; color: #b45309; font-size: 8px; font-weight: 700; padding: 1.5px 5px; border-radius: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; display: inline-block;">🟠 ${holidayInfo.name}</span>`;
           }
 
           let taskContent = '';
           if (task) {
-            taskContent = `<div style="background: #f0fdf4; border: 1px solid #16a34a; color: #14532d; font-size: 8.5px; font-weight: 700; padding: 2px 3px; border-radius: 2px; line-height: 1.25; word-break: break-word;">${task}</div>`;
+            taskContent = `
+              <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-left: 3px solid #10b981; color: #065f46; font-size: 9px; font-weight: 700; padding: 3px 5px; border-radius: 4px; line-height: 1.25; margin-top: 4px; word-break: break-word;">
+                ${task}
+              </div>
+            `;
           }
 
-          const cellBg = isSunday || isHoliday ? '#fff1f2' : (isCuti ? '#fffbeb' : '#ffffff');
-          const numColor = isSunday || isHoliday ? '#e11d48' : '#000000';
+          const cellBg = isToday ? '#eff6ff' : (isSunday || isHoliday ? '#fff5f5' : (isCuti ? '#fffbeb' : '#ffffff'));
+          const numColor = isToday ? '#1d4ed8' : (isSunday || isHoliday ? '#dc2626' : '#334155');
+          const cellBorder = isToday ? '2px solid #2563eb' : '1px solid #e2e8f0';
 
           rowCells += `
-            <td style="background: ${cellBg}; border: 1.5px solid #000000; vertical-align: top; height: 64px; padding: 3px 4px; position: relative;">
-              <div style="text-align: right; font-weight: 800; font-size: 10.5px; color: ${numColor}; margin-bottom: 2px;">${day}</div>
-              ${holidayTag}
+            <td style="background: ${cellBg}; border: ${cellBorder}; vertical-align: top; height: 80px; padding: 6px 8px; position: relative;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <div>${badgeHtml}</div>
+                <div style="font-size: 13px; font-weight: 800; color: ${numColor}; margin-left: auto;">${day}</div>
+              </div>
               ${taskContent}
             </td>
           `;
@@ -1629,7 +1645,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <style>
           @page {
             size: A4 landscape;
-            margin: 6mm 8mm 6mm 8mm;
+            margin: 4mm 6mm 4mm 6mm;
           }
           * {
             box-sizing: border-box;
@@ -1637,140 +1653,133 @@ document.addEventListener('DOMContentLoaded', () => {
             print-color-adjust: exact !important;
           }
           body {
-            font-family: Arial, Helvetica, sans-serif;
-            color: #000000;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            color: #1e293b;
             background: #ffffff;
             margin: 0;
             padding: 0;
-            font-size: 9.5px;
+            font-size: 11px;
             line-height: 1.3;
           }
-          .poa-sheet {
-            width: 280mm;
-            max-width: 280mm;
+          .poa-print-card {
+            width: 285mm;
+            max-width: 285mm;
             margin: 0 auto;
             background: #ffffff;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
           }
-          .kop-table {
-            width: 100%;
-            border-bottom: 3px double #000000;
-            padding-bottom: 4px;
-            margin-bottom: 6px;
-            border-collapse: collapse;
+          .top-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 22px;
+            background: linear-gradient(135deg, #047857 0%, #059669 50%, #10b981 100%) !important;
+            border-bottom: 2px solid #047857;
           }
-          .kop-logo {
-            width: 60px;
-            text-align: center;
-            vertical-align: middle;
+          .title-area {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
           }
-          .kop-logo img {
-            width: 52px;
-            height: auto;
-          }
-          .kop-text {
-            text-align: center;
-            vertical-align: middle;
-          }
-          .kop-text h4 {
-            font-size: 11.5px;
-            font-weight: bold;
+          .main-heading {
+            font-size: 20px;
+            font-weight: 900;
+            font-style: italic;
+            color: #ffffff;
+            letter-spacing: -0.3px;
             margin: 0;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
           }
-          .kop-text h3 {
-            font-size: 13.5px;
+          .sub-heading {
+            font-size: 11.5px;
             font-weight: 800;
-            margin: 2px 0;
             letter-spacing: 0.8px;
+            color: #fef08a;
+            margin: 0;
             text-transform: uppercase;
           }
-          .kop-text p {
-            font-size: 8.5px;
-            margin: 1px 0;
+          .logo-box {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.95);
+            background: #ffffff;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px;
           }
-          .doc-header-block {
-            text-align: center;
-            margin-bottom: 6px;
-          }
-          .doc-main-title {
-            font-size: 12.5px;
-            font-weight: 800;
-            text-decoration: underline;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin: 0 0 2px 0;
-          }
-          .meta-info-table {
+          .logo-box img {
             width: 100%;
-            margin-bottom: 6px;
-            border-collapse: collapse;
-            font-size: 10px;
-          }
-          .meta-info-table td {
-            padding: 1.5px 0;
+            height: 100%;
+            object-fit: contain;
           }
           .cal-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 8px;
             table-layout: fixed;
+            background: #ffffff;
           }
-          .sig-name {
-            font-weight: bold;
-            text-decoration: underline;
-            margin: 0;
+          .legend-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 18px;
+            background: #f8fafc;
+            border-top: 1.5px solid #e2e8f0;
+            font-size: 10px;
           }
-          .sig-nip {
-            margin: 1px 0 0 0;
+          .legend-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+          }
+          .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #475569;
+            font-weight: 600;
+          }
+          .legend-indicator {
+            width: 11px;
+            height: 11px;
+            border-radius: 2px;
+            border: 1px solid #cbd5e1;
+            display: inline-block;
+          }
+          .legend-indicator.work { background: #ffffff; }
+          .legend-indicator.holiday { background: #fee2e2; border-color: #fca5a5; }
+          .legend-indicator.cuti { background: #fef3c7; border-color: #fde68a; }
+          .legend-indicator.today { background: #eff6ff; border-color: #2563eb; }
+          .legend-right {
+            color: #475569;
+            font-size: 10px;
+          }
+          .officer-highlight {
+            color: #059669;
+            font-weight: 800;
           }
         </style>
       </head>
       <body>
-        <div class="poa-sheet" id="poaPrintTarget">
-          <!-- Kop Surat Resmi Puskesmas -->
-          <table class="kop-table">
-            <tr>
-              <td class="kop-logo">
-                <img src="logopoa.png" alt="Logo Puskesmas" onerror="this.src='LOGO.png'">
-              </td>
-              <td class="kop-text">
-                <h4>PEMERINTAH KABUPATEN BANDUNG</h4>
-                <h4>DINAS KESEHATAN</h4>
-                <h3>UPTD PUSKESMAS BANJARAN KOTA</h3>
-                <p>Jl. Raya Banjaran No. 248, Kec. Banjaran, Kab. Bandung, Jawa Barat 40377</p>
-                <p>Email: pusk.banjarankota@gmail.com | Laman: sicekas.web.id</p>
-              </td>
-              <td style="width: 60px;"></td>
-            </tr>
-          </table>
-
-          <!-- Judul Dokumen -->
-          <div class="doc-header-block">
-            <div class="doc-main-title">RENCANA KEGIATAN BULANAN (PLAN OF ACTION - POA)</div>
+        <div class="poa-print-card" id="poaPrintTarget">
+          
+          <!-- Top Emerald Banner with Logo -->
+          <div class="top-banner">
+            <div class="title-area">
+              <h2 class="main-heading">POA ${monthName} ${year}</h2>
+              <span class="sub-heading">${officerName}</span>
+            </div>
+            <div class="logo-box">
+              <img src="logopoa.png" alt="Logo POA" onerror="this.src='LOGO.png'">
+            </div>
           </div>
 
-          <!-- Metadata Petugas -->
-          <table class="meta-info-table">
-            <tr>
-              <td style="width: 13%;"><strong>Nama Petugas</strong></td>
-              <td style="width: 2%;">:</td>
-              <td style="width: 45%; font-weight: bold;">${officerName}</td>
-              <td style="width: 12%;"><strong>Bulan / Tahun</strong></td>
-              <td style="width: 2%;">:</td>
-              <td style="width: 26%; font-weight: bold;">${monthName.toUpperCase()} ${year}</td>
-            </tr>
-            <tr>
-              <td><strong>NIP</strong></td>
-              <td>:</td>
-              <td>${officerNip}</td>
-              <td><strong>Jabatan / Satker</strong></td>
-              <td>:</td>
-              <td>${officerJabatan}</td>
-            </tr>
-          </table>
-
-          <!-- Kalender POA Table -->
+          <!-- Calendar Matrix Table -->
           <table class="cal-table">
             <thead>
               <tr>
@@ -1782,26 +1791,31 @@ document.addEventListener('DOMContentLoaded', () => {
             </tbody>
           </table>
 
-          <!-- Tanda Tangan Resmi -->
-          <table style="width: 100%; border-collapse: collapse; margin-top: 6px; page-break-inside: avoid;">
-            <tr>
-              <td style="width: 48%; text-align: center; vertical-align: top; font-size: 10px;">
-                Mengetahui,<br>
-                <strong>Kepala UPTD Puskesmas Banjaran Kota</strong>
-                <div style="height: 42px;"></div>
-                <p class="sig-name">dr. Rina Indriati</p>
-                <p class="sig-nip">NIP. 19740404 201411 2 001</p>
-              </td>
-              <td style="width: 4%;"></td>
-              <td style="width: 48%; text-align: center; vertical-align: top; font-size: 10px;">
-                Banjaran, 01 ${monthName} ${year}<br>
-                <strong>Yang Membuat Rencana Kegiatan,</strong>
-                <div style="height: 42px;"></div>
-                <p class="sig-name">${officerName}</p>
-                <p class="sig-nip">NIP. ${officerNip}</p>
-              </td>
-            </tr>
-          </table>
+          <!-- Footer Legend Bar -->
+          <div class="legend-bar">
+            <div class="legend-left">
+              <div class="legend-item">
+                <span class="legend-indicator work"></span>
+                <span>Hari Kerja</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-indicator holiday"></span>
+                <span>Libur Nasional</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-indicator cuti"></span>
+                <span>Cuti Bersama</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-indicator today"></span>
+                <span>Hari Ini</span>
+              </div>
+            </div>
+            <div class="legend-right">
+              <span>Petugas: <span class="officer-highlight">${officerName}</span> (${officerJabatan} / ${officerRole})</span>
+            </div>
+          </div>
+
         </div>
       </body>
       </html>
