@@ -3023,8 +3023,9 @@ input[type="date"].modal-input,
 .doc-signatures-exact {
   display: flex;
   justify-content: space-between;
-  margin-top: 14px;
-  padding: 0 10px;
+  align-items: flex-start;
+  margin-top: 20px;
+  padding: 0 12px;
   color: #000000 !important;
   font-size: 10.5px;
   font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
@@ -3035,7 +3036,24 @@ input[type="date"].modal-input,
   flex-direction: column;
   align-items: center;
   text-align: center;
-  min-width: 160px;
+  min-width: 170px;
+  flex: 1;
+}
+
+.sig-exact-top-date {
+  font-size: 10.5px;
+  color: #000000 !important;
+  line-height: 1.25;
+  margin: 0 0 3px 0 !important;
+  min-height: 15px;
+}
+
+.sig-exact-title {
+  font-size: 10.5px;
+  color: #000000 !important;
+  line-height: 1.25;
+  margin: 0 0 3px 0 !important;
+  min-height: 15px;
 }
 
 .sig-exact-col p {
@@ -3045,7 +3063,8 @@ input[type="date"].modal-input,
 }
 
 .sig-exact-space {
-  height: 38px;
+  height: 60px; /* Spacious signature gap for easy wet signing / stamping */
+  width: 100%;
 }
 
 .sig-exact-name {
@@ -3053,6 +3072,7 @@ input[type="date"].modal-input,
   color: #000000 !important;
   text-decoration: underline;
   text-underline-offset: 2px;
+  margin: 0 0 2px 0 !important;
 }
 
 .sig-exact-nip {

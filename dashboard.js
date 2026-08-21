@@ -2871,15 +2871,34 @@ document.addEventListener('DOMContentLoaded', () => {
   .doc-signatures-exact {
     display: flex !important;
     justify-content: space-between !important;
-    margin-top: 12px !important;
+    align-items: flex-start !important;
+    margin-top: 18px !important;
     font-size: 10px !important;
-    padding: 0 5px !important;
+    padding: 0 8px !important;
     color: #000000 !important;
   }
 
   .sig-exact-col {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
     text-align: center !important;
-    min-width: 140px !important;
+    min-width: 150px !important;
+    flex: 1 !important;
+  }
+
+  .sig-exact-top-date {
+    font-size: 9.5px !important;
+    margin: 0 0 2px 0 !important;
+    min-height: 14px !important;
+    line-height: 1.2 !important;
+  }
+
+  .sig-exact-title {
+    font-size: 10px !important;
+    margin: 0 0 2px 0 !important;
+    min-height: 14px !important;
+    line-height: 1.2 !important;
   }
 
   .sig-exact-col p {
@@ -2888,12 +2907,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   .sig-exact-space {
-    height: 32px !important;
+    height: 56px !important;
+    width: 100% !important;
   }
 
   .sig-exact-name {
     font-weight: 700 !important;
     text-decoration: underline !important;
+    margin: 0 0 1px 0 !important;
   }
 
   .sig-exact-nip {
