@@ -37,6 +37,17 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentX = 0;
   let selectedOfficer = null;
 
+  // GSAP Smooth Luxury Entrance Animation
+  if (typeof gsap !== 'undefined') {
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+    tl.fromTo('.mac-window-frame', { opacity: 0, scale: 0.94, y: 25 }, { opacity: 1, scale: 1, y: 0, duration: 0.85 })
+      .fromTo('.logo-aura-box-centered', { opacity: 0, scale: 0.8, y: 15 }, { opacity: 1, scale: 1, y: 0, duration: 0.7 }, '-=0.5')
+      .fromTo('.brand-title-group-centered', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.6 }, '-=0.4')
+      .fromTo('.runaway-main-card', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.75 }, '-=0.4')
+      .fromTo('.form-field-wrapper', { opacity: 0, y: 10 }, { opacity: 1, y: 0, stagger: 0.1, duration: 0.5 }, '-=0.4')
+      .fromTo('.dock-track-container', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5 }, '-=0.3');
+  }
+
   // 39 Official Officers Database (Resmi Puskesmas Banjaran Kota)
   const OFFICERS_DB = [
     { no: 1, username: 'rina', nip: '19740404 201411 2 001', nama: 'dr. Rina Indriati', jabatan: 'Kepala Puskesmas', gol: 'III/d', role: 'Kepala Puskesmas', avatar: 'RI' },
