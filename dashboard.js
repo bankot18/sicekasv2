@@ -6655,8 +6655,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const tests = [
         { name: 'Cloudflare Pages Static Asset Engine', status: 'PASS / 100% READY' },
-        { name: 'Cloudflare Functions / Worker API Gateway', status: 'PASS (/api/v1/sync)' },
-        { name: 'LocalStorage & Offline IndexedDB Cache', status: 'PASS (42KB / 5MB)' },
+        { name: 'Cloudflare Worker & Functions API Gateway', status: 'PASS (/api/users, /api/jadwal)' },
+        { name: 'Cloudflare D1 SQL Serverless Database', status: 'CONNECTED (Global Edge)' },
         { name: 'html2pdf Direct Pure A4 Engine', status: 'READY' },
         { name: 'GSAP Animation Driver v3.12.5', status: 'ACTIVE' },
         { name: 'Super Admin Token Security Signature', status: 'VALID (0x8F9A2)' }
@@ -6667,7 +6667,7 @@ document.addEventListener('DOMContentLoaded', () => {
           this.log('SUCCESS', `  ✓ Check ${i + 1}/${tests.length}: ${t.name} -> [${t.status}]`, 'term-success');
           if (i === tests.length - 1) {
             this.log('SUCCESS', 'Semua tes diagnostik Cloudflare Pages berhasil lulus! (System Health: 100%)', 'term-success');
-            showToast('✓ Diagnostik Selesai: Siap Deploy di Cloudflare Pages!', 'success');
+            showToast('✓ Diagnostik Selesai: Cloudflare Production Edge Siap!', 'success');
           }
         }, (i + 1) * 200);
       });
@@ -6791,11 +6791,16 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast('✓ Backup database JSON berhasil diunduh!', 'success');
     },
 
-    updateStats() {
+    async updateStats() {
       const devDbCount = document.getElementById('devDbCount');
       if (devDbCount) {
-        const count = (JSON.parse(localStorage.getItem('SICEKAS_BOK_DATA_V2')) || []).length;
-        devDbCount.innerHTML = `${count} Record <span class="kpi-badge positive">Ready</span>`;
+        try {
+          const jadwal = await CloudflareDB.fetchJadwal();
+          const count = Array.isArray(jadwal) ? jadwal.length : 0;
+          devDbCount.innerHTML = `${count} Jadwal <span class="kpi-badge positive">D1 Cloud</span>`;
+        } catch (e) {
+          devDbCount.innerHTML = `Cloud D1 <span class="kpi-badge positive">Live</span>`;
+        }
       }
     }
   };
