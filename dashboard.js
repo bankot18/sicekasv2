@@ -2449,10 +2449,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const inputNip = document.getElementById(`sppdPengikutInputNip${i}`);
       const inputKet = document.getElementById(`sppdPengikutInputKet${i}`);
 
-      const docRow = document.getElementById(`sppdDocPengikutRow${i}`);
-      const docNama = document.getElementById(`sppdDocPengikutNama${i}`);
-      const docNip = document.getElementById(`sppdDocPengikutNip${i}`);
-      const docKet = document.getElementById(`sppdDocPengikutKet${i}`);
+      const docNama = document.getElementById(`sppdPengikutNama${i}`);
+      const docNip = document.getElementById(`sppdPengikutNip${i}`);
+      const docKet = document.getElementById(`sppdPengikutKet${i}`);
 
       let nama = '';
       let nip = '';
@@ -2465,23 +2464,13 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (select && select.selectedIndex > 0) {
         const opt = select.options[select.selectedIndex];
         nama = opt.value;
-        nip = opt.getAttribute('data-nip') || '';
-        ket = opt.getAttribute('data-ket') || '';
+        nip = inputNip && inputNip.value !== '' ? inputNip.value : (opt.getAttribute('data-nip') || '');
+        ket = inputKet && inputKet.value !== '' ? inputKet.value : (opt.getAttribute('data-ket') || '');
       }
 
-      if (docRow && docNama && docNip && docKet) {
-        if (nama.trim() !== '') {
-          docRow.style.display = 'table-row';
-          docNama.textContent = nama;
-          docNip.textContent = nip;
-          docKet.textContent = ket;
-        } else {
-          docRow.style.display = 'none';
-          docNama.textContent = '';
-          docNip.textContent = '';
-          docKet.textContent = '';
-        }
-      }
+      if (docNama) docNama.textContent = nama;
+      if (docNip) docNip.textContent = nip;
+      if (docKet) docKet.textContent = ket;
     }
 
     // Update Lembar Belakang (Visum Tabel I, II, III, IV, V, VI, VII)
