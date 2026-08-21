@@ -868,10 +868,42 @@ document.addEventListener('DOMContentLoaded', () => {
   navLinks.forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
+
+      const viewAttr = link.getAttribute('data-view');
+
+      // Popup under-development notification for Pelaporan Program
+      if (viewAttr === 'pelaporan-program') {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            title: 'Mohon Maaf, Masih Tahap Pengembangan',
+            html: `
+              <div style="text-align: center; color: #cbd5e1; font-size: 13.5px; line-height: 1.6; margin-top: 8px;">
+                <p style="margin-bottom: 10px;">Fitur <strong>Pelaporan Program</strong> Puskesmas Banjaran Kota sedang dalam proses persiapan integrasi data dan modul laporan.</p>
+                <div style="display: inline-block; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); color: #fbbf24; padding: 6px 16px; border-radius: 8px; font-weight: 700; font-size: 12px; margin-top: 4px;">
+                  🚧 Status: Masih Tahap Pengembangan
+                </div>
+              </div>
+            `,
+            icon: 'info',
+            iconColor: '#ffd166',
+            background: '#121722',
+            color: '#ffffff',
+            confirmButtonText: 'Baik, Mengerti',
+            confirmButtonColor: '#ffd166',
+            customClass: {
+              popup: 'sicekas-swal-modal',
+              confirmButton: 'btn-swal-confirm'
+            }
+          });
+        } else {
+          alert('Mohon Maaf, Masih Tahap Pengembangan');
+        }
+        return;
+      }
+
       navLinks.forEach(l => l.classList.remove('active'));
       link.classList.add('active');
 
-      const viewAttr = link.getAttribute('data-view');
       if (viewAttr) {
         switchView(viewAttr);
       } else {
@@ -2887,17 +2919,9 @@ document.addEventListener('DOMContentLoaded', () => {
     flex: 1 !important;
   }
 
-  .sig-exact-top-date {
-    font-size: 9.5px !important;
-    margin: 0 0 2px 0 !important;
-    min-height: 14px !important;
-    line-height: 1.2 !important;
-  }
-
   .sig-exact-title {
     font-size: 10px !important;
     margin: 0 0 2px 0 !important;
-    min-height: 14px !important;
     line-height: 1.2 !important;
   }
 

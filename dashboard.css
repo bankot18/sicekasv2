@@ -3040,20 +3040,11 @@ input[type="date"].modal-input,
   flex: 1;
 }
 
-.sig-exact-top-date {
-  font-size: 10.5px;
-  color: #000000 !important;
-  line-height: 1.25;
-  margin: 0 0 3px 0 !important;
-  min-height: 15px;
-}
-
 .sig-exact-title {
   font-size: 10.5px;
   color: #000000 !important;
   line-height: 1.25;
   margin: 0 0 3px 0 !important;
-  min-height: 15px;
 }
 
 .sig-exact-col p {
