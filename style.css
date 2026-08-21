@@ -124,8 +124,7 @@ html, body {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: min(510px, 95vw);
-  max-height: min(94vh, 94dvh);
+  max-width: 500px;
   border-radius: clamp(16px, 3vw, 24px);
   padding: 2.5px; /* Creates slot for animated border tracer */
   box-shadow: 
@@ -262,14 +261,15 @@ html, body {
 
 /* Window Content Area */
 .mac-window-content {
-  padding: clamp(18px, 3.5vw, 28px) clamp(16px, 3vw, 26px) clamp(22px, 4vw, 34px) clamp(16px, 3vw, 26px);
+  padding: 24px 26px 30px 26px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(12px, 2vw, 18px);
-  overflow-y: auto;
-  max-height: calc(94dvh - 46px);
+  gap: 16px;
+  overflow-x: hidden !important;
+  overflow-y: visible;
   box-sizing: border-box;
+  width: 100%;
 }
 
 /* SICEKAS Official Centered Branding Block */
