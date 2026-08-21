@@ -208,6 +208,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
               });
             }
+            if (typeof window.populateTpPolSignatureDropdowns === 'function') {
+              window.populateTpPolSignatureDropdowns();
+            }
+            if (typeof window.populatePoaOfficerDropdown === 'function') {
+              window.populatePoaOfficerDropdown();
+            }
             return json.users;
           }
         }
@@ -2356,20 +2362,67 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial render of scoring table (default: gizi)
   renderScoringTable(tppolSelectJabatan ? tppolSelectJabatan.value : 'gizi');
 
-  // Populate TP POL Signature Dropdowns from Real User Accounts & Roles
-  const populateTpPolSignatureDropdowns = () => {
-    const rolesStore = JSON.parse(localStorage.getItem('SICEKAS_USER_ROLES')) || {};
-    const staffList = window.DAFTAR_PEGAWAI || DAFTAR_PEGAWAI;
+  // Populate POA Bulanan Officer Filter from Cloud DB
+  const populatePoaOfficerDropdown = async () => {
+    if (!poaSelectOfficer) return;
+    let staffList = [];
+    try {
+      staffList = await CloudflareDB.fetchUsers();
+    } catch (e) {
+      staffList = window.DAFTAR_PEGAWAI || DAFTAR_PEGAWAI;
+    }
+    if (!Array.isArray(staffList) || staffList.length === 0) {
+      staffList = window.DAFTAR_PEGAWAI || DAFTAR_PEGAWAI;
+    }
 
-    // 1. Kepala Puskesmas (Akun level 'Kepala Puskesmas' atau jabatan 'Kepala Puskesmas')
+    const currentVal = poaSelectOfficer.value || (CURRENT_USER ? CURRENT_USER.nama : 'Mochamad Fauzie, S.Gz');
+    let optsHtml = '';
+    staffList.forEach(p => {
+      const isSelected = (p.nama === currentVal || (currentVal && p.nama.includes(currentVal)));
+      const isSelf = (CURRENT_USER && p.nama === CURRENT_USER.nama);
+      optsHtml += `
+        <option value="${p.nama}" ${isSelected ? 'selected' : ''}>
+          ${p.no_urut || p.no ? (p.no_urut || p.no) + '. ' : ''}${p.nama} (${p.jabatan}${isSelf ? ' / Anda' : ''})
+        </option>
+      `;
+    });
+    poaSelectOfficer.innerHTML = optsHtml;
+  };
+  window.populatePoaOfficerDropdown = populatePoaOfficerDropdown;
+
+  // Populate TP POL Signature Dropdowns from Live Cloud DB Accounts & Roles
+  const populateTpPolSignatureDropdowns = async () => {
+    let staffList = [];
+    try {
+      staffList = await CloudflareDB.fetchUsers();
+    } catch (e) {
+      staffList = window.DAFTAR_PEGAWAI || DAFTAR_PEGAWAI;
+    }
+    if (!Array.isArray(staffList) || staffList.length === 0) {
+      staffList = window.DAFTAR_PEGAWAI || DAFTAR_PEGAWAI;
+    }
+
+    const rolesStore = JSON.parse(localStorage.getItem('SICEKAS_USER_ROLES')) || {};
+
+    const getOfficerRole = (p) => {
+      const cleanNip = String(p.nip || '').replace(/[\s.]+/g, '');
+      const rawNip = String(p.nip || '');
+      if (rolesStore[cleanNip]) return rolesStore[cleanNip];
+      if (rolesStore[rawNip]) return rolesStore[rawNip];
+      return p.role || 'Petugas Puskesmas';
+    };
+
+    // 1. Kepala Puskesmas (Akun level 'Kepala Puskesmas' dari Cloud DB)
     if (signKepala) {
       const currentVal = signKepala.value;
       let kapusList = staffList.filter(p => {
-        const cleanNip = (p.nip || '').replace(/[\s.]+/g, '');
-        const r = rolesStore[cleanNip] || rolesStore[p.nip] || p.role || '';
+        const r = getOfficerRole(p);
         return r === 'Kepala Puskesmas' || p.jabatan === 'Kepala Puskesmas' || p.nama.includes('dr. Rina Indriati');
       });
 
+      if (kapusList.length === 0) {
+        kapusList = staffList.filter(p => p.nama.includes('dr. Rina Indriati'));
+      }
       if (kapusList.length === 0) {
         kapusList = [{ nama: 'dr. Rina Indriati', nip: '19740404 201411 2 001', jabatan: 'Kepala Puskesmas' }];
       }
@@ -2385,45 +2438,45 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // 2. Verifikator (Akun level 'PJ Klaster')
+    // 2. Verifikator (Strict: HANYA Akun Cloud DB yang memiliki Role 'PJ Klaster')
     if (signVerifikator) {
       const currentVal = signVerifikator.value;
-      let verifList = staffList.filter(p => {
-        const cleanNip = (p.nip || '').replace(/[\s.]+/g, '');
-        const r = rolesStore[cleanNip] || rolesStore[p.nip] || p.role || '';
-        return r === 'PJ Klaster' || r.includes('PJ') || (p.jabatan && (p.jabatan.includes('PJ') || p.jabatan.includes('Satker')));
+      const verifList = staffList.filter(p => {
+        const r = (getOfficerRole(p) || '').trim().toLowerCase();
+        return r === 'pj klaster';
       });
-
-      // Default PJ Klaster / Satker if none assigned yet
-      if (verifList.length === 0) {
-        verifList = staffList.filter(p => [2, 3, 14, 25].includes(p.no));
-      }
 
       let verifHtml = '<option value="" selected>-- Kosongkan Verifikator --</option>';
-      verifList.forEach(p => {
-        const isSelected = p.nama === currentVal;
-        const isNrp = (p.gol === 'BLUD' || (p.nip && p.nip.startsWith('873.')) || (p.nipFull && p.nipFull.startsWith('NRP')));
-        const label = isNrp ? 'NRP' : 'NIP';
-        verifHtml += `
-          <option value="${p.nama}" data-nip="${p.nip}" data-label="${label}" ${isSelected ? 'selected' : ''}>
-            ${p.no ? p.no + '. ' : ''}${p.nama} (${p.jabatan || 'PJ Klaster'})
-          </option>
-        `;
-      });
+      
+      if (verifList.length > 0) {
+        verifList.forEach(p => {
+          const isSelected = (p.nama === currentVal);
+          const isNrp = (p.golongan === 'BLUD' || p.gol === 'BLUD' || (p.nip && p.nip.startsWith('873.')) || (p.nip_full && p.nip_full.startsWith('NRP')) || (p.nipFull && p.nipFull.startsWith('NRP')));
+          const label = isNrp ? 'NRP' : 'NIP';
+          verifHtml += `
+            <option value="${p.nama}" data-nip="${p.nip}" data-label="${label}" ${isSelected ? 'selected' : ''}>
+              ${p.no_urut || p.no ? (p.no_urut || p.no) + '. ' : ''}${p.nama} (${p.jabatan || 'PJ Klaster'})
+            </option>
+          `;
+        });
+      } else {
+        verifHtml += '<option value="" disabled>(Belum ada akun berole PJ Klaster di Cloud)</option>';
+      }
+
       signVerifikator.innerHTML = verifHtml;
     }
 
-    // 3. Petugas Yang Dinilai (Semua 39 akun pegawai, label NIP/NRP otomatis)
+    // 3. Petugas Yang Dinilai (Semua 39 akun pegawai dari Cloud DB, label NIP/NRP otomatis)
     if (signPetugas) {
       const currentVal = signPetugas.value || (CURRENT_USER ? CURRENT_USER.nama : 'Mochamad Fauzie, S.Gz');
       let petHtml = '';
       staffList.forEach(p => {
-        const isNrp = (p.gol === 'BLUD' || (p.status && p.status.includes('BLUD')) || (p.jabatan && p.jabatan.includes('BLUD')) || (p.nip && p.nip.startsWith('873.')) || (p.nipFull && p.nipFull.startsWith('NRP')));
+        const isNrp = (p.golongan === 'BLUD' || p.gol === 'BLUD' || (p.status && p.status.includes('BLUD')) || (p.jabatan && p.jabatan.includes('BLUD')) || (p.nip && p.nip.startsWith('873.')) || (p.nip_full && p.nip_full.startsWith('NRP')) || (p.nipFull && p.nipFull.startsWith('NRP')));
         const labelId = isNrp ? 'NRP' : 'NIP';
         const isSelected = (p.nama === currentVal || (currentVal && p.nama.includes(currentVal)));
         petHtml += `
-          <option value="${p.nama}" data-nip="${p.nip}" data-label="${labelId}" data-jabatan="${p.jabatan}" data-status="${p.gol || (isNrp ? 'BLUD' : 'PNS')}" ${isSelected ? 'selected' : ''}>
-            ${p.no ? p.no + '. ' : ''}${p.nama} (${p.jabatan})
+          <option value="${p.nama}" data-nip="${p.nip}" data-label="${labelId}" data-jabatan="${p.jabatan}" data-status="${p.golongan || p.gol || (isNrp ? 'BLUD' : 'PNS')}" ${isSelected ? 'selected' : ''}>
+            ${p.no_urut || p.no ? (p.no_urut || p.no) + '. ' : ''}${p.nama} (${p.jabatan})
           </option>
         `;
       });
@@ -2500,8 +2553,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Initial populate of TP POL Signatures
+  // Initial populate of TP POL Signatures & POA Officers from Cloud DB
   populateTpPolSignatureDropdowns();
+  populatePoaOfficerDropdown();
 
   // Profile Pegawai Modal Handlers
   const openProfModal = () => {
