@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const viewJadwalKegiatan = document.getElementById('viewJadwalKegiatan');
   const viewDeveloperWeb = document.getElementById('viewDeveloperWeb');
   const navItemDevWeb = document.getElementById('navItemDevWeb');
+  const navSectionGodMode = document.getElementById('navSectionGodMode');
 
   // ==========================================================================
   // DAFTAR RESMI PEGAWAI PUSKESMAS BANJARAN KOTA (39 PEGAWAI)
@@ -952,6 +953,20 @@ document.addEventListener('DOMContentLoaded', () => {
             item.style.display = 'block';
           } else {
             item.style.display = 'none';
+          }
+        }
+      });
+
+      // Synchronize section headers with visible items
+      document.querySelectorAll('.sidebar-nav .nav-list').forEach(list => {
+        const title = list.previousElementSibling;
+        if (title && title.classList.contains('nav-section-title')) {
+          const hasVisibleItems = Array.from(list.querySelectorAll('.nav-item')).some(item => item.style.display !== 'none');
+          if (title.id === 'navSectionGodMode') {
+            const isSuperAdmin = (typeof CURRENT_USER !== 'undefined' && (CURRENT_USER.role === 'Super Admin' || CURRENT_USER.username === 'ozie'));
+            title.style.display = (hasVisibleItems && isSuperAdmin) ? 'block' : 'none';
+          } else {
+            title.style.display = hasVisibleItems ? 'block' : 'none';
           }
         }
       });
@@ -6462,6 +6477,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const isSuperAdmin = (typeof CURRENT_USER !== 'undefined' && (CURRENT_USER.role === 'Super Admin' || CURRENT_USER.username === 'ozie'));
       if (navItemDevWeb) {
         navItemDevWeb.style.display = isSuperAdmin ? 'block' : 'none';
+      }
+      if (navSectionGodMode) {
+        navSectionGodMode.style.display = isSuperAdmin ? 'block' : 'none';
       }
       return isSuperAdmin;
     },
