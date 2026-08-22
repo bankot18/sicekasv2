@@ -35,7 +35,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- SweetAlert2 CDN for Luxury Notifications & Interactive Modals -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <link rel="stylesheet" href="dashboard.css?v=34">
+  <link rel="stylesheet" href="dashboard.css?v=35">
 </head>
 <body>
   <!-- Ambient Atmospheric Light Glows -->
@@ -1079,6 +1079,9 @@
                 </svg>
                 <span>Belum ada file evidence yang diunggah untuk bulan ini.</span>
               </div>
+
+              <!-- List of Uploaded Evidence Items -->
+              <div class="evidence-uploaded-list" id="evidenceUploadedList" style="display: none; margin-top: 10px;"></div>
 
             </div>
 
@@ -3830,6 +3833,131 @@
   </div>
 
   <!-- ==========================================================================
+       MODAL 10: UPLOAD FILE EVIDENCE (BUKTI DUKUNG) KE GOOGLE DRIVE
+       ========================================================================== -->
+  <div class="modal-backdrop" id="modalEvidenceUpload">
+    <div class="modal-card modal-card-evidence">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-box" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.25)); border-color: rgba(16, 185, 129, 0.4); color: #10b981;">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+          </div>
+          <div>
+            <h3>Upload Bukti Dukung (Evidence)</h3>
+            <p>Berkas otomatis tersimpan di Google Drive Puskesmas</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="closeEvidenceModal">&times;</button>
+      </div>
+
+      <form id="formUploadEvidence" class="modal-form-evidence">
+        <div class="modal-body-evidence">
+          <!-- Metadata Info Row -->
+          <div class="evidence-meta-banner">
+            <div class="evidence-meta-item">
+              <span class="evidence-meta-label">Petugas:</span>
+              <strong class="evidence-meta-value" id="evidencePetugasLabel">Mochamad Fauzie, S.Gz</strong>
+            </div>
+            <div class="evidence-meta-item">
+              <span class="evidence-meta-label">Periode:</span>
+              <strong class="evidence-meta-value" id="evidencePeriodeLabel">Agustus 2026</strong>
+            </div>
+          </div>
+
+          <!-- Keterangan / Unsur -->
+          <div class="form-group-evidence">
+            <label for="evidenceKeterangan">Keterangan / Unsur Variabel Kinerja <span style="color:#ef4444;">*</span></label>
+            <input type="text" id="evidenceKeterangan" class="input-evidence" placeholder="Contoh: Laporan Konseling Gizi / Asuhan Balita" required>
+          </div>
+
+          <!-- Drag & Drop Zone -->
+          <div class="form-group-evidence">
+            <label>Pilih File Dokumen <span style="color:#ef4444;">*</span></label>
+            <div class="evidence-dropzone" id="evidenceDropzone">
+              <input type="file" id="evidenceFileInput" accept=".pdf,.jpg,.jpeg,.png,.zip,.rar" style="display:none;">
+              <div class="dropzone-idle" id="dropzoneIdle">
+                <div class="dropzone-icon">
+                  <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                </div>
+                <div class="dropzone-text">
+                  <strong>Klik atau seret file ke area ini</strong>
+                  <span>Format: PDF, JPG, PNG, ZIP (Maks. 25 MB)</span>
+                </div>
+              </div>
+
+              <!-- Selected File Preview -->
+              <div class="dropzone-preview" id="dropzonePreview" style="display: none;">
+                <div class="file-preview-info">
+                  <div class="file-type-badge" id="filePreviewExt">PDF</div>
+                  <div class="file-info-text">
+                    <div class="file-name" id="filePreviewName">document.pdf</div>
+                    <div class="file-size" id="filePreviewSize">1.2 MB</div>
+                  </div>
+                </div>
+                <button type="button" class="btn-remove-file" id="btnRemoveEvidenceFile" title="Hapus File">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Google Apps Script Web App Endpoint Setting (Collapsible) -->
+          <div class="gdrive-bridge-config">
+            <div class="gdrive-bridge-header" id="toggleGdriveConfig">
+              <div class="gdrive-bridge-status">
+                <span class="gdrive-dot active"></span>
+                <span>Bridging Google Drive: <strong id="gdriveStatusText">Google Apps Script Web App</strong></span>
+              </div>
+              <span class="gdrive-toggle-btn">⚙️ Atur URL Script</span>
+            </div>
+            <div class="gdrive-config-body" id="gdriveConfigBody" style="display: none;">
+              <label for="gdriveScriptUrl">Google Apps Script Web App URL:</label>
+              <input type="url" id="gdriveScriptUrl" class="input-evidence" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+              <p class="gdrive-help-text">Tempel URL hasil deploy Web App dari Google Apps Script Anda. URL akan tersimpan otomatis di browser.</p>
+            </div>
+          </div>
+
+          <!-- Upload Progress Bar -->
+          <div class="upload-progress-container" id="uploadProgressContainer" style="display:none;">
+            <div class="upload-progress-info">
+              <span id="uploadProgressLabel">Mengunggah ke Google Drive...</span>
+              <span id="uploadProgressPercent">0%</span>
+            </div>
+            <div class="upload-progress-bar">
+              <div class="upload-progress-fill" id="uploadProgressFill"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" id="btnCancelEvidence">Batal</button>
+          <button type="submit" class="btn-save-pass" id="btnSubmitEvidence" style="background: linear-gradient(135deg, #10b981, #059669); border-color: #10b981;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <span id="btnSubmitEvidenceText">Mulai Upload ke Google Drive</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
        MODAL 9: IN-APP BROWSER WINDOW (CKG BANKOT)
        ========================================================================== -->
   <div class="browser-window-backdrop" id="modalBrowserCkg">
@@ -3935,6 +4063,6 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=45"></script>
+  <script src="dashboard.js?v=46"></script>
 </body>
 </html>

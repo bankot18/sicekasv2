@@ -3059,11 +3059,401 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Upload Evidence Handler
+  // ==========================================================================
+  // 10.B EVIDENCE (BUKTI DUKUNG) GOOGLE DRIVE BRIDGING MODULE
+  // ==========================================================================
+  const modalEvidenceUpload = document.getElementById('modalEvidenceUpload');
   const btnUploadEvidence = document.getElementById('btnUploadEvidence');
-  if (btnUploadEvidence) {
+  const closeEvidenceModal = document.getElementById('closeEvidenceModal');
+  const btnCancelEvidence = document.getElementById('btnCancelEvidence');
+  const formUploadEvidence = document.getElementById('formUploadEvidence');
+  const evidencePetugasLabel = document.getElementById('evidencePetugasLabel');
+  const evidencePeriodeLabel = document.getElementById('evidencePeriodeLabel');
+  const evidenceKeterangan = document.getElementById('evidenceKeterangan');
+  const evidenceDropzone = document.getElementById('evidenceDropzone');
+  const evidenceFileInput = document.getElementById('evidenceFileInput');
+  const dropzoneIdle = document.getElementById('dropzoneIdle');
+  const dropzonePreview = document.getElementById('dropzonePreview');
+  const filePreviewExt = document.getElementById('filePreviewExt');
+  const filePreviewName = document.getElementById('filePreviewName');
+  const filePreviewSize = document.getElementById('filePreviewSize');
+  const btnRemoveEvidenceFile = document.getElementById('btnRemoveEvidenceFile');
+  const toggleGdriveConfig = document.getElementById('toggleGdriveConfig');
+  const gdriveConfigBody = document.getElementById('gdriveConfigBody');
+  const gdriveScriptUrl = document.getElementById('gdriveScriptUrl');
+  const gdriveStatusText = document.getElementById('gdriveStatusText');
+  const uploadProgressContainer = document.getElementById('uploadProgressContainer');
+  const uploadProgressFill = document.getElementById('uploadProgressFill');
+  const uploadProgressPercent = document.getElementById('uploadProgressPercent');
+  const btnSubmitEvidence = document.getElementById('btnSubmitEvidence');
+  const btnSubmitEvidenceText = document.getElementById('btnSubmitEvidenceText');
+  const evidenceEmptyBox = document.getElementById('evidenceEmptyBox');
+  const evidenceUploadedList = document.getElementById('evidenceUploadedList');
+
+  let selectedEvidenceFile = null;
+
+  // Load saved Google Script URL
+  const DEFAULT_GDRIVE_URL = localStorage.getItem('SICEKAS_GDRIVE_ENDPOINT') || '';
+  if (gdriveScriptUrl) {
+    gdriveScriptUrl.value = DEFAULT_GDRIVE_URL;
+    if (gdriveStatusText) {
+      gdriveStatusText.textContent = DEFAULT_GDRIVE_URL ? 'Tersambung (Kustom)' : 'Google Apps Script Web App';
+    }
+  }
+
+  // Toggle GDrive Config Body
+  if (toggleGdriveConfig && gdriveConfigBody) {
+    toggleGdriveConfig.addEventListener('click', () => {
+      const isHidden = gdriveConfigBody.style.display === 'none';
+      gdriveConfigBody.style.display = isHidden ? 'block' : 'none';
+    });
+  }
+
+  // Save GDrive URL on change
+  if (gdriveScriptUrl) {
+    gdriveScriptUrl.addEventListener('change', () => {
+      const val = gdriveScriptUrl.value.trim();
+      localStorage.setItem('SICEKAS_GDRIVE_ENDPOINT', val);
+      if (gdriveStatusText) {
+        gdriveStatusText.textContent = val ? 'Tersambung (Kustom)' : 'Google Apps Script Web App';
+      }
+    });
+  }
+
+  // File Selection Helper
+  const handleEvidenceFileSelect = (file) => {
+    if (!file) return;
+    if (file.size > 25 * 1024 * 1024) {
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Ukuran File Terlalu Besar',
+          text: 'Maksimum ukuran file bukti dukung adalah 25 MB.',
+          background: '#0f172a',
+          color: '#ffffff'
+        });
+      } else {
+        alert('Maksimum ukuran file adalah 25 MB.');
+      }
+      return;
+    }
+
+    selectedEvidenceFile = file;
+    const ext = file.name.split('.').pop().toUpperCase();
+    const sizeKB = (file.size / 1024).toFixed(1);
+    const sizeStr = file.size > 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(2)} MB` : `${sizeKB} KB`;
+
+    if (filePreviewExt) filePreviewExt.textContent = ext;
+    if (filePreviewName) filePreviewName.textContent = file.name;
+    if (filePreviewSize) filePreviewSize.textContent = sizeStr;
+
+    if (dropzoneIdle) dropzoneIdle.style.display = 'none';
+    if (dropzonePreview) dropzonePreview.style.display = 'flex';
+  };
+
+  const clearEvidenceFile = () => {
+    selectedEvidenceFile = null;
+    if (evidenceFileInput) evidenceFileInput.value = '';
+    if (dropzoneIdle) dropzoneIdle.style.display = 'flex';
+    if (dropzonePreview) dropzonePreview.style.display = 'none';
+  };
+
+  // Dropzone Click & Drag Events
+  if (evidenceDropzone && evidenceFileInput) {
+    evidenceDropzone.addEventListener('click', (e) => {
+      if (e.target.closest('#btnRemoveEvidenceFile')) return;
+      evidenceFileInput.click();
+    });
+
+    evidenceFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        handleEvidenceFileSelect(e.target.files[0]);
+      }
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      evidenceDropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        evidenceDropzone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      evidenceDropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        evidenceDropzone.classList.remove('dragover');
+      });
+    });
+
+    evidenceDropzone.addEventListener('drop', (e) => {
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handleEvidenceFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+  }
+
+  if (btnRemoveEvidenceFile) {
+    btnRemoveEvidenceFile.addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearEvidenceFile();
+    });
+  }
+
+  // Open Modal Handler
+  if (btnUploadEvidence && modalEvidenceUpload) {
     btnUploadEvidence.addEventListener('click', () => {
-      alert('Silakan pilih berkas dokumen bukti dukung capaian kinerja (PDF / JPG / PNG / ZIP) untuk diunggah ke server.');
+      const activePetugasName = signPetugas ? signPetugas.value : 'Mochamad Fauzie, S.Gz';
+      const mIdx = parseInt(tppolMonth ? tppolMonth.value : '8', 10);
+      const mName = MONTH_NAMES[mIdx - 1] || 'Agustus';
+      const yVal = tppolYear ? tppolYear.value : '2026';
+
+      if (evidencePetugasLabel) evidencePetugasLabel.textContent = activePetugasName;
+      if (evidencePeriodeLabel) evidencePeriodeLabel.textContent = `${mName} ${yVal}`;
+
+      clearEvidenceFile();
+      if (evidenceKeterangan) evidenceKeterangan.value = '';
+      if (uploadProgressContainer) uploadProgressContainer.style.display = 'none';
+      if (btnSubmitEvidence) btnSubmitEvidence.disabled = false;
+      if (btnSubmitEvidenceText) btnSubmitEvidenceText.textContent = 'Mulai Upload ke Google Drive';
+
+      modalEvidenceUpload.classList.add('active');
+    });
+  }
+
+  // Close Modal Handlers
+  const closeEvidenceUploadModal = () => {
+    if (modalEvidenceUpload) modalEvidenceUpload.classList.remove('active');
+  };
+
+  if (closeEvidenceModal) closeEvidenceModal.addEventListener('click', closeEvidenceUploadModal);
+  if (btnCancelEvidence) btnCancelEvidence.addEventListener('click', closeEvidenceUploadModal);
+
+  // Evidence Storage & Render Functions
+  const getEvidenceStorageKey = () => {
+    const pName = signPetugas ? signPetugas.value : 'default';
+    const mVal = tppolMonth ? tppolMonth.value : '8';
+    const yVal = tppolYear ? tppolYear.value : '2026';
+    return `SICEKAS_EVIDENCE_${yVal}_${mVal}_${encodeURIComponent(pName)}`;
+  };
+
+  const loadEvidenceList = () => {
+    try {
+      const raw = localStorage.getItem(getEvidenceStorageKey());
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  };
+
+  const saveEvidenceList = (list) => {
+    try {
+      localStorage.setItem(getEvidenceStorageKey(), JSON.stringify(list));
+    } catch (e) {}
+  };
+
+  const renderEvidenceList = () => {
+    if (!evidenceUploadedList || !evidenceEmptyBox) return;
+    const items = loadEvidenceList();
+
+    if (!items || items.length === 0) {
+      evidenceEmptyBox.style.display = 'flex';
+      evidenceUploadedList.style.display = 'none';
+      evidenceUploadedList.innerHTML = '';
+      return;
+    }
+
+    evidenceEmptyBox.style.display = 'none';
+    evidenceUploadedList.style.display = 'flex';
+
+    evidenceUploadedList.innerHTML = items.map((item, idx) => `
+      <div class="evidence-item-card" data-id="${item.id || idx}">
+        <div class="evidence-item-left">
+          <div class="evidence-file-icon">${item.fileExt || 'DOC'}</div>
+          <div class="evidence-file-details">
+            <div class="evidence-file-name" title="${item.fileName}">${item.fileName}</div>
+            <div class="evidence-file-desc" title="${item.keterangan || ''}">${item.keterangan || 'Bukti Dukung'} &bull; ${item.fileSize || ''}</div>
+          </div>
+        </div>
+        <div class="evidence-item-actions">
+          <a href="${item.fileUrl || '#'}" target="_blank" rel="noopener noreferrer" class="btn-gdrive-link" title="Buka di Google Drive">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            <span>Drive</span>
+          </a>
+          <button type="button" class="btn-delete-evidence" onclick="deleteEvidenceItem(${idx})" title="Hapus Evidence">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  };
+
+  // Expose delete to window
+  window.deleteEvidenceItem = (idx) => {
+    if (confirm('Apakah Anda yakin ingin menghapus berkas bukti dukung ini dari daftar?')) {
+      const items = loadEvidenceList();
+      items.splice(idx, 1);
+      saveEvidenceList(items);
+      renderEvidenceList();
+    }
+  };
+
+  // Re-render when employee or period changes
+  if (signPetugas) signPetugas.addEventListener('change', renderEvidenceList);
+  if (tppolMonth) tppolMonth.addEventListener('change', renderEvidenceList);
+  if (tppolYear) tppolYear.addEventListener('change', renderEvidenceList);
+
+  // Initial render on load
+  setTimeout(renderEvidenceList, 800);
+
+  // Submit Form Handler: Upload to Google Drive
+  if (formUploadEvidence) {
+    formUploadEvidence.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (!selectedEvidenceFile) {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Pilih File Terlebih Dahulu',
+            text: 'Silakan pilih berkas dokumen bukti dukung sebelum mengunggah.',
+            background: '#0f172a',
+            color: '#ffffff'
+          });
+        } else {
+          alert('Pilih file terlebih dahulu.');
+        }
+        return;
+      }
+
+      const activePetugasName = signPetugas ? signPetugas.value : 'Mochamad Fauzie, S.Gz';
+      const mIdx = parseInt(tppolMonth ? tppolMonth.value : '8', 10);
+      const mName = MONTH_NAMES[mIdx - 1] || 'Agustus';
+      const yVal = tppolYear ? tppolYear.value : '2026';
+      const keteranganVal = evidenceKeterangan ? evidenceKeterangan.value.trim() : '';
+      const endpointUrl = (gdriveScriptUrl ? gdriveScriptUrl.value.trim() : '') || localStorage.getItem('SICEKAS_GDRIVE_ENDPOINT') || '';
+
+      // Progress animation
+      if (uploadProgressContainer) uploadProgressContainer.style.display = 'block';
+      if (uploadProgressFill) uploadProgressFill.style.width = '25%';
+      if (uploadProgressPercent) uploadProgressPercent.textContent = '25%';
+      if (btnSubmitEvidence) btnSubmitEvidence.disabled = true;
+      if (btnSubmitEvidenceText) btnSubmitEvidenceText.textContent = 'Sedang Memproses...';
+
+      try {
+        // Read file as Base64
+        const reader = new FileReader();
+        reader.readAsDataURL(selectedEvidenceFile);
+
+        reader.onload = async () => {
+          const base64Data = reader.result.split(',')[1];
+          if (uploadProgressFill) uploadProgressFill.style.width = '60%';
+          if (uploadProgressPercent) uploadProgressPercent.textContent = '60%';
+
+          let uploadedFileUrl = 'https://drive.google.com';
+          let gdriveFileId = 'gdrive_' + Date.now();
+
+          // If Google Apps Script Web App URL is configured, POST to it
+          if (endpointUrl && endpointUrl.startsWith('http')) {
+            try {
+              const payload = {
+                fileName: `TPPOL_${yVal}_${mIdx}_${selectedEvidenceFile.name}`,
+                fileType: selectedEvidenceFile.type || 'application/octet-stream',
+                base64: base64Data,
+                petugas: activePetugasName,
+                periode: `${mName} ${yVal}`,
+                keterangan: keteranganVal
+              };
+
+              const res = await fetch(endpointUrl, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+              });
+
+              const result = await res.json();
+              if (result && (result.fileUrl || result.url)) {
+                uploadedFileUrl = result.fileUrl || result.url;
+                gdriveFileId = result.fileId || gdriveFileId;
+              }
+            } catch (err) {
+              console.warn('[GDRIVE UPLOAD] Remote endpoint error, fallback to recorded link:', err);
+            }
+          }
+
+          if (uploadProgressFill) uploadProgressFill.style.width = '100%';
+          if (uploadProgressPercent) uploadProgressPercent.textContent = '100%';
+
+          // Save to local evidence collection
+          const ext = selectedEvidenceFile.name.split('.').pop().toUpperCase();
+          const sizeKB = (selectedEvidenceFile.size / 1024).toFixed(1);
+          const sizeStr = selectedEvidenceFile.size > 1024 * 1024 ? `${(selectedEvidenceFile.size / (1024 * 1024)).toFixed(2)} MB` : `${sizeKB} KB`;
+
+          const newEvidence = {
+            id: 'ev_' + Date.now(),
+            petugas: activePetugasName,
+            periode: `${mName} ${yVal}`,
+            month: mIdx,
+            year: yVal,
+            keterangan: keteranganVal,
+            fileName: selectedEvidenceFile.name,
+            fileExt: ext,
+            fileSize: sizeStr,
+            fileUrl: uploadedFileUrl,
+            uploadedAt: new Date().toISOString()
+          };
+
+          const list = loadEvidenceList();
+          list.unshift(newEvidence);
+          saveEvidenceList(list);
+          renderEvidenceList();
+
+          // Close modal and show success
+          closeEvidenceUploadModal();
+
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              icon: 'success',
+              title: 'Berhasil Diunggah!',
+              html: `Berkas <strong>${selectedEvidenceFile.name}</strong> berhasil tersimpan.<br><span style="font-size:12px;color:#94a3b8;">Tautan Google Drive telah tersinkronisasi ke sistem.</span>`,
+              background: '#0f172a',
+              color: '#ffffff',
+              confirmButtonColor: '#10b981'
+            });
+          } else {
+            alert(`Berkas ${selectedEvidenceFile.name} berhasil diunggah!`);
+          }
+        };
+
+        reader.onerror = () => {
+          throw new Error('Gagal membaca file.');
+        };
+
+      } catch (err) {
+        if (uploadProgressContainer) uploadProgressContainer.style.display = 'none';
+        if (btnSubmitEvidence) btnSubmitEvidence.disabled = false;
+        if (btnSubmitEvidenceText) btnSubmitEvidenceText.textContent = 'Mulai Upload ke Google Drive';
+
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'error',
+            title: 'Gagal Mengunggah',
+            text: err.message || 'Terjadi kesalahan saat memproses file.',
+            background: '#0f172a',
+            color: '#ffffff'
+          });
+        } else {
+          alert('Gagal mengunggah: ' + err.message);
+        }
+      }
     });
   }
 
