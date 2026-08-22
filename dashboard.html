@@ -35,7 +35,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- SweetAlert2 CDN for Luxury Notifications & Interactive Modals -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <link rel="stylesheet" href="dashboard.css?v=35">
+  <link rel="stylesheet" href="dashboard.css?v=36">
 </head>
 <body>
   <!-- Ambient Atmospheric Light Glows -->
@@ -3918,14 +3918,14 @@
             <div class="gdrive-bridge-header" id="toggleGdriveConfig">
               <div class="gdrive-bridge-status">
                 <span class="gdrive-dot active"></span>
-                <span>Bridging Google Drive: <strong id="gdriveStatusText">Google Apps Script Web App</strong></span>
+                <span>Bridging Google Drive: <strong id="gdriveStatusText" style="color: #34d399;">Tersambung (Aktif)</strong></span>
               </div>
               <span class="gdrive-toggle-btn">⚙️ Atur URL Script</span>
             </div>
             <div class="gdrive-config-body" id="gdriveConfigBody" style="display: none;">
               <label for="gdriveScriptUrl">Google Apps Script Web App URL:</label>
-              <input type="url" id="gdriveScriptUrl" class="input-evidence" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
-              <p class="gdrive-help-text">Tempel URL hasil deploy Web App dari Google Apps Script Anda. URL akan tersimpan otomatis di browser.</p>
+              <input type="url" id="gdriveScriptUrl" class="input-evidence" value="https://script.google.com/macros/s/AKfycbwy_8AJb9KyPC1yqclPuVNNuZ0EJLZW0GxwRJAYmErHJJynBnfxr7hJtP_Yn2DOv_hS/exec" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+              <p class="gdrive-help-text">URL Google Apps Script EVIDEN TP POL tertanam aktif. Berkas bukti dukung otomatis masuk ke Google Drive Puskesmas.</p>
             </div>
           </div>
 
@@ -4063,6 +4063,6 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=46"></script>
+  <script src="dashboard.js?v=47"></script>
 </body>
 </html>

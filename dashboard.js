@@ -3093,11 +3093,12 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedEvidenceFile = null;
 
   // Load saved Google Script URL
-  const DEFAULT_GDRIVE_URL = localStorage.getItem('SICEKAS_GDRIVE_ENDPOINT') || '';
+  const DEFAULT_GDRIVE_URL = localStorage.getItem('SICEKAS_GDRIVE_ENDPOINT') || 'https://script.google.com/macros/s/AKfycbwy_8AJb9KyPC1yqclPuVNNuZ0EJLZW0GxwRJAYmErHJJynBnfxr7hJtP_Yn2DOv_hS/exec';
   if (gdriveScriptUrl) {
     gdriveScriptUrl.value = DEFAULT_GDRIVE_URL;
     if (gdriveStatusText) {
-      gdriveStatusText.textContent = DEFAULT_GDRIVE_URL ? 'Tersambung (Kustom)' : 'Google Apps Script Web App';
+      gdriveStatusText.textContent = 'Tersambung (Aktif)';
+      gdriveStatusText.style.color = '#34d399';
     }
   }
 
@@ -3339,7 +3340,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const mName = MONTH_NAMES[mIdx - 1] || 'Agustus';
       const yVal = tppolYear ? tppolYear.value : '2026';
       const keteranganVal = evidenceKeterangan ? evidenceKeterangan.value.trim() : '';
-      const endpointUrl = (gdriveScriptUrl ? gdriveScriptUrl.value.trim() : '') || localStorage.getItem('SICEKAS_GDRIVE_ENDPOINT') || '';
+      const endpointUrl = (gdriveScriptUrl ? gdriveScriptUrl.value.trim() : '') || localStorage.getItem('SICEKAS_GDRIVE_ENDPOINT') || 'https://script.google.com/macros/s/AKfycbwy_8AJb9KyPC1yqclPuVNNuZ0EJLZW0GxwRJAYmErHJJynBnfxr7hJtP_Yn2DOv_hS/exec';
 
       // Progress animation
       if (uploadProgressContainer) uploadProgressContainer.style.display = 'block';
