@@ -7451,6 +7451,7 @@ document.addEventListener('DOMContentLoaded', () => {
     url: 'https://ckgbankot.web.id',
     isLoaded: false,
     isFullscreen: false,
+    isAnimating: false,
 
     init() {
       if (!this.modal) return;
@@ -7514,11 +7515,22 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     open() {
+      if (this.isAnimating) return;
       if (this.dock) this.dock.classList.remove('active');
       if (this.modal) {
         this.modal.classList.remove('minimized');
         this.modal.classList.add('active');
       }
+
+      if (typeof gsap !== 'undefined' && this.card && this.modal) {
+        gsap.killTweensOf([this.card, this.modal]);
+        gsap.fromTo(this.modal, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power2.out' });
+        gsap.fromTo(this.card, 
+          { scale: 0.88, y: 35, opacity: 0, x: 0 }, 
+          { scale: 1, y: 0, x: 0, opacity: 1, duration: 0.42, ease: 'back.out(1.4)' }
+        );
+      }
+
       if (this.iframe && (!this.isLoaded || this.iframe.src === 'about:blank' || !this.iframe.src.includes('ckgbankot.web.id'))) {
         if (this.loadingOverlay) this.loadingOverlay.classList.remove('hidden');
         this.iframe.src = this.url;
@@ -7527,26 +7539,120 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     minimize() {
-      if (this.modal) this.modal.classList.add('minimized');
-      if (this.dock) this.dock.classList.add('active');
+      if (this.isAnimating) return;
+      this.isAnimating = true;
+
+      if (typeof gsap !== 'undefined' && this.card && this.modal) {
+        const destX = window.innerWidth / 2 - 120;
+        const destY = window.innerHeight / 2 - 50;
+
+        gsap.to(this.card, {
+          scale: 0.15,
+          x: destX,
+          y: destY,
+          opacity: 0,
+          duration: 0.32,
+          ease: 'power3.inOut'
+        });
+
+        gsap.to(this.modal, {
+          opacity: 0,
+          duration: 0.28,
+          delay: 0.05,
+          ease: 'power2.in',
+          onComplete: () => {
+            this.modal.classList.remove('active');
+            this.modal.classList.add('minimized');
+            if (this.dock) {
+              this.dock.classList.add('active');
+              gsap.fromTo(this.dock,
+                { scale: 0.4, y: 30, opacity: 0 },
+                { scale: 1, y: 0, opacity: 1, duration: 0.38, ease: 'back.out(1.8)' }
+              );
+            }
+            this.isAnimating = false;
+          }
+        });
+      } else {
+        if (this.modal) this.modal.classList.add('minimized');
+        if (this.dock) this.dock.classList.add('active');
+        this.isAnimating = false;
+      }
     },
 
     restore() {
-      if (this.dock) this.dock.classList.remove('active');
-      if (this.modal) {
-        this.modal.classList.remove('minimized');
-        this.modal.classList.add('active');
+      if (this.isAnimating) return;
+      this.isAnimating = true;
+
+      if (typeof gsap !== 'undefined' && this.dock && this.modal && this.card) {
+        gsap.to(this.dock, {
+          scale: 0.7,
+          opacity: 0,
+          duration: 0.2,
+          ease: 'power2.in',
+          onComplete: () => {
+            this.dock.classList.remove('active');
+            this.modal.classList.remove('minimized');
+            this.modal.classList.add('active');
+
+            const startX = window.innerWidth / 2 - 120;
+            const startY = window.innerHeight / 2 - 50;
+
+            gsap.fromTo(this.modal, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power2.out' });
+            gsap.fromTo(this.card,
+              { scale: 0.18, x: startX, y: startY, opacity: 0 },
+              { scale: 1, x: 0, y: 0, opacity: 1, duration: 0.42, ease: 'power3.out', onComplete: () => { this.isAnimating = false; } }
+            );
+          }
+        });
+      } else {
+        if (this.dock) this.dock.classList.remove('active');
+        if (this.modal) {
+          this.modal.classList.remove('minimized');
+          this.modal.classList.add('active');
+        }
+        this.isAnimating = false;
       }
     },
 
     toggleMaximize() {
       this.isFullscreen = !this.isFullscreen;
+
+      if (this.modal) {
+        this.modal.classList.toggle('is-maximized', this.isFullscreen);
+      }
+
       if (this.card) {
         this.card.classList.toggle('fullscreen', this.isFullscreen);
+        
+        // Micro pulse effect
+        if (typeof gsap !== 'undefined') {
+          gsap.fromTo(this.card, { scale: 0.985 }, { scale: 1, duration: 0.38, ease: 'power2.out' });
+        }
+      }
+
+      // Update button icon and title
+      if (this.btnMaximize) {
+        this.btnMaximize.title = this.isFullscreen ? 'Kecilkan / Normal' : 'Ukuran Layar Penuh';
+        this.btnMaximize.innerHTML = this.isFullscreen ? `
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="4 14 10 14 10 20"></polyline>
+            <polyline points="20 10 14 10 14 4"></polyline>
+            <line x1="14" y1="10" x2="21" y2="3"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        ` : `
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          </svg>
+        `;
       }
     },
 
     reload() {
+      if (this.btnReload && typeof gsap !== 'undefined') {
+        gsap.fromTo(this.btnReload, { rotate: 0 }, { rotate: 360, duration: 0.6, ease: 'power2.inOut' });
+      }
       if (this.iframe) {
         if (this.loadingOverlay) this.loadingOverlay.classList.remove('hidden');
         this.iframe.src = this.url;
@@ -7554,19 +7660,45 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     close() {
-      if (this.modal) {
-        this.modal.classList.remove('active', 'minimized');
-      }
-      if (this.dock) {
-        this.dock.classList.remove('active');
-      }
-      if (this.card) {
-        this.card.classList.remove('fullscreen');
-        this.isFullscreen = false;
-      }
-      if (this.iframe) {
-        this.iframe.src = 'about:blank';
-        this.isLoaded = false;
+      if (this.isAnimating) return;
+      this.isAnimating = true;
+
+      if (typeof gsap !== 'undefined' && this.modal && this.card) {
+        gsap.to(this.card, { scale: 0.9, y: 20, opacity: 0, duration: 0.25, ease: 'power2.in' });
+        gsap.to(this.modal, {
+          opacity: 0,
+          duration: 0.25,
+          ease: 'power2.in',
+          onComplete: () => {
+            this.modal.classList.remove('active', 'minimized', 'is-maximized');
+            if (this.dock) this.dock.classList.remove('active');
+            if (this.card) {
+              this.card.classList.remove('fullscreen');
+              this.isFullscreen = false;
+            }
+            if (this.iframe) {
+              this.iframe.src = 'about:blank';
+              this.isLoaded = false;
+            }
+            this.isAnimating = false;
+          }
+        });
+      } else {
+        if (this.modal) {
+          this.modal.classList.remove('active', 'minimized', 'is-maximized');
+        }
+        if (this.dock) {
+          this.dock.classList.remove('active');
+        }
+        if (this.card) {
+          this.card.classList.remove('fullscreen');
+          this.isFullscreen = false;
+        }
+        if (this.iframe) {
+          this.iframe.src = 'about:blank';
+          this.isLoaded = false;
+        }
+        this.isAnimating = false;
       }
     }
   };
