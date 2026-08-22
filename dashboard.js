@@ -868,6 +868,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   navLinks.forEach(link => {
     link.addEventListener('click', (e) => {
+      const href = link.getAttribute('href');
+      // Direct external link (e.g. CKG Bankot)
+      if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+        window.open(href, '_blank');
+        e.preventDefault();
+        return;
+      }
+
       e.preventDefault();
 
       const viewAttr = link.getAttribute('data-view');
