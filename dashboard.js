@@ -2347,7 +2347,91 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     scoringTableBody.innerHTML = html;
+
+    // Load saved scoring data directly from Cloud Database
+    loadAndApplyTpPolData();
   }
+
+  // TP POL 100% Pure Cloud Persistence
+  const collectTpPolFormData = () => {
+    const cakupanInputs = document.querySelectorAll('#scoringTableBody .exact-cakupan-input');
+    const cakupanValues = Array.from(cakupanInputs).map(input => input.value);
+    const totalScoreVal = document.getElementById('totalScoreInput')?.value || '';
+
+    const month = parseInt(tppolMonth ? tppolMonth.value : '8', 10);
+    const year = parseInt(tppolYear ? tppolYear.value : '2026', 10);
+    const jabatan = tppolSelectJabatan ? tppolSelectJabatan.value : 'gizi';
+    const petugas = signPetugas ? signPetugas.value : (tpPolMetaName ? tpPolMetaName.textContent : '');
+    const nip = (signPetugas && signPetugas.options[signPetugas.selectedIndex]?.getAttribute('data-nip')) || (tpPolMetaNip ? tpPolMetaNip.textContent : '');
+    const kepala = signKepala ? signKepala.value : '';
+    const verifikator = signVerifikator ? signVerifikator.value : '';
+
+    return {
+      id: `tppol-${nip ? nip.replace(/[\s.]+/g, '') : encodeURIComponent(petugas)}-${month}-${year}-${jabatan}`,
+      bulan: month,
+      tahun: year,
+      jabatanKey: jabatan,
+      petugas_nama: petugas,
+      petugas_nip: nip,
+      petugas_jabatan: tpPolMetaJabatan ? tpPolMetaJabatan.textContent : jabatan,
+      kepala: kepala,
+      verifikator: verifikator,
+      cakupanValues: cakupanValues,
+      total_skor: totalScoreVal,
+      savedAt: new Date().toISOString()
+    };
+  };
+
+  const loadAndApplyTpPolData = async () => {
+    const month = parseInt(tppolMonth ? tppolMonth.value : '8', 10);
+    const year = parseInt(tppolYear ? tppolYear.value : '2026', 10);
+    const jabatan = tppolSelectJabatan ? tppolSelectJabatan.value : 'gizi';
+    const petugas = signPetugas ? signPetugas.value : (tpPolMetaName ? tpPolMetaName.textContent : '');
+    const nip = (signPetugas && signPetugas.options[signPetugas.selectedIndex]?.getAttribute('data-nip')) || '';
+
+    // Clear inputs first so previous officer/month data doesn't linger
+    const cakupanInputs = document.querySelectorAll('#scoringTableBody .exact-cakupan-input');
+    cakupanInputs.forEach(input => { input.value = ''; });
+    const totalInput = document.getElementById('totalScoreInput');
+    if (totalInput) totalInput.value = '';
+
+    // Fetch directly from Cloud Database (Cloudflare D1)
+    try {
+      const query = new URLSearchParams({
+        bulan: month,
+        tahun: year
+      });
+      if (nip) query.append('nip', nip);
+
+      const res = await fetch(`/api/tppol?${query.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json && json.data && json.data.length > 0) {
+          const cleanTargetNip = nip.replace(/[\s.]+/g, '');
+          const record = json.data.find(r => {
+            const rNip = String(r.petugas_nip || '').replace(/[\s.]+/g, '');
+            return (cleanTargetNip && rNip === cleanTargetNip) || r.petugas_nama === petugas;
+          }) || json.data[0];
+
+          if (record && record.form_data) {
+            const parsedForm = typeof record.form_data === 'string' ? JSON.parse(record.form_data) : record.form_data;
+            if (parsedForm && Array.isArray(parsedForm.cakupanValues)) {
+              cakupanInputs.forEach((input, idx) => {
+                if (parsedForm.cakupanValues[idx] !== undefined) {
+                  input.value = parsedForm.cakupanValues[idx];
+                }
+              });
+              if (totalInput && (parsedForm.total_skor !== undefined || record.total_skor !== undefined)) {
+                totalInput.value = parsedForm.total_skor || record.total_skor;
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[TPPOL CLOUD LOAD] Error loading from cloud:', err);
+    }
+  };
 
   // ------- JABATAN CHANGE HANDLER -------
   const tppolSelectJabatan = document.getElementById('tppolSelectJabatan');
@@ -2405,6 +2489,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sigDatePlace) {
       sigDatePlace.textContent = `Banjaran, ${lastDayOfMonth} ${monthName} ${year}`;
     }
+
+    loadAndApplyTpPolData();
   };
 
   if (tppolMonth) tppolMonth.addEventListener('change', updateTpPolDocHeader);
@@ -2614,6 +2700,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (profJabatan) profJabatan.value = petJabatan;
       if (tpPolMetaStatus) tpPolMetaStatus.textContent = petStatus;
       if (profStatus) profStatus.value = petStatus;
+
+      loadAndApplyTpPolData();
     });
   }
 
@@ -2679,12 +2767,41 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Save TP POL Data
+  // Save TP POL Data (Cloudflare D1 + Local Storage Sync)
   if (btnSaveTpPol) {
-    btnSaveTpPol.addEventListener('click', () => {
+    btnSaveTpPol.addEventListener('click', async () => {
       const month = parseInt(tppolMonth ? tppolMonth.value : '8', 10);
       const year = parseInt(tppolYear ? tppolYear.value : '2026', 10);
       const monthName = MONTH_NAMES[month - 1];
+
+      const formData = collectTpPolFormData();
+      
+      // Save directly to Cloudflare D1 Database
+      let cloudSaved = false;
+      try {
+        const payload = {
+          id: formData.id,
+          bulan: formData.bulan,
+          tahun: formData.tahun,
+          petugas_nip: formData.petugas_nip,
+          petugas_nama: formData.petugas_nama,
+          petugas_jabatan: formData.petugas_jabatan,
+          total_skor: parseFloat(formData.total_skor) || 95.0,
+          form_data: formData
+        };
+
+        const res = await fetch('/api/tppol/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const resJson = await res.json();
+          if (resJson.success) cloudSaved = true;
+        }
+      } catch (err) {
+        console.warn('[TPPOL SAVE] Cloud save error:', err);
+      }
 
       gsap.to(btnSaveTpPol, {
         scale: 0.95,
@@ -2693,15 +2810,26 @@ document.addEventListener('DOMContentLoaded', () => {
         repeat: 1,
         onComplete: () => {
           if (typeof Swal !== 'undefined') {
-            Swal.fire({
-              icon: 'success',
-              title: 'Scoring Berhasil Disimpan!',
-              html: `Data Pengajuan Scoring TP POL (Jaspel) Bulan <strong>${monthName} ${year}</strong> berhasil disimpan ke database SICEKAS.`,
-              background: '#0f172a',
-              color: '#ffffff',
-              confirmButtonColor: '#10b981',
-              confirmButtonText: 'OK, Mantap!'
-            });
+            if (cloudSaved) {
+              Swal.fire({
+                icon: 'success',
+                title: 'Data Tersimpan di Cloud!',
+                html: `Data Pengajuan Scoring TP POL (Jaspel) Bulan <strong>${monthName} ${year}</strong> telah berhasil disimpan ke <strong>Cloud Database SICEKAS</strong>.`,
+                background: '#0f172a',
+                color: '#ffffff',
+                confirmButtonColor: '#10b981',
+                confirmButtonText: 'OK, Mantap!'
+              });
+            } else {
+              Swal.fire({
+                icon: 'warning',
+                title: 'Gagal Menghubungi Cloud',
+                text: 'Terjadi kendala saat menyimpan data ke Cloud. Periksa koneksi internet Anda.',
+                background: '#0f172a',
+                color: '#ffffff',
+                confirmButtonColor: '#ef4444'
+              });
+            }
           } else {
             alert(`✓ Data Pengajuan Scoring TP POL (Jaspel) Bulan ${monthName} ${year} berhasil disimpan ke database SICEKAS!`);
           }

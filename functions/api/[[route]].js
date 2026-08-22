@@ -553,17 +553,20 @@ async function handleApiRequest(request, env, ctx) {
       const tahun = parseInt(item.tahun) || new Date().getFullYear();
 
       await db.prepare(`
-        INSERT INTO tppol_jaspel (id, bulan, tahun, petugas_nip, petugas_nama, petugas_jabatan, skor_kehadiran, skor_pelayanan, skor_administrasi, skor_perilaku, total_skor, catatan, status_verifikasi, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        INSERT INTO tppol_jaspel (id, bulan, tahun, petugas_nip, petugas_nama, petugas_jabatan, skor_kehadiran, skor_pelayanan, skor_administrasi, skor_perilaku, total_skor, catatan, form_data, status_verifikasi, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(id) DO UPDATE SET
           bulan = excluded.bulan,
           tahun = excluded.tahun,
+          petugas_nama = excluded.petugas_nama,
+          petugas_jabatan = excluded.petugas_jabatan,
           skor_kehadiran = excluded.skor_kehadiran,
           skor_pelayanan = excluded.skor_pelayanan,
           skor_administrasi = excluded.skor_administrasi,
           skor_perilaku = excluded.skor_perilaku,
           total_skor = excluded.total_skor,
           catatan = excluded.catatan,
+          form_data = excluded.form_data,
           status_verifikasi = excluded.status_verifikasi,
           updated_at = CURRENT_TIMESTAMP
       `).bind(
@@ -579,6 +582,7 @@ async function handleApiRequest(request, env, ctx) {
         parseFloat(item.skor_perilaku) || 95.0,
         parseFloat(item.total_skor) || 95.0,
         item.catatan || '',
+        typeof item.form_data === 'object' ? JSON.stringify(item.form_data) : (item.form_data || ''),
         item.status_verifikasi || 'Terverifikasi'
       ).run();
 
