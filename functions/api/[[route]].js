@@ -522,71 +522,155 @@ async function handleApiRequest(request, env, ctx) {
     }
 
     // ------------------------------------------------------------------------
+    // ------------------------------------------------------------------------
     // 6. TP POL JASPEL (/api/tppol, /api/tppol/save)
     // ------------------------------------------------------------------------
     if (pathname === '/api/tppol' && method === 'GET') {
-      const bulan = url.searchParams.get('bulan');
-      const tahun = url.searchParams.get('tahun');
-      const nip = url.searchParams.get('nip');
+      try {
+        const bulan = url.searchParams.get('bulan');
+        const tahun = url.searchParams.get('tahun');
+        const nip = url.searchParams.get('nip');
 
-      let query = 'SELECT * FROM tppol_jaspel WHERE 1=1';
-      const params = [];
+        let query = 'SELECT * FROM tppol_jaspel WHERE 1=1';
+        const params = [];
 
-      if (bulan && tahun) {
-        query += ' AND bulan = ? AND tahun = ?';
-        params.push(parseInt(bulan), parseInt(tahun));
+        if (bulan && tahun) {
+          query += ' AND bulan = ? AND tahun = ?';
+          params.push(parseInt(bulan), parseInt(tahun));
+        }
+        if (nip) {
+          query += ' AND (petugas_nip = ? OR petugas_nip LIKE ?)';
+          params.push(nip, `%${nip}%`);
+        }
+
+        query += ' ORDER BY created_at DESC';
+        const { results } = await db.prepare(query).bind(...params).all();
+        
+        const cleanResults = (results || []).map(r => {
+          if (!r.form_data && r.catatan && r.catatan.startsWith('FORM_DATA:')) {
+            r.form_data = r.catatan.substring(10);
+          }
+          return r;
+        });
+
+        return jsonResponse({ success: true, total: cleanResults.length, data: cleanResults });
+      } catch (err) {
+        return jsonResponse({ success: false, error: err.message }, 500);
       }
-      if (nip) {
-        query += ' AND petugas_nip = ?';
-        params.push(nip);
-      }
-
-      query += ' ORDER BY created_at DESC';
-      const { results } = await db.prepare(query).bind(...params).all();
-      return jsonResponse({ success: true, total: results.length, data: results });
     }
 
     if (pathname === '/api/tppol/save' && method === 'POST') {
-      const item = await request.json();
-      const id = item.id || `tppol-${item.petugas_nip || 'user'}-${item.bulan || '0'}-${item.tahun || '2026'}`;
-      const bulan = parseInt(item.bulan) || (new Date().getMonth() + 1);
-      const tahun = parseInt(item.tahun) || new Date().getFullYear();
+      try {
+        const item = await request.json();
+        const id = item.id || `tppol-${item.petugas_nip || 'user'}-${item.bulan || '0'}-${item.tahun || '2026'}`;
+        const bulan = parseInt(item.bulan) || (new Date().getMonth() + 1);
+        const tahun = parseInt(item.tahun) || new Date().getFullYear();
+        const formDataStr = typeof item.form_data === 'object' ? JSON.stringify(item.form_data) : (item.form_data || '');
 
-      await db.prepare(`
-        INSERT INTO tppol_jaspel (id, bulan, tahun, petugas_nip, petugas_nama, petugas_jabatan, skor_kehadiran, skor_pelayanan, skor_administrasi, skor_perilaku, total_skor, catatan, form_data, status_verifikasi, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(id) DO UPDATE SET
-          bulan = excluded.bulan,
-          tahun = excluded.tahun,
-          petugas_nama = excluded.petugas_nama,
-          petugas_jabatan = excluded.petugas_jabatan,
-          skor_kehadiran = excluded.skor_kehadiran,
-          skor_pelayanan = excluded.skor_pelayanan,
-          skor_administrasi = excluded.skor_administrasi,
-          skor_perilaku = excluded.skor_perilaku,
-          total_skor = excluded.total_skor,
-          catatan = excluded.catatan,
-          form_data = excluded.form_data,
-          status_verifikasi = excluded.status_verifikasi,
-          updated_at = CURRENT_TIMESTAMP
-      `).bind(
-        id,
-        bulan,
-        tahun,
-        item.petugas_nip || item.nip || '',
-        item.petugas_nama || item.nama || '',
-        item.petugas_jabatan || item.jabatan || '',
-        parseFloat(item.skor_kehadiran) || 100.0,
-        parseFloat(item.skor_pelayanan) || 95.0,
-        parseFloat(item.skor_administrasi) || 90.0,
-        parseFloat(item.skor_perilaku) || 95.0,
-        parseFloat(item.total_skor) || 95.0,
-        item.catatan || '',
-        typeof item.form_data === 'object' ? JSON.stringify(item.form_data) : (item.form_data || ''),
-        item.status_verifikasi || 'Terverifikasi'
-      ).run();
+        // Auto-migration: Ensure table exists
+        try {
+          await db.prepare(`
+            CREATE TABLE IF NOT EXISTS tppol_jaspel (
+              id TEXT PRIMARY KEY,
+              bulan INTEGER NOT NULL,
+              tahun INTEGER NOT NULL,
+              petugas_nip TEXT NOT NULL,
+              petugas_nama TEXT NOT NULL,
+              petugas_jabatan TEXT NOT NULL,
+              skor_kehadiran REAL DEFAULT 100.0,
+              skor_pelayanan REAL DEFAULT 95.0,
+              skor_administrasi REAL DEFAULT 90.0,
+              skor_perilaku REAL DEFAULT 95.0,
+              total_skor REAL DEFAULT 95.0,
+              catatan TEXT,
+              form_data TEXT,
+              status_verifikasi TEXT DEFAULT 'Terverifikasi',
+              verified_by TEXT,
+              verified_at DATETIME,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+          `).run();
+        } catch (tblErr) {}
 
-      return jsonResponse({ success: true, message: 'Scoring TP POL berhasil disimpan ke Cloudflare D1!', id });
+        // Auto-migration: Ensure form_data column exists
+        try {
+          await db.prepare(`ALTER TABLE tppol_jaspel ADD COLUMN form_data TEXT;`).run();
+        } catch (colErr) {}
+
+        try {
+          await db.prepare(`
+            INSERT INTO tppol_jaspel (id, bulan, tahun, petugas_nip, petugas_nama, petugas_jabatan, skor_kehadiran, skor_pelayanan, skor_administrasi, skor_perilaku, total_skor, catatan, form_data, status_verifikasi, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET
+              bulan = excluded.bulan,
+              tahun = excluded.tahun,
+              petugas_nama = excluded.petugas_nama,
+              petugas_jabatan = excluded.petugas_jabatan,
+              skor_kehadiran = excluded.skor_kehadiran,
+              skor_pelayanan = excluded.skor_pelayanan,
+              skor_administrasi = excluded.skor_administrasi,
+              skor_perilaku = excluded.skor_perilaku,
+              total_skor = excluded.total_skor,
+              catatan = excluded.catatan,
+              form_data = excluded.form_data,
+              status_verifikasi = excluded.status_verifikasi,
+              updated_at = CURRENT_TIMESTAMP
+          `).bind(
+            id,
+            bulan,
+            tahun,
+            item.petugas_nip || item.nip || '',
+            item.petugas_nama || item.nama || '',
+            item.petugas_jabatan || item.jabatan || '',
+            parseFloat(item.skor_kehadiran) || 100.0,
+            parseFloat(item.skor_pelayanan) || 95.0,
+            parseFloat(item.skor_administrasi) || 90.0,
+            parseFloat(item.skor_perilaku) || 95.0,
+            parseFloat(item.total_skor) || 95.0,
+            item.catatan || '',
+            formDataStr,
+            item.status_verifikasi || 'Terverifikasi'
+          ).run();
+        } catch (insertErr) {
+          // Fallback if form_data is still blocked: store in catatan column
+          await db.prepare(`
+            INSERT INTO tppol_jaspel (id, bulan, tahun, petugas_nip, petugas_nama, petugas_jabatan, skor_kehadiran, skor_pelayanan, skor_administrasi, skor_perilaku, total_skor, catatan, status_verifikasi, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET
+              bulan = excluded.bulan,
+              tahun = excluded.tahun,
+              petugas_nama = excluded.petugas_nama,
+              petugas_jabatan = excluded.petugas_jabatan,
+              skor_kehadiran = excluded.skor_kehadiran,
+              skor_pelayanan = excluded.skor_pelayanan,
+              skor_administrasi = excluded.skor_administrasi,
+              skor_perilaku = excluded.skor_perilaku,
+              total_skor = excluded.total_skor,
+              catatan = excluded.catatan,
+              status_verifikasi = excluded.status_verifikasi,
+              updated_at = CURRENT_TIMESTAMP
+          `).bind(
+            id,
+            bulan,
+            tahun,
+            item.petugas_nip || item.nip || '',
+            item.petugas_nama || item.nama || '',
+            item.petugas_jabatan || item.jabatan || '',
+            parseFloat(item.skor_kehadiran) || 100.0,
+            parseFloat(item.skor_pelayanan) || 95.0,
+            parseFloat(item.skor_administrasi) || 90.0,
+            parseFloat(item.skor_perilaku) || 95.0,
+            parseFloat(item.total_skor) || 95.0,
+            formDataStr ? `FORM_DATA:${formDataStr}` : (item.catatan || ''),
+            item.status_verifikasi || 'Terverifikasi'
+          ).run();
+        }
+
+        return jsonResponse({ success: true, message: 'Scoring TP POL berhasil disimpan ke Cloudflare D1!', id });
+      } catch (err) {
+        return jsonResponse({ success: false, error: err.message }, 500);
+      }
     }
 
     // ------------------------------------------------------------------------
