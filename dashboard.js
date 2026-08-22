@@ -878,7 +878,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       e.preventDefault();
 
-      const viewAttr = link.getAttribute('data-view');
+      // Open In-App Browser modal for CKG Bankot
+      if (viewAttr === 'browser-ckgbankot') {
+        if (window.InAppBrowser) {
+          window.InAppBrowser.open();
+        }
+        return;
+      }
 
       // Popup under-development notification for Pelaporan Program
       if (viewAttr === 'pelaporan-program') {
@@ -7423,6 +7429,147 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   };
+
+  // ==========================================================================
+  // 14. IN-APP BROWSER CONTROLLER (CKG BANKOT MODAL & DOCKED WIDGET)
+  // ==========================================================================
+  const InAppBrowser = {
+    modal: document.getElementById('modalBrowserCkg'),
+    card: document.getElementById('browserWindowCard'),
+    iframe: document.getElementById('browserIframe'),
+    loadingOverlay: document.getElementById('browserLoadingOverlay'),
+    dock: document.getElementById('browserMinimizedDock'),
+    btnReload: document.getElementById('btnBrowserReload'),
+    btnMinimize: document.getElementById('btnBrowserMinimize'),
+    btnMaximize: document.getElementById('btnBrowserMaximize'),
+    btnClose: document.getElementById('btnBrowserClose'),
+    btnDockRestore: document.getElementById('btnDockRestore'),
+    btnDockClose: document.getElementById('btnDockClose'),
+    url: 'https://ckgbankot.web.id',
+    isLoaded: false,
+    isFullscreen: false,
+
+    init() {
+      if (!this.modal) return;
+
+      if (this.btnReload) {
+        this.btnReload.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.reload();
+        });
+      }
+
+      if (this.btnMinimize) {
+        this.btnMinimize.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.minimize();
+        });
+      }
+
+      if (this.btnMaximize) {
+        this.btnMaximize.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.toggleMaximize();
+        });
+      }
+
+      if (this.btnClose) {
+        this.btnClose.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.close();
+        });
+      }
+
+      if (this.dock) {
+        this.dock.addEventListener('click', (e) => {
+          if (e.target.closest('#btnDockClose')) return;
+          this.restore();
+        });
+      }
+
+      if (this.btnDockRestore) {
+        this.btnDockRestore.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.restore();
+        });
+      }
+
+      if (this.btnDockClose) {
+        this.btnDockClose.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.close();
+        });
+      }
+
+      if (this.iframe) {
+        this.iframe.addEventListener('load', () => {
+          if (this.loadingOverlay) {
+            this.loadingOverlay.classList.add('hidden');
+          }
+        });
+      }
+    },
+
+    open() {
+      if (this.dock) this.dock.classList.remove('active');
+      if (this.modal) {
+        this.modal.classList.remove('minimized');
+        this.modal.classList.add('active');
+      }
+      if (this.iframe && (!this.isLoaded || this.iframe.src === 'about:blank' || !this.iframe.src.includes('ckgbankot.web.id'))) {
+        if (this.loadingOverlay) this.loadingOverlay.classList.remove('hidden');
+        this.iframe.src = this.url;
+        this.isLoaded = true;
+      }
+    },
+
+    minimize() {
+      if (this.modal) this.modal.classList.add('minimized');
+      if (this.dock) this.dock.classList.add('active');
+    },
+
+    restore() {
+      if (this.dock) this.dock.classList.remove('active');
+      if (this.modal) {
+        this.modal.classList.remove('minimized');
+        this.modal.classList.add('active');
+      }
+    },
+
+    toggleMaximize() {
+      this.isFullscreen = !this.isFullscreen;
+      if (this.card) {
+        this.card.classList.toggle('fullscreen', this.isFullscreen);
+      }
+    },
+
+    reload() {
+      if (this.iframe) {
+        if (this.loadingOverlay) this.loadingOverlay.classList.remove('hidden');
+        this.iframe.src = this.url;
+      }
+    },
+
+    close() {
+      if (this.modal) {
+        this.modal.classList.remove('active', 'minimized');
+      }
+      if (this.dock) {
+        this.dock.classList.remove('active');
+      }
+      if (this.card) {
+        this.card.classList.remove('fullscreen');
+        this.isFullscreen = false;
+      }
+      if (this.iframe) {
+        this.iframe.src = 'about:blank';
+        this.isLoaded = false;
+      }
+    }
+  };
+
+  window.InAppBrowser = InAppBrowser;
+  InAppBrowser.init();
 
   window.DeveloperWebController = DeveloperWebController;
   DeveloperWebController.init();

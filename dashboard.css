@@ -7760,6 +7760,351 @@ body {
   }
 }
 
+/* ==========================================================================
+   IN-APP BROWSER WINDOW (CKG BANKOT POPUP MODAL)
+   ========================================================================== */
+.browser-window-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 15, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 99999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  padding: 16px;
+}
+
+.browser-window-backdrop.active {
+  display: flex;
+  opacity: 1;
+}
+
+.browser-window-backdrop.minimized {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+.browser-window-card {
+  width: 95vw;
+  max-width: 1400px;
+  height: 88vh;
+  max-height: 920px;
+  background: #0d131f;
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  border-radius: 16px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.9), 0 0 40px rgba(45, 212, 191, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.browser-window-card.fullscreen {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+  border: none;
+}
+
+/* Browser Window Header */
+.browser-header-bar {
+  background: linear-gradient(180deg, rgba(22, 30, 46, 0.98) 0%, rgba(13, 19, 31, 0.98) 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  user-select: none;
+}
+
+.browser-title-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+}
+
+.browser-app-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.2), rgba(56, 189, 248, 0.2));
+  border: 1px solid rgba(45, 212, 191, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2dd4bf;
+  flex-shrink: 0;
+}
+
+.browser-app-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.browser-status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+/* Browser Address Bar */
+.browser-address-container {
+  flex: 1;
+  max-width: 650px;
+  display: flex;
+  align-items: center;
+  background: rgba(8, 12, 20, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 4px 10px;
+  gap: 8px;
+}
+
+.browser-ssl-lock {
+  color: #2dd4bf;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.browser-url-text {
+  flex: 1;
+  color: #cbd5e1;
+  font-size: 12.5px;
+  font-family: 'Fira Code', monospace, sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-btn-action {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.browser-btn-action:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+/* Window Control Buttons */
+.browser-window-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-win-ctrl {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-win-ctrl:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.btn-win-ctrl.close:hover {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.btn-win-ctrl.minimize:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #fbbf24;
+}
+
+.btn-win-ctrl.maximize:hover {
+  background: rgba(45, 212, 191, 0.25);
+  border-color: rgba(45, 212, 191, 0.5);
+  color: #2dd4bf;
+}
+
+/* Browser Frame Container */
+.browser-frame-wrapper {
+  flex: 1;
+  position: relative;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.browser-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* Loader Animation */
+.browser-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: #0d131f;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  z-index: 5;
+  transition: opacity 0.3s ease;
+}
+
+.browser-loading-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.browser-spinner {
+  width: 42px;
+  height: 42px;
+  border: 3px solid rgba(45, 212, 191, 0.2);
+  border-top-color: #2dd4bf;
+  border-radius: 50%;
+  animation: browserSpin 0.8s linear infinite;
+}
+
+@keyframes browserSpin {
+  to { transform: rotate(360deg); }
+}
+
+.browser-loading-text {
+  font-size: 13px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* Minimized Docked Pill Widget */
+.browser-minimized-dock {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 99998;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(14, 20, 32, 0.96) 0%, rgba(8, 12, 20, 0.96) 100%);
+  border: 1px solid rgba(45, 212, 191, 0.45);
+  border-radius: 30px;
+  padding: 8px 14px 8px 10px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(45, 212, 191, 0.2);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: pulsePill 3s infinite;
+}
+
+@keyframes pulsePill {
+  0%, 100% { box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 15px rgba(45, 212, 191, 0.2); }
+  50% { box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 25px rgba(45, 212, 191, 0.45); }
+}
+
+.browser-minimized-dock:hover {
+  transform: translateY(-3px) scale(1.02);
+  border-color: #2dd4bf;
+}
+
+.browser-minimized-dock.active {
+  display: flex;
+}
+
+.browser-dock-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(45, 212, 191, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2dd4bf;
+}
+
+.browser-dock-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.browser-dock-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.browser-dock-sub {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.browser-dock-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+}
+
+.btn-dock-action {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: #cbd5e1;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-dock-action:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.btn-dock-action.close:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
 
 
 
