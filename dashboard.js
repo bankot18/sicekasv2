@@ -2661,7 +2661,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (sigPetugasName) sigPetugasName.textContent = newNama;
       if (sigPetugasNip) sigPetugasNip.textContent = `${idLabel}. ${newNip}`;
 
-      alert(`Profil pegawai berhasil diperbarui untuk ${newNama}!`);
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'success',
+          title: 'Profil Berhasil Diperbarui',
+          text: `Profil pegawai telah disesuaikan untuk ${newNama}.`,
+          background: '#0f172a',
+          color: '#ffffff',
+          confirmButtonColor: '#10b981',
+          timer: 2200,
+          timerProgressBar: true
+        });
+      } else {
+        alert(`Profil pegawai berhasil diperbarui untuk ${newNama}!`);
+      }
       closeProfModal();
     });
   }
@@ -2679,7 +2692,19 @@ document.addEventListener('DOMContentLoaded', () => {
         yoyo: true,
         repeat: 1,
         onComplete: () => {
-          alert(`✓ Data Pengajuan Scoring TP POL (Jaspel) Bulan ${monthName} ${year} berhasil disimpan ke database SICEKAS!`);
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              icon: 'success',
+              title: 'Scoring Berhasil Disimpan!',
+              html: `Data Pengajuan Scoring TP POL (Jaspel) Bulan <strong>${monthName} ${year}</strong> berhasil disimpan ke database SICEKAS.`,
+              background: '#0f172a',
+              color: '#ffffff',
+              confirmButtonColor: '#10b981',
+              confirmButtonText: 'OK, Mantap!'
+            });
+          } else {
+            alert(`✓ Data Pengajuan Scoring TP POL (Jaspel) Bulan ${monthName} ${year} berhasil disimpan ke database SICEKAS!`);
+          }
         }
       });
     });
@@ -2707,7 +2732,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const printIsolatedTpPol = () => {
     const scoringDoc = document.getElementById('scoringDocSheet');
     if (!scoringDoc) {
-      alert('Tidak ada dokumen TP POL yang bisa dicetak.');
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Dokumen Kosong',
+          text: 'Tidak ada dokumen TP POL yang bisa dicetak.',
+          background: '#0f172a',
+          color: '#ffffff'
+        });
+      } else {
+        alert('Tidak ada dokumen TP POL yang bisa dicetak.');
+      }
       return;
     }
 
@@ -2720,7 +2755,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const printWin = window.open('', '_blank');
     if (!printWin) {
-      alert('Popup diblokir oleh browser. Izinkan popup untuk mencetak dokumen.');
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'info',
+          title: 'Izinkan Popup Browser',
+          text: 'Popup diblokir oleh browser. Izinkan popup untuk mencetak dokumen.',
+          background: '#0f172a',
+          color: '#ffffff'
+        });
+      } else {
+        alert('Popup diblokir oleh browser. Izinkan popup untuk mencetak dokumen.');
+      }
       return;
     }
 
@@ -3317,7 +3362,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     evidenceUploadedList.innerHTML = items.map((item, idx) => `
       <div class="evidence-item-card" data-id="${item.id || idx}">
-        <div class="evidence-item-left">
+        <div class="evidence-item-left" style="cursor: pointer;" onclick="openEvidenceViewer(${idx})" title="Klik untuk membuka dokumen">
           <div class="evidence-file-icon">${item.fileExt || 'DOC'}</div>
           <div class="evidence-file-details">
             <div class="evidence-file-name" title="${item.fileName}">${item.fileName}</div>
@@ -3325,7 +3370,14 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
         <div class="evidence-item-actions">
-          <a href="${item.fileUrl || '#'}" target="_blank" rel="noopener noreferrer" class="btn-gdrive-link" title="Buka di Google Drive">
+          <button type="button" class="btn-preview-evidence" onclick="openEvidenceViewer(${idx})" title="Buka & Baca Dokumen">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <span>Buka</span>
+          </button>
+          <a href="${item.fileUrl || '#'}" target="_blank" rel="noopener noreferrer" class="btn-gdrive-link" title="Buka di Google Drive Tab Baru">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
               <polyline points="15 3 21 3 21 9"></polyline>
@@ -3344,13 +3396,139 @@ document.addEventListener('DOMContentLoaded', () => {
     `).join('');
   };
 
-  // Expose delete to window
-  window.deleteEvidenceItem = (idx) => {
-    if (confirm('Apakah Anda yakin ingin menghapus berkas bukti dukung ini dari daftar?')) {
-      const items = loadEvidenceList();
-      items.splice(idx, 1);
-      saveEvidenceList(items);
-      renderEvidenceList();
+  // Document & Evidence Viewer Modal Controller
+  const modalEvidenceViewer = document.getElementById('modalEvidenceViewer');
+  const closeEvidenceViewer = document.getElementById('closeEvidenceViewer');
+  const btnCloseEvidenceViewer = document.getElementById('btnCloseEvidenceViewer');
+  const viewerFileName = document.getElementById('viewerFileName');
+  const viewerFileMeta = document.getElementById('viewerFileMeta');
+  const viewerExtBadge = document.getElementById('viewerExtBadge');
+  const viewerKeteranganText = document.getElementById('viewerKeteranganText');
+  const btnViewerOpenDrive = document.getElementById('btnViewerOpenDrive');
+  const docViewerLoading = document.getElementById('docViewerLoading');
+  const docViewerIframe = document.getElementById('docViewerIframe');
+  const docViewerImageBox = document.getElementById('docViewerImageBox');
+  const docViewerImg = document.getElementById('docViewerImg');
+
+  const closeDocViewerModal = () => {
+    if (modalEvidenceViewer) modalEvidenceViewer.classList.remove('active');
+    if (docViewerIframe) docViewerIframe.src = 'about:blank';
+    if (docViewerImg) docViewerImg.src = '';
+  };
+
+  if (closeEvidenceViewer) closeEvidenceViewer.addEventListener('click', closeDocViewerModal);
+  if (btnCloseEvidenceViewer) btnCloseEvidenceViewer.addEventListener('click', closeDocViewerModal);
+
+  // Expose openEvidenceViewer to window
+  window.openEvidenceViewer = (idx) => {
+    const items = loadEvidenceList();
+    const item = items[idx];
+    if (!item) return;
+
+    if (viewerFileName) viewerFileName.textContent = item.fileName || 'Dokumen Bukti Dukung';
+    if (viewerExtBadge) viewerExtBadge.textContent = (item.fileExt || 'DOC').toUpperCase();
+    if (viewerFileMeta) viewerFileMeta.textContent = `${item.petugas || ''} • ${item.periode || ''} • ${item.fileSize || ''}`;
+    if (viewerKeteranganText) viewerKeteranganText.textContent = item.keterangan || '-';
+    if (btnViewerOpenDrive) btnViewerOpenDrive.href = item.fileUrl || '#';
+
+    if (docViewerLoading) docViewerLoading.classList.remove('hidden');
+
+    const ext = (item.fileExt || '').toLowerCase();
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
+
+    let previewUrl = item.fileUrl || '';
+    if (item.fileId && (!previewUrl || previewUrl.includes('drive.google.com'))) {
+      previewUrl = `https://drive.google.com/file/d/${item.fileId}/preview`;
+    } else if (previewUrl.includes('drive.google.com')) {
+      previewUrl = previewUrl.replace(/\/view(\?.*)?$/, '/preview').replace(/\/edit(\?.*)?$/, '/preview');
+    }
+
+    if (isImage && !item.fileId && previewUrl.startsWith('data:')) {
+      if (docViewerIframe) docViewerIframe.style.display = 'none';
+      if (docViewerImageBox) {
+        docViewerImageBox.style.display = 'flex';
+        if (docViewerImg) {
+          docViewerImg.src = previewUrl;
+          docViewerImg.onload = () => {
+            if (docViewerLoading) docViewerLoading.classList.add('hidden');
+          };
+        }
+      }
+    } else {
+      if (docViewerImageBox) docViewerImageBox.style.display = 'none';
+      if (docViewerIframe) {
+        docViewerIframe.style.display = 'block';
+        docViewerIframe.src = previewUrl;
+        docViewerIframe.onload = () => {
+          setTimeout(() => {
+            if (docViewerLoading) docViewerLoading.classList.add('hidden');
+          }, 600);
+        };
+      }
+    }
+
+    if (modalEvidenceViewer) modalEvidenceViewer.classList.add('active');
+  };
+
+  // Expose delete to window with Google Drive synchronization & SweetAlert2
+  window.deleteEvidenceItem = async (idx) => {
+    const items = loadEvidenceList();
+    const itemToDelete = items[idx];
+    if (!itemToDelete) return;
+
+    let confirmed = false;
+    if (typeof Swal !== 'undefined') {
+      const result = await Swal.fire({
+        title: 'Hapus Bukti Dukung?',
+        html: `Berkas <strong>${itemToDelete.fileName}</strong> akan dihapus dari sistem dan Google Drive Puskesmas.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#334155',
+        confirmButtonText: 'Ya, Hapus',
+        cancelButtonText: 'Batal',
+        background: '#0f172a',
+        color: '#ffffff'
+      });
+      confirmed = result.isConfirmed;
+    } else {
+      confirmed = confirm(`Apakah Anda yakin ingin menghapus "${itemToDelete.fileName}" dari sistem dan Google Drive?`);
+    }
+
+    if (!confirmed) return;
+
+    // Call Google Apps Script delete action if fileId exists and endpoint is configured
+    const endpointUrl = (gdriveScriptUrl ? gdriveScriptUrl.value.trim() : '') || localStorage.getItem('SICEKAS_GDRIVE_ENDPOINT') || 'https://script.google.com/macros/s/AKfycbwy_8AJb9KyPC1yqclPuVNNuZ0EJLZW0GxwRJAYmErHJJynBnfxr7hJtP_Yn2DOv_hS/exec';
+    
+    if (itemToDelete.fileId && endpointUrl && endpointUrl.startsWith('http')) {
+      try {
+        fetch(endpointUrl, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'delete',
+            fileId: itemToDelete.fileId
+          }),
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        }).catch(err => console.warn('[GDRIVE DELETE] Failed to delete on drive:', err));
+      } catch (err) {}
+    }
+
+    // Remove from list
+    items.splice(idx, 1);
+    saveEvidenceList(items);
+    renderEvidenceList();
+
+    if (typeof Swal !== 'undefined') {
+      Swal.fire({
+        icon: 'success',
+        title: 'Berkas Berhasil Dihapus',
+        text: 'Berkas bukti dukung telah dihapus dari sistem dan Google Drive.',
+        background: '#0f172a',
+        color: '#ffffff',
+        confirmButtonColor: '#10b981',
+        timer: 2000,
+        timerProgressBar: true
+      });
     }
   };
 
@@ -3382,7 +3560,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      const activePetugasName = signPetugas ? signPetugas.value : 'Mochamad Fauzie, S.Gz';
+      let loggedInUser = {};
+      try {
+        loggedInUser = JSON.parse(localStorage.getItem('SICEKAS_CURRENT_USER') || '{}');
+      } catch (e) {}
+
+      const activePetugasName = signPetugas ? signPetugas.value : (loggedInUser.nama || 'Mochamad Fauzie, S.Gz');
+      const activePetugasNip = (signPetugas && signPetugas.options[signPetugas.selectedIndex]?.getAttribute('data-nip')) || loggedInUser.nip || '';
       const mIdx = parseInt(tppolMonth ? tppolMonth.value : '8', 10);
       const mName = MONTH_NAMES[mIdx - 1] || 'Agustus';
       const yVal = tppolYear ? tppolYear.value : '2026';
@@ -3423,10 +3607,13 @@ document.addEventListener('DOMContentLoaded', () => {
           if (endpointUrl && endpointUrl.startsWith('http')) {
             try {
               const payload = {
-                fileName: `TPPOL_${yVal}_${mIdx}_${selectedEvidenceFile.name}`,
+                fileName: selectedEvidenceFile.name,
                 fileType: selectedEvidenceFile.type || 'application/octet-stream',
                 base64: base64Data,
                 petugas: activePetugasName,
+                nip: activePetugasNip,
+                tahun: yVal,
+                bulan: mName,
                 periode: `${mName} ${yVal}`,
                 keterangan: keteranganVal
               };
@@ -3457,6 +3644,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           const newEvidence = {
             id: 'ev_' + Date.now(),
+            fileId: gdriveFileId,
             petugas: activePetugasName,
             periode: `${mName} ${yVal}`,
             month: mIdx,

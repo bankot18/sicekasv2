@@ -35,7 +35,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- SweetAlert2 CDN for Luxury Notifications & Interactive Modals -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <link rel="stylesheet" href="dashboard.css?v=37">
+  <link rel="stylesheet" href="dashboard.css?v=38">
 </head>
 <body>
   <!-- Ambient Atmospheric Light Glows -->
@@ -3967,6 +3967,55 @@
   </div>
 
   <!-- ==========================================================================
+       MODAL 11: VIEWER BUKTI DUKUNG / DOKUMEN (PDF, DOCX, XLSX, GAMBAR)
+       ========================================================================== -->
+  <div class="modal-backdrop" id="modalEvidenceViewer">
+    <div class="modal-card modal-card-docviewer">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-box" id="viewerBadgeIcon" style="background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(14, 165, 233, 0.25)); border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;">
+            <span id="viewerExtBadge" style="font-size: 11px; font-weight: 800;">PDF</span>
+          </div>
+          <div>
+            <h3 id="viewerFileName">Nama Berkas Bukti Dukung</h3>
+            <p id="viewerFileMeta">Petugas &bull; Periode</p>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <a href="#" target="_blank" rel="noopener noreferrer" class="btn-viewer-action" id="btnViewerOpenDrive" title="Buka di Tab Baru Google Drive">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            <span>Buka di Drive ↗</span>
+          </a>
+          <button class="modal-close-btn" id="closeEvidenceViewer">&times;</button>
+        </div>
+      </div>
+
+      <div class="docviewer-frame-wrapper">
+        <div class="docviewer-loading" id="docViewerLoading">
+          <div class="browser-spinner"></div>
+          <div style="font-size: 13px; color: #94a3b8; margin-top: 10px;">Membuka dan memuat dokumen...</div>
+        </div>
+        <iframe src="about:blank" id="docViewerIframe" class="docviewer-iframe" allow="fullscreen"></iframe>
+        <div class="docviewer-image-box" id="docViewerImageBox" style="display:none;">
+          <img src="" id="docViewerImg" alt="Preview Bukti Dukung">
+        </div>
+      </div>
+
+      <div class="modal-actions" style="justify-content: space-between;">
+        <div class="viewer-keterangan-info" id="viewerKeteranganInfo">
+          <span style="color: #94a3b8; font-size: 12px;">Unsur:</span>
+          <strong style="color: #ffffff; font-size: 12.5px; margin-left: 4px;" id="viewerKeteranganText">-</strong>
+        </div>
+        <button type="button" class="btn-cancel" id="btnCloseEvidenceViewer">Tutup Pratinjau</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
        MODAL 9: IN-APP BROWSER WINDOW (CKG BANKOT)
        ========================================================================== -->
   <div class="browser-window-backdrop" id="modalBrowserCkg">
@@ -4072,6 +4121,6 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=48"></script>
+  <script src="dashboard.js?v=52"></script>
 </body>
 </html>
