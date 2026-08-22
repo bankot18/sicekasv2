@@ -7514,8 +7514,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     },
 
+    setAnimating(state) {
+      if (this.card) this.card.classList.toggle('is-animating', state);
+      if (this.modal) this.modal.classList.toggle('is-animating', state);
+    },
+
     open() {
       if (this.isAnimating) return;
+      this.isAnimating = true;
+      this.setAnimating(true);
+
       if (this.dock) this.dock.classList.remove('active');
       if (this.modal) {
         this.modal.classList.remove('minimized');
@@ -7524,11 +7532,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (typeof gsap !== 'undefined' && this.card && this.modal) {
         gsap.killTweensOf([this.card, this.modal]);
-        gsap.fromTo(this.modal, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power2.out' });
+        gsap.fromTo(this.modal, { opacity: 0 }, { opacity: 1, duration: 0.22, ease: 'power2.out' });
         gsap.fromTo(this.card, 
-          { scale: 0.88, y: 35, opacity: 0, x: 0 }, 
-          { scale: 1, y: 0, x: 0, opacity: 1, duration: 0.42, ease: 'back.out(1.4)' }
+          { scale: 0.92, y: 25, opacity: 0, x: 0 }, 
+          { scale: 1, y: 0, x: 0, opacity: 1, duration: 0.32, ease: 'power3.out', onComplete: () => {
+            this.setAnimating(false);
+            this.isAnimating = false;
+          }}
         );
+      } else {
+        this.setAnimating(false);
+        this.isAnimating = false;
       }
 
       if (this.iframe && (!this.isLoaded || this.iframe.src === 'about:blank' || !this.iframe.src.includes('ckgbankot.web.id'))) {
@@ -7541,33 +7555,35 @@ document.addEventListener('DOMContentLoaded', () => {
     minimize() {
       if (this.isAnimating) return;
       this.isAnimating = true;
+      this.setAnimating(true);
 
       if (typeof gsap !== 'undefined' && this.card && this.modal) {
-        const destX = window.innerWidth / 2 - 120;
-        const destY = window.innerHeight / 2 - 50;
+        const destX = window.innerWidth / 2 - 110;
+        const destY = window.innerHeight / 2 - 45;
 
         gsap.to(this.card, {
-          scale: 0.15,
+          scale: 0.12,
           x: destX,
           y: destY,
           opacity: 0,
-          duration: 0.32,
+          duration: 0.24,
           ease: 'power3.inOut'
         });
 
         gsap.to(this.modal, {
           opacity: 0,
-          duration: 0.28,
-          delay: 0.05,
+          duration: 0.2,
+          delay: 0.04,
           ease: 'power2.in',
           onComplete: () => {
             this.modal.classList.remove('active');
             this.modal.classList.add('minimized');
+            this.setAnimating(false);
             if (this.dock) {
               this.dock.classList.add('active');
               gsap.fromTo(this.dock,
-                { scale: 0.4, y: 30, opacity: 0 },
-                { scale: 1, y: 0, opacity: 1, duration: 0.38, ease: 'back.out(1.8)' }
+                { scale: 0.5, y: 20, opacity: 0 },
+                { scale: 1, y: 0, opacity: 1, duration: 0.3, ease: 'back.out(1.6)' }
               );
             }
             this.isAnimating = false;
@@ -7576,6 +7592,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         if (this.modal) this.modal.classList.add('minimized');
         if (this.dock) this.dock.classList.add('active');
+        this.setAnimating(false);
         this.isAnimating = false;
       }
     },
@@ -7583,25 +7600,29 @@ document.addEventListener('DOMContentLoaded', () => {
     restore() {
       if (this.isAnimating) return;
       this.isAnimating = true;
+      this.setAnimating(true);
 
       if (typeof gsap !== 'undefined' && this.dock && this.modal && this.card) {
         gsap.to(this.dock, {
-          scale: 0.7,
+          scale: 0.75,
           opacity: 0,
-          duration: 0.2,
+          duration: 0.15,
           ease: 'power2.in',
           onComplete: () => {
             this.dock.classList.remove('active');
             this.modal.classList.remove('minimized');
             this.modal.classList.add('active');
 
-            const startX = window.innerWidth / 2 - 120;
-            const startY = window.innerHeight / 2 - 50;
+            const startX = window.innerWidth / 2 - 110;
+            const startY = window.innerHeight / 2 - 45;
 
-            gsap.fromTo(this.modal, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power2.out' });
+            gsap.fromTo(this.modal, { opacity: 0 }, { opacity: 1, duration: 0.22, ease: 'power2.out' });
             gsap.fromTo(this.card,
-              { scale: 0.18, x: startX, y: startY, opacity: 0 },
-              { scale: 1, x: 0, y: 0, opacity: 1, duration: 0.42, ease: 'power3.out', onComplete: () => { this.isAnimating = false; } }
+              { scale: 0.15, x: startX, y: startY, opacity: 0 },
+              { scale: 1, x: 0, y: 0, opacity: 1, duration: 0.32, ease: 'power3.out', onComplete: () => {
+                this.setAnimating(false);
+                this.isAnimating = false;
+              }}
             );
           }
         });
@@ -7611,11 +7632,16 @@ document.addEventListener('DOMContentLoaded', () => {
           this.modal.classList.remove('minimized');
           this.modal.classList.add('active');
         }
+        this.setAnimating(false);
         this.isAnimating = false;
       }
     },
 
     toggleMaximize() {
+      if (this.isAnimating) return;
+      this.isAnimating = true;
+      this.setAnimating(true);
+
       this.isFullscreen = !this.isFullscreen;
 
       if (this.modal) {
@@ -7624,11 +7650,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (this.card) {
         this.card.classList.toggle('fullscreen', this.isFullscreen);
-        
-        // Micro pulse effect
-        if (typeof gsap !== 'undefined') {
-          gsap.fromTo(this.card, { scale: 0.985 }, { scale: 1, duration: 0.38, ease: 'power2.out' });
-        }
       }
 
       // Update button icon and title
@@ -7647,11 +7668,16 @@ document.addEventListener('DOMContentLoaded', () => {
           </svg>
         `;
       }
+
+      setTimeout(() => {
+        this.setAnimating(false);
+        this.isAnimating = false;
+      }, 300);
     },
 
     reload() {
       if (this.btnReload && typeof gsap !== 'undefined') {
-        gsap.fromTo(this.btnReload, { rotate: 0 }, { rotate: 360, duration: 0.6, ease: 'power2.inOut' });
+        gsap.fromTo(this.btnReload, { rotate: 0 }, { rotate: 360, duration: 0.5, ease: 'power2.inOut' });
       }
       if (this.iframe) {
         if (this.loadingOverlay) this.loadingOverlay.classList.remove('hidden');
@@ -7662,12 +7688,13 @@ document.addEventListener('DOMContentLoaded', () => {
     close() {
       if (this.isAnimating) return;
       this.isAnimating = true;
+      this.setAnimating(true);
 
       if (typeof gsap !== 'undefined' && this.modal && this.card) {
-        gsap.to(this.card, { scale: 0.9, y: 20, opacity: 0, duration: 0.25, ease: 'power2.in' });
+        gsap.to(this.card, { scale: 0.92, y: 15, opacity: 0, duration: 0.2, ease: 'power2.in' });
         gsap.to(this.modal, {
           opacity: 0,
-          duration: 0.25,
+          duration: 0.2,
           ease: 'power2.in',
           onComplete: () => {
             this.modal.classList.remove('active', 'minimized', 'is-maximized');
@@ -7680,6 +7707,7 @@ document.addEventListener('DOMContentLoaded', () => {
               this.iframe.src = 'about:blank';
               this.isLoaded = false;
             }
+            this.setAnimating(false);
             this.isAnimating = false;
           }
         });
@@ -7698,6 +7726,7 @@ document.addEventListener('DOMContentLoaded', () => {
           this.iframe.src = 'about:blank';
           this.isLoaded = false;
         }
+        this.setAnimating(false);
         this.isAnimating = false;
       }
     }

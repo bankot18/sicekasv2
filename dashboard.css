@@ -7766,16 +7766,16 @@ body {
 .browser-window-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(5, 8, 15, 0.82);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(5, 8, 15, 0.85);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 99999;
   display: none;
   align-items: center;
   justify-content: center;
   opacity: 0;
   padding: 16px;
-  transition: opacity 0.3s ease, padding 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.22s ease, padding 0.28s cubic-bezier(0.2, 0.9, 0.2, 1);
 }
 
 .browser-window-backdrop.active {
@@ -7800,20 +7800,23 @@ body {
   background: #0d131f;
   border: 1px solid rgba(45, 212, 191, 0.35);
   border-radius: 16px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.9), 0 0 40px rgba(45, 212, 191, 0.15);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(45, 212, 191, 0.1);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  transform-origin: center center;
-  will-change: width, height, max-width, max-height, border-radius, transform;
-  transition: width 0.38s cubic-bezier(0.16, 1, 0.3, 1),
-              height 0.38s cubic-bezier(0.16, 1, 0.3, 1),
-              max-width 0.38s cubic-bezier(0.16, 1, 0.3, 1),
-              max-height 0.38s cubic-bezier(0.16, 1, 0.3, 1),
-              border-radius 0.38s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.38s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+  contain: layout paint;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  transition: width 0.28s cubic-bezier(0.2, 0.9, 0.2, 1),
+              height 0.28s cubic-bezier(0.2, 0.9, 0.2, 1),
+              max-width 0.28s cubic-bezier(0.2, 0.9, 0.2, 1),
+              max-height 0.28s cubic-bezier(0.2, 0.9, 0.2, 1),
+              border-radius 0.28s cubic-bezier(0.2, 0.9, 0.2, 1),
+              box-shadow 0.28s ease,
+              border-color 0.28s ease;
 }
 
 .browser-window-card.fullscreen {
@@ -7824,6 +7827,11 @@ body {
   border-radius: 0 !important;
   border: none !important;
   box-shadow: none !important;
+}
+
+.browser-window-card.is-animating .browser-iframe,
+.browser-window-backdrop.is-animating .browser-iframe {
+  pointer-events: none !important;
 }
 
 /* Browser Window Header */
