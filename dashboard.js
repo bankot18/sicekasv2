@@ -3557,21 +3557,65 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewerExtBadge) viewerExtBadge.textContent = (item.fileExt || 'DOC').toUpperCase();
     if (viewerFileMeta) viewerFileMeta.textContent = `${item.petugas || ''} • ${item.periode || ''} • ${item.fileSize || ''}`;
     if (viewerKeteranganText) viewerKeteranganText.textContent = item.keterangan || '-';
-    if (btnViewerOpenDrive) btnViewerOpenDrive.href = item.fileUrl || '#';
 
-    if (docViewerLoading) docViewerLoading.classList.remove('hidden');
+    if (docViewerLoading) {
+      docViewerLoading.classList.remove('hidden');
+      docViewerLoading.innerHTML = `
+        <div class="browser-spinner"></div>
+        <div style="font-size: 13px; color: #94a3b8; margin-top: 10px;">Membuka dan memuat berkas...</div>
+      `;
+    }
 
     const ext = (item.fileExt || '').toLowerCase();
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
 
-    let previewUrl = item.fileUrl || '';
-    if (item.fileId && (!previewUrl || previewUrl.includes('drive.google.com'))) {
-      previewUrl = `https://drive.google.com/file/d/${item.fileId}/preview`;
-    } else if (previewUrl.includes('drive.google.com')) {
-      previewUrl = previewUrl.replace(/\/view(\?.*)?$/, '/preview').replace(/\/edit(\?.*)?$/, '/preview');
+    // Extract valid Google Drive ID
+    let realFileId = '';
+    if (item.fileId && !item.fileId.startsWith('gdrive_') && item.fileId.length >= 20) {
+      realFileId = item.fileId;
+    } else if (item.fileUrl) {
+      const matchD = item.fileUrl.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
+      const matchId = item.fileUrl.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
+      if (matchD) realFileId = matchD[1];
+      else if (matchId) realFileId = matchId[1];
     }
 
-    if (isImage && !item.fileId && previewUrl.startsWith('data:')) {
+    let previewUrl = '';
+    let directDriveUrl = item.fileUrl || '#';
+
+    if (realFileId) {
+      previewUrl = `https://drive.google.com/file/d/${realFileId}/preview`;
+      directDriveUrl = `https://drive.google.com/file/d/${realFileId}/view?usp=sharing`;
+    } else if (item.fileUrl && item.fileUrl.includes('drive.google.com') && item.fileUrl.length > 30) {
+      previewUrl = item.fileUrl.replace(/\/view(\?.*)?$/, '/preview').replace(/\/edit(\?.*)?$/, '/preview');
+    } else if (item.base64 || (item.fileUrl && item.fileUrl.startsWith('data:'))) {
+      previewUrl = item.fileUrl || (item.base64 ? `data:application/pdf;base64,${item.base64}` : '');
+    }
+
+    if (btnViewerOpenDrive) btnViewerOpenDrive.href = directDriveUrl;
+
+    if (!realFileId && (!previewUrl || previewUrl === 'https://drive.google.com' || previewUrl === '#')) {
+      if (docViewerIframe) docViewerIframe.style.display = 'none';
+      if (docViewerImageBox) docViewerImageBox.style.display = 'none';
+      if (docViewerLoading) {
+        docViewerLoading.innerHTML = `
+          <div style="text-align: center; padding: 24px; max-width: 420px;">
+            <div style="font-size: 40px; margin-bottom: 12px;">📁</div>
+            <h4 style="color: #ffffff; font-size: 15px; font-weight: 700; margin-bottom: 8px;">Tautan File Sesi Lama</h4>
+            <p style="color: #94a3b8; font-size: 12px; line-height: 1.6; margin-bottom: 16px;">
+              Item ini diunggah sebelum Google Apps Script diperbarui. Silakan hapus item ini (🗑️) dan <strong>unggah ulang berkas</strong> agar langsung terhubung ke Google Drive aktif.
+            </p>
+            <a href="https://drive.google.com/drive/folders/1Y8av2ZMe1teS3dvc8fvGQ3ALkVPhp7og" target="_blank" rel="noopener noreferrer" class="btn-viewer-action" style="display: inline-flex;">
+              Buka Folder Google Drive ↗
+            </a>
+          </div>
+        `;
+      }
+      if (modalEvidenceViewer) modalEvidenceViewer.classList.add('active');
+      return;
+    }
+
+    if (isImage && !realFileId && previewUrl.startsWith('data:')) {
       if (docViewerIframe) docViewerIframe.style.display = 'none';
       if (docViewerImageBox) {
         docViewerImageBox.style.display = 'flex';
@@ -3590,7 +3634,7 @@ document.addEventListener('DOMContentLoaded', () => {
         docViewerIframe.onload = () => {
           setTimeout(() => {
             if (docViewerLoading) docViewerLoading.classList.add('hidden');
-          }, 600);
+          }, 500);
         };
       }
     }
@@ -3753,9 +3797,16 @@ document.addEventListener('DOMContentLoaded', () => {
               });
 
               const result = await res.json();
-              if (result && (result.fileUrl || result.url)) {
-                uploadedFileUrl = result.fileUrl || result.url;
-                gdriveFileId = result.fileId || gdriveFileId;
+              if (result) {
+                if (result.fileUrl) uploadedFileUrl = result.fileUrl;
+                else if (result.url) uploadedFileUrl = result.url;
+
+                if (result.fileId) gdriveFileId = result.fileId;
+                else if (result.id) gdriveFileId = result.id;
+                else if (uploadedFileUrl.includes('/d/')) {
+                  const m = uploadedFileUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                  if (m) gdriveFileId = m[1];
+                }
               }
             } catch (err) {
               console.warn('[GDRIVE UPLOAD] Remote endpoint error, fallback to recorded link:', err);
