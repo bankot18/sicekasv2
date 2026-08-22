@@ -869,7 +869,18 @@ document.addEventListener('DOMContentLoaded', () => {
   navLinks.forEach(link => {
     link.addEventListener('click', (e) => {
       const href = link.getAttribute('href');
-      // Direct external link (e.g. CKG Bankot)
+      const viewAttr = link.getAttribute('data-view');
+
+      // Open In-App Browser modal for CKG Bankot
+      if (viewAttr === 'browser-ckgbankot' || link.id === 'navCkgBankot') {
+        e.preventDefault();
+        if (window.InAppBrowser) {
+          window.InAppBrowser.open();
+        }
+        return;
+      }
+
+      // Direct external link (if any other)
       if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
         window.open(href, '_blank');
         e.preventDefault();
@@ -877,14 +888,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       e.preventDefault();
-
-      // Open In-App Browser modal for CKG Bankot
-      if (viewAttr === 'browser-ckgbankot') {
-        if (window.InAppBrowser) {
-          window.InAppBrowser.open();
-        }
-        return;
-      }
 
       // Popup under-development notification for Pelaporan Program
       if (viewAttr === 'pelaporan-program') {
