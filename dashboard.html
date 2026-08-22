@@ -5,7 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SICEKAS - Puskesmas Banjaran Kota</title>
   <script>
-    // AUTH GUARD: Jika belum login, langsung tendang ke menu login (index.html)
+    // 1. CLEAN PRETTY URL: Samarkan & sembunyikan ekstensi .html di URL bar browser
+    (function() {
+      try {
+        if (window.location.pathname.endsWith('.html')) {
+          var cleanPath = window.location.pathname.replace(/\.html$/, '');
+          window.history.replaceState(null, '', cleanPath + window.location.search + window.location.hash);
+        }
+      } catch (e) {}
+    })();
+
+    // 2. AUTH GUARD: Jika belum login, langsung tendang ke menu login (index.html)
     (function() {
       try {
         var u = localStorage.getItem('SICEKAS_CURRENT_USER');
@@ -3924,6 +3934,6 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=44"></script>
+  <script src="dashboard.js?v=45"></script>
 </body>
 </html>

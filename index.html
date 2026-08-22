@@ -5,13 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SICEKAS v2.0 - Sign in | Puskesmas Banjaran Kota</title>
   <script>
-    // AUTO FORWARD: Jika sudah login, otomatis masuk ke dashboard
+    // 1. CLEAN PRETTY URL: Samarkan / sembunyikan /index.html di URL browser
+    (function() {
+      try {
+        if (window.location.pathname.endsWith('/index.html') || window.location.pathname === '/index.html') {
+          var cleanPath = window.location.pathname.replace(/\/index\.html$/, '/') || '/';
+          window.history.replaceState(null, '', cleanPath + window.location.search + window.location.hash);
+        }
+      } catch (e) {}
+    })();
+
+    // 2. AUTO FORWARD: Jika sudah login, otomatis masuk ke dashboard
     (function() {
       try {
         var u = localStorage.getItem('SICEKAS_CURRENT_USER');
         if (u) {
           var p = JSON.parse(u);
-          if (p && (p.username || p.nip)) { window.location.replace('dashboard.html'); }
+          if (p && (p.username || p.nip)) { window.location.replace('dashboard'); }
         }
       } catch (e) {}
     })();

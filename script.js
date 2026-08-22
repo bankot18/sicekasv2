@@ -529,7 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
 
           setTimeout(() => {
-            window.location.href = 'dashboard.html';
+            window.location.href = 'dashboard';
           }, 500);
           return;
         } else {
