@@ -3069,7 +3069,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const formUploadEvidence = document.getElementById('formUploadEvidence');
   const evidencePetugasLabel = document.getElementById('evidencePetugasLabel');
   const evidencePeriodeLabel = document.getElementById('evidencePeriodeLabel');
-  const evidenceKeterangan = document.getElementById('evidenceKeterangan');
+  const evidenceKeteranganSelect = document.getElementById('evidenceKeteranganSelect');
+  const evidenceKeteranganCustom = document.getElementById('evidenceKeteranganCustom');
+  const groupCustomKeterangan = document.getElementById('groupCustomKeterangan');
   const evidenceDropzone = document.getElementById('evidenceDropzone');
   const evidenceFileInput = document.getElementById('evidenceFileInput');
   const dropzoneIdle = document.getElementById('dropzoneIdle');
@@ -3091,6 +3093,48 @@ document.addEventListener('DOMContentLoaded', () => {
   const evidenceUploadedList = document.getElementById('evidenceUploadedList');
 
   let selectedEvidenceFile = null;
+
+  // Populate Unsur Variabel Options dynamically from active TP POL form
+  const populateEvidenceKeteranganOptions = () => {
+    if (!evidenceKeteranganSelect) return;
+    const currentJabatan = tppolSelectJabatan ? tppolSelectJabatan.value : 'gizi';
+    const formData = ALL_SCORING_DATA[currentJabatan];
+    const items = formData ? formData.items : [];
+
+    evidenceKeteranganSelect.innerHTML = '';
+
+    if (items && items.length > 0) {
+      items.forEach((item, index) => {
+        const opt = document.createElement('option');
+        const cleanUnsur = item.unsur.replace(/\s+/g, ' ').trim();
+        opt.value = cleanUnsur;
+        opt.textContent = `${index + 1}. ${cleanUnsur}`;
+        evidenceKeteranganSelect.appendChild(opt);
+      });
+    }
+
+    // Add option for custom note
+    const customOpt = document.createElement('option');
+    customOpt.value = '__custom__';
+    customOpt.textContent = '➕ Lainnya / Tulis Keterangan Kustom...';
+    evidenceKeteranganSelect.appendChild(customOpt);
+
+    if (groupCustomKeterangan) {
+      groupCustomKeterangan.style.display = evidenceKeteranganSelect.value === '__custom__' ? 'block' : 'none';
+    }
+  };
+
+  if (evidenceKeteranganSelect) {
+    evidenceKeteranganSelect.addEventListener('change', () => {
+      if (groupCustomKeterangan) {
+        groupCustomKeterangan.style.display = evidenceKeteranganSelect.value === '__custom__' ? 'block' : 'none';
+      }
+    });
+  }
+
+  if (tppolSelectJabatan) {
+    tppolSelectJabatan.addEventListener('change', populateEvidenceKeteranganOptions);
+  }
 
   // Load saved Google Script URL
   const DEFAULT_GDRIVE_URL = localStorage.getItem('SICEKAS_GDRIVE_ENDPOINT') || 'https://script.google.com/macros/s/AKfycbwy_8AJb9KyPC1yqclPuVNNuZ0EJLZW0GxwRJAYmErHJJynBnfxr7hJtP_Yn2DOv_hS/exec';
@@ -3213,8 +3257,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (evidencePetugasLabel) evidencePetugasLabel.textContent = activePetugasName;
       if (evidencePeriodeLabel) evidencePeriodeLabel.textContent = `${mName} ${yVal}`;
 
+      // Populate dynamic options based on current active TP POL form
+      populateEvidenceKeteranganOptions();
+
       clearEvidenceFile();
-      if (evidenceKeterangan) evidenceKeterangan.value = '';
+      if (evidenceKeteranganCustom) evidenceKeteranganCustom.value = '';
       if (uploadProgressContainer) uploadProgressContainer.style.display = 'none';
       if (btnSubmitEvidence) btnSubmitEvidence.disabled = false;
       if (btnSubmitEvidenceText) btnSubmitEvidenceText.textContent = 'Mulai Upload ke Google Drive';
@@ -3339,7 +3386,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const mIdx = parseInt(tppolMonth ? tppolMonth.value : '8', 10);
       const mName = MONTH_NAMES[mIdx - 1] || 'Agustus';
       const yVal = tppolYear ? tppolYear.value : '2026';
-      const keteranganVal = evidenceKeterangan ? evidenceKeterangan.value.trim() : '';
+      let keteranganVal = '';
+      if (evidenceKeteranganSelect) {
+        if (evidenceKeteranganSelect.value === '__custom__') {
+          keteranganVal = (evidenceKeteranganCustom && evidenceKeteranganCustom.value.trim()) ? evidenceKeteranganCustom.value.trim() : 'Bukti Dukung Tambahan';
+        } else {
+          const selectedUnsur = evidenceKeteranganSelect.value;
+          const customNote = (evidenceKeteranganCustom && evidenceKeteranganCustom.value.trim()) ? evidenceKeteranganCustom.value.trim() : '';
+          keteranganVal = customNote ? `${selectedUnsur} (${customNote})` : selectedUnsur;
+        }
+      }
+      if (!keteranganVal) keteranganVal = 'Bukti Dukung TP POL';
       const endpointUrl = (gdriveScriptUrl ? gdriveScriptUrl.value.trim() : '') || localStorage.getItem('SICEKAS_GDRIVE_ENDPOINT') || 'https://script.google.com/macros/s/AKfycbwy_8AJb9KyPC1yqclPuVNNuZ0EJLZW0GxwRJAYmErHJJynBnfxr7hJtP_Yn2DOv_hS/exec';
 
       // Progress animation
