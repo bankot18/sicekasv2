@@ -3072,6 +3072,141 @@ input[type="date"].modal-input,
   margin-top: 1px !important;
 }
 
+/* ==========================================================================
+   EVIDENCE FLOATING POPOVER & TOGGLE BUTTON (MATCHES USER PROFILE SLIDE)
+   ========================================================================== */
+.evidence-popover-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.btn-evidence-hero-toggle {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.3) 100%) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.45) !important;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+.btn-evidence-hero-toggle:hover,
+.btn-evidence-hero-toggle.active {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  color: #ffffff !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 8px 26px rgba(16, 185, 129, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-2px);
+}
+
+.btn-evidence-hero-toggle .popover-chevron-icon {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-evidence-hero-toggle.active .popover-chevron-icon {
+  transform: rotate(180deg);
+}
+
+.evidence-count-badge {
+  background: #10b981;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+  line-height: 1;
+}
+
+.btn-evidence-hero-toggle.active .evidence-count-badge {
+  background: #ffffff;
+  color: #059669;
+}
+
+/* Floating Popover Container */
+.evidence-floating-popover {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 440px;
+  max-width: 92vw;
+  background: #0d121c;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 18px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(16, 185, 129, 0.25);
+  padding: 16px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px) scale(0.96);
+  transform-origin: top right;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 250;
+  box-sizing: border-box;
+}
+
+.evidence-floating-popover.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}
+
+.evidence-popover-card-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 14px;
+  margin-bottom: 12px;
+}
+
+.evidence-popover-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.evidence-title-texts {
+  flex: 1;
+  min-width: 0;
+}
+
+.evidence-popover-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.evidence-popover-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.evidence-popover-body {
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.evidence-popover-body::-webkit-scrollbar {
+  width: 5px;
+}
+.evidence-popover-body::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+.evidence-popover-body::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.3);
+  border-radius: 4px;
+}
+
 /* File Evidence Card (SICEKAS Dark Glassmorphism Theme) */
 .evidence-card-exact {
   background: rgba(18, 24, 38, 0.75);
@@ -3096,8 +3231,8 @@ input[type="date"].modal-input,
 }
 
 .evidence-icon-box {
-  width: 44px;
-  height: 44px;
+  width: 42px;
+  height: 42px;
   border-radius: 12px;
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.05));
   border: 1px solid rgba(16, 185, 129, 0.3);
@@ -3110,14 +3245,14 @@ input[type="date"].modal-input,
 }
 
 .evidence-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: #ffffff;
   margin: 0 0 2px 0;
 }
 
 .evidence-subtitle {
-  font-size: 12.5px;
+  font-size: 11.5px;
   color: #94a3b8;
   margin: 0;
 }
@@ -3131,7 +3266,7 @@ input[type="date"].modal-input,
   border: none;
   padding: 10px 20px;
   border-radius: 10px;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
@@ -3157,7 +3292,7 @@ input[type="date"].modal-input,
   gap: 10px;
   margin-top: 12px;
   color: #94a3b8;
-  font-size: 12.5px;
+  font-size: 12px;
   text-align: center;
 }
 

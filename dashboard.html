@@ -35,7 +35,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- SweetAlert2 CDN for Luxury Notifications & Interactive Modals -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <link rel="stylesheet" href="dashboard.css?v=40">
+  <link rel="stylesheet" href="dashboard.css?v=41">
 </head>
 <body>
   <!-- Ambient Atmospheric Light Glows -->
@@ -771,7 +771,67 @@
               </div>
             </div>
 
-            <div class="sppd-studio-actions">
+            <div class="sppd-studio-actions" style="display: flex; align-items: center; gap: 10px;">
+              <!-- 1. Floating Evidence Popover Trigger (Matches Profile Popover Slide Style) -->
+              <div class="evidence-popover-wrapper" id="evidencePopoverWrapper" style="position: relative;">
+                <button class="sppd-btn-hero btn-evidence-hero-toggle" id="btnToggleEvidencePopover" type="button" title="Lihat &amp; Kelola File Bukti Dukung (Evidence)">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="12" y1="18" x2="12" y2="12"></line>
+                    <line x1="9" y1="15" x2="15" y2="15"></line>
+                  </svg>
+                  <span>Bukti Dukung</span>
+                  <span class="evidence-count-badge" id="evidenceCountBadge" style="display: none;">0</span>
+                  <svg class="popover-chevron-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left: 2px;">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+
+                <!-- Floating Popover Card (Matches Image 1 inside Image 2 Slide-Down Style) -->
+                <div class="evidence-floating-popover" id="evidenceFloatingPopover">
+                  <div class="evidence-popover-card-header">
+                    <div class="evidence-popover-title-group">
+                      <div class="evidence-icon-box">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                          <polyline points="14 2 14 8 20 8"></polyline>
+                          <line x1="12" y1="18" x2="12" y2="12"></line>
+                          <line x1="9" y1="15" x2="15" y2="15"></line>
+                        </svg>
+                      </div>
+                      <div class="evidence-title-texts">
+                        <h4 class="evidence-title">File Evidence (Bukti Dukung)</h4>
+                        <p class="evidence-subtitle">Upload berkas bukti dukung capaian kinerja (PDF, JPG, PNG, ZIP)</p>
+                      </div>
+                      <button type="button" class="evidence-popover-close-btn" id="btnCloseEvidencePopover" title="Tutup Menu">&times;</button>
+                    </div>
+
+                    <button class="btn-evidence-upload" id="btnUploadEvidence" style="width: 100%; justify-content: center; margin-top: 12px;">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                      </svg>
+                      <span>Upload Evidence</span>
+                    </button>
+                  </div>
+
+                  <div class="evidence-popover-body">
+                    <div class="evidence-empty-box" id="evidenceEmptyBox">
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                      </svg>
+                      <span>Belum ada file evidence yang diunggah untuk bulan ini.</span>
+                    </div>
+
+                    <!-- List of Uploaded Evidence Items -->
+                    <div class="evidence-uploaded-list" id="evidenceUploadedList" style="display: none;"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 2. Cetak Dokumen Button -->
               <button class="sppd-btn-hero" id="btnPrintTpPol" title="Cetak Dokumen TP POL (Jaspel) ke Format A4">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="6 9 6 2 18 2 18 9"></polyline>
@@ -1043,45 +1103,6 @@
                     <span>Simpan Nilai Scoring</span>
                   </button>
                 </div>
-
-              </div>
-
-              <!-- 5. File Evidence (Bukti Dukung) Card (Located Under Right Column Menu) -->
-              <div class="evidence-card-exact" style="margin-top: 14px;">
-                <div class="evidence-header-left">
-                  <div class="evidence-icon-box">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                      <polyline points="14 2 14 8 20 8"></polyline>
-                      <line x1="12" y1="18" x2="12" y2="12"></line>
-                      <line x1="9" y1="15" x2="15" y2="15"></line>
-                    </svg>
-                  </div>
-                  <div>
-                    <h4 class="evidence-title">File Evidence (Bukti Dukung)</h4>
-                    <p class="evidence-subtitle">Upload berkas bukti dukung capaian kinerja (PDF, JPG, PNG, ZIP)</p>
-                  </div>
-                </div>
-
-                <button class="btn-evidence-upload" id="btnUploadEvidence" style="width: 100%; justify-content: center;">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="17 8 12 3 7 8"></polyline>
-                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                  </svg>
-                  <span>Upload Evidence</span>
-                </button>
-              </div>
-
-              <div class="evidence-empty-box" id="evidenceEmptyBox" style="margin-top: 10px;">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                </svg>
-                <span>Belum ada file evidence yang diunggah untuk bulan ini.</span>
-              </div>
-
-              <!-- List of Uploaded Evidence Items -->
-              <div class="evidence-uploaded-list" id="evidenceUploadedList" style="display: none; margin-top: 10px;"></div>
 
             </div>
 
@@ -4130,6 +4151,6 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=58"></script>
+  <script src="dashboard.js?v=59"></script>
 </body>
 </html>

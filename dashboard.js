@@ -3478,6 +3478,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!evidenceUploadedList || !evidenceEmptyBox) return;
     const items = loadEvidenceList();
 
+    // Update Counter Badge on Header Button
+    const badge = document.getElementById('evidenceCountBadge');
+    if (badge) {
+      if (items && items.length > 0) {
+        badge.textContent = items.length;
+        badge.style.display = 'inline-flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
     if (!items || items.length === 0) {
       evidenceEmptyBox.style.display = 'flex';
       evidenceUploadedList.style.display = 'none';
@@ -3523,6 +3534,38 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `).join('');
   };
+
+  // Floating Evidence Popover Controller (Beside Cetak Dokumen)
+  const btnToggleEvidencePopover = document.getElementById('btnToggleEvidencePopover');
+  const evidenceFloatingPopover = document.getElementById('evidenceFloatingPopover');
+  const btnCloseEvidencePopover = document.getElementById('btnCloseEvidencePopover');
+
+  if (btnToggleEvidencePopover && evidenceFloatingPopover) {
+    btnToggleEvidencePopover.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isActive = evidenceFloatingPopover.classList.toggle('active');
+      btnToggleEvidencePopover.classList.toggle('active', isActive);
+      if (isActive) renderEvidenceList();
+    });
+
+    if (btnCloseEvidencePopover) {
+      btnCloseEvidencePopover.addEventListener('click', (e) => {
+        e.stopPropagation();
+        evidenceFloatingPopover.classList.remove('active');
+        btnToggleEvidencePopover.classList.remove('active');
+      });
+    }
+
+    // Close when clicking anywhere outside
+    document.addEventListener('click', (e) => {
+      if (evidenceFloatingPopover.classList.contains('active')) {
+        if (!evidenceFloatingPopover.contains(e.target) && !btnToggleEvidencePopover.contains(e.target)) {
+          evidenceFloatingPopover.classList.remove('active');
+          btnToggleEvidencePopover.classList.remove('active');
+        }
+      }
+    });
+  }
 
   // Document & Evidence Viewer Modal Controller
   const modalEvidenceViewer = document.getElementById('modalEvidenceViewer');
