@@ -3548,7 +3548,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnCloseEvidenceViewer) btnCloseEvidenceViewer.addEventListener('click', closeDocViewerModal);
 
   // Expose openEvidenceViewer to window
-  window.openEvidenceViewer = (idx) => {
+  window.openEvidenceViewer = async (idx) => {
     const items = loadEvidenceList();
     const item = items[idx];
     if (!item) return;
@@ -3565,81 +3565,135 @@ document.addEventListener('DOMContentLoaded', () => {
         <div style="font-size: 13px; color: #94a3b8; margin-top: 10px;">Membuka dan memuat berkas...</div>
       `;
     }
+    if (docViewerIframe) docViewerIframe.style.display = 'none';
+    if (docViewerImageBox) docViewerImageBox.style.display = 'none';
+    if (modalEvidenceViewer) modalEvidenceViewer.classList.add('active');
 
     const ext = (item.fileExt || '').toLowerCase();
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
 
-    // Extract valid Google Drive ID
+    // ─── Step 1: Extract valid Google Drive File ID ───
     let realFileId = '';
     if (item.fileId && !item.fileId.startsWith('gdrive_') && item.fileId.length >= 20) {
       realFileId = item.fileId;
-    } else if (item.fileUrl) {
+    }
+    if (!realFileId && item.fileUrl) {
       const matchD = item.fileUrl.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
       const matchId = item.fileUrl.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
+      const matchOpen = item.fileUrl.match(/open\?id=([a-zA-Z0-9_-]{20,})/);
       if (matchD) realFileId = matchD[1];
       else if (matchId) realFileId = matchId[1];
+      else if (matchOpen) realFileId = matchOpen[1];
     }
 
+    // ─── Step 2: If no valid ID, auto-search Google Drive via Apps Script ───
+    if (!realFileId) {
+      const endpointUrl = (typeof gdriveScriptUrl !== 'undefined' && gdriveScriptUrl ? gdriveScriptUrl.value.trim() : '') ||
+        localStorage.getItem('SICEKAS_GDRIVE_ENDPOINT') ||
+        'https://script.google.com/macros/s/AKfycbwy_8AJb9KyPC1yqclPuVNNuZ0EJLZW0GxwRJAYmErHJJynBnfxr7hJtP_Yn2DOv_hS/exec';
+
+      if (docViewerLoading) {
+        docViewerLoading.innerHTML = `
+          <div class="browser-spinner"></div>
+          <div style="font-size: 13px; color: #94a3b8; margin-top: 10px;">Mencari berkas di Google Drive...</div>
+        `;
+      }
+
+      try {
+        const searchRes = await fetch(endpointUrl, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'search',
+            fileName: item.fileName,
+            petugas: item.petugas || ''
+          }),
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        });
+        const searchResult = await searchRes.json();
+        if (searchResult && searchResult.fileId) {
+          realFileId = searchResult.fileId;
+          // Persist the found ID so we don't need to search again
+          item.fileId = realFileId;
+          item.fileUrl = searchResult.fileUrl || `https://drive.google.com/file/d/${realFileId}/view?usp=sharing`;
+          saveEvidenceList(items);
+        }
+      } catch (err) {
+        console.warn('[EVIDENCE VIEWER] Auto-search failed:', err);
+      }
+    }
+
+    // ─── Step 3: Build preview URL ───
     let previewUrl = '';
-    let directDriveUrl = item.fileUrl || '#';
+    let directDriveUrl = '#';
 
     if (realFileId) {
       previewUrl = `https://drive.google.com/file/d/${realFileId}/preview`;
       directDriveUrl = `https://drive.google.com/file/d/${realFileId}/view?usp=sharing`;
-    } else if (item.fileUrl && item.fileUrl.includes('drive.google.com') && item.fileUrl.length > 30) {
+    } else if (item.fileUrl && item.fileUrl.includes('drive.google.com') && item.fileUrl.length > 40) {
       previewUrl = item.fileUrl.replace(/\/view(\?.*)?$/, '/preview').replace(/\/edit(\?.*)?$/, '/preview');
-    } else if (item.base64 || (item.fileUrl && item.fileUrl.startsWith('data:'))) {
-      previewUrl = item.fileUrl || (item.base64 ? `data:application/pdf;base64,${item.base64}` : '');
+      directDriveUrl = item.fileUrl;
     }
 
     if (btnViewerOpenDrive) btnViewerOpenDrive.href = directDriveUrl;
 
-    if (!realFileId && (!previewUrl || previewUrl === 'https://drive.google.com' || previewUrl === '#')) {
-      if (docViewerIframe) docViewerIframe.style.display = 'none';
-      if (docViewerImageBox) docViewerImageBox.style.display = 'none';
+    // ─── Step 4: Display the file ───
+    if (previewUrl && previewUrl !== '#') {
+      if (isImage && realFileId) {
+        // For images on Google Drive, use thumbnail URL for direct display
+        const thumbUrl = `https://drive.google.com/thumbnail?id=${realFileId}&sz=w1200`;
+        if (docViewerIframe) docViewerIframe.style.display = 'none';
+        if (docViewerImageBox) {
+          docViewerImageBox.style.display = 'flex';
+          if (docViewerImg) {
+            docViewerImg.src = thumbUrl;
+            docViewerImg.onerror = () => {
+              // Fallback to iframe preview if thumbnail fails
+              docViewerImageBox.style.display = 'none';
+              if (docViewerIframe) {
+                docViewerIframe.style.display = 'block';
+                docViewerIframe.src = previewUrl;
+                docViewerIframe.onload = () => {
+                  if (docViewerLoading) docViewerLoading.classList.add('hidden');
+                };
+              }
+            };
+            docViewerImg.onload = () => {
+              if (docViewerLoading) docViewerLoading.classList.add('hidden');
+            };
+          }
+        }
+      } else {
+        // PDF, DOCX, XLSX, etc. → iframe preview
+        if (docViewerImageBox) docViewerImageBox.style.display = 'none';
+        if (docViewerIframe) {
+          docViewerIframe.style.display = 'block';
+          docViewerIframe.src = previewUrl;
+          docViewerIframe.onload = () => {
+            setTimeout(() => {
+              if (docViewerLoading) docViewerLoading.classList.add('hidden');
+            }, 400);
+          };
+        }
+      }
+    } else {
+      // ─── No valid link found: show helpful message ───
       if (docViewerLoading) {
         docViewerLoading.innerHTML = `
           <div style="text-align: center; padding: 24px; max-width: 420px;">
-            <div style="font-size: 40px; margin-bottom: 12px;">📁</div>
-            <h4 style="color: #ffffff; font-size: 15px; font-weight: 700; margin-bottom: 8px;">Tautan File Sesi Lama</h4>
+            <div style="font-size: 40px; margin-bottom: 12px;">📄</div>
+            <h4 style="color: #ffffff; font-size: 15px; font-weight: 700; margin-bottom: 8px;">File Tidak Ditemukan di Google Drive</h4>
             <p style="color: #94a3b8; font-size: 12px; line-height: 1.6; margin-bottom: 16px;">
-              Item ini diunggah sebelum Google Apps Script diperbarui. Silakan hapus item ini (🗑️) dan <strong>unggah ulang berkas</strong> agar langsung terhubung ke Google Drive aktif.
+              Berkas <strong>${item.fileName || ''}</strong> tidak ditemukan di folder Google Drive Anda.
+              Silakan <strong>hapus item ini</strong> (🗑️) lalu <strong>unggah ulang berkas</strong> dari halaman Evidence.
             </p>
-            <a href="https://drive.google.com/drive/folders/1Y8av2ZMe1teS3dvc8fvGQ3ALkVPhp7og" target="_blank" rel="noopener noreferrer" class="btn-viewer-action" style="display: inline-flex;">
+            <a href="https://drive.google.com/drive/folders/1Y8av2ZMe1teS3dvc8fvGQ3ALkVPhp7og" target="_blank" rel="noopener noreferrer"
+               style="display: inline-block; padding: 10px 20px; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-radius: 8px; font-size: 12px; font-weight: 600; text-decoration: none;">
               Buka Folder Google Drive ↗
             </a>
           </div>
         `;
       }
-      if (modalEvidenceViewer) modalEvidenceViewer.classList.add('active');
-      return;
     }
-
-    if (isImage && !realFileId && previewUrl.startsWith('data:')) {
-      if (docViewerIframe) docViewerIframe.style.display = 'none';
-      if (docViewerImageBox) {
-        docViewerImageBox.style.display = 'flex';
-        if (docViewerImg) {
-          docViewerImg.src = previewUrl;
-          docViewerImg.onload = () => {
-            if (docViewerLoading) docViewerLoading.classList.add('hidden');
-          };
-        }
-      }
-    } else {
-      if (docViewerImageBox) docViewerImageBox.style.display = 'none';
-      if (docViewerIframe) {
-        docViewerIframe.style.display = 'block';
-        docViewerIframe.src = previewUrl;
-        docViewerIframe.onload = () => {
-          setTimeout(() => {
-            if (docViewerLoading) docViewerLoading.classList.add('hidden');
-          }, 500);
-        };
-      }
-    }
-
-    if (modalEvidenceViewer) modalEvidenceViewer.classList.add('active');
   };
 
   // Expose delete to window with Google Drive synchronization & SweetAlert2
