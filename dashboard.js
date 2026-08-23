@@ -3539,13 +3539,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const docViewerImg = document.getElementById('docViewerImg');
 
   const closeDocViewerModal = () => {
-    if (modalEvidenceViewer) modalEvidenceViewer.classList.remove('active');
+    if (modalEvidenceViewer) {
+      modalEvidenceViewer.classList.remove('active');
+      // Reset to landscape (default) on close
+      const card = modalEvidenceViewer.querySelector('.modal-card-docviewer');
+      if (card) card.classList.remove('viewer-portrait');
+    }
     if (docViewerIframe) docViewerIframe.src = 'about:blank';
     if (docViewerImg) docViewerImg.src = '';
   };
 
   if (closeEvidenceViewer) closeEvidenceViewer.addEventListener('click', closeDocViewerModal);
   if (btnCloseEvidenceViewer) btnCloseEvidenceViewer.addEventListener('click', closeDocViewerModal);
+
+  // Orientation toggle: Landscape ↔ Portrait
+  const btnViewerToggleOrient = document.getElementById('btnViewerToggleOrient');
+  if (btnViewerToggleOrient) {
+    btnViewerToggleOrient.addEventListener('click', () => {
+      const card = modalEvidenceViewer ? modalEvidenceViewer.querySelector('.modal-card-docviewer') : null;
+      if (!card) return;
+      const isPortrait = card.classList.toggle('viewer-portrait');
+      const label = btnViewerToggleOrient.querySelector('span');
+      if (label) label.textContent = isPortrait ? 'Portrait' : 'Landscape';
+    });
+  }
 
   // Expose openEvidenceViewer to window
   window.openEvidenceViewer = async (idx) => {

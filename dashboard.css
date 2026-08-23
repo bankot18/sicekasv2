@@ -3532,14 +3532,25 @@ input[type="date"].modal-input,
   transition: width 0.2s ease;
 }
 
-/* Document & Evidence Viewer Modal */
+/* Document & Evidence Viewer Modal — Fullscreen-style */
 .modal-card-docviewer {
-  width: 95vw;
-  max-width: 1100px;
-  height: 90vh;
-  max-height: 880px;
+  width: 96vw;
+  max-width: 1600px;
+  height: 94vh;
+  max-height: none;
   display: flex;
   flex-direction: column;
+  border-radius: 16px;
+}
+
+.modal-card-docviewer .modal-header {
+  flex-shrink: 0;
+  padding: 14px 20px 10px;
+}
+
+.modal-card-docviewer .modal-actions {
+  flex-shrink: 0;
+  padding: 10px 20px 14px;
 }
 
 .docviewer-frame-wrapper {
@@ -3547,12 +3558,13 @@ input[type="date"].modal-input,
   position: relative;
   background: #0d131f;
   border-radius: 10px;
-  margin: 14px 20px;
+  margin: 0 16px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  min-height: 0;
 }
 
 .docviewer-iframe {
@@ -3597,6 +3609,63 @@ input[type="date"].modal-input,
 .docviewer-loading.hidden {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Orientation toggle button */
+.btn-viewer-orient {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #94a3b8;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.btn-viewer-orient:hover {
+  background: rgba(148, 163, 184, 0.25);
+  color: #e2e8f0;
+}
+
+/* Portrait mode override */
+.modal-card-docviewer.viewer-portrait {
+  width: 60vw;
+  max-width: 800px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .modal-card-docviewer {
+    width: 98vw;
+    height: 95vh;
+    border-radius: 10px;
+  }
+  .modal-card-docviewer.viewer-portrait {
+    width: 90vw;
+    max-width: none;
+  }
+  .docviewer-frame-wrapper {
+    margin: 0 10px;
+  }
+}
+
+@media (max-width: 640px) {
+  .modal-card-docviewer,
+  .modal-card-docviewer.viewer-portrait {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    max-width: none;
+  }
+  .docviewer-frame-wrapper {
+    margin: 0 6px;
+    border-radius: 6px;
+  }
 }
 
 .btn-viewer-action {
