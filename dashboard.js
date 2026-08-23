@@ -1875,7 +1875,7 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
             </div>
             <div class="legend-right">
-              <span>Petugas: <span class="officer-highlight">${officerName}</span> (${officerJabatan} / ${officerRole})</span>
+              <span>Petugas: <span class="officer-highlight">${officerName}</span> (${officerJabatan})</span>
             </div>
           </div>
 
