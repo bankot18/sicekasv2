@@ -8143,6 +8143,22 @@ body {
   max-width: min(720px, 95vw) !important;
 }
 
+/* Evidence Document Viewer — fullscreen override */
+.modal-card.modal-card-docviewer {
+  width: 96vw !important;
+  max-width: 1600px !important;
+  height: 94vh !important;
+  max-height: none !important;
+  padding: 0 !important;
+  overflow-y: hidden !important;
+  border-radius: 16px !important;
+}
+
+.modal-card.modal-card-docviewer.viewer-portrait {
+  width: 60vw !important;
+  max-width: 800px !important;
+}
+
 .modal-card::-webkit-scrollbar {
   width: 6px;
 }
@@ -8273,6 +8289,20 @@ body {
 
   .modal-card {
     padding: 16px !important;
+  }
+
+  .modal-card.modal-card-docviewer {
+    padding: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: none !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+  }
+
+  .modal-card.modal-card-docviewer.viewer-portrait {
+    width: 100vw !important;
+    max-width: none !important;
   }
 
   .modal-actions {
