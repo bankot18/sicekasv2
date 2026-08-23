@@ -1670,9 +1670,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const task = poaActivitiesState[dateKey] || '';
 
           let badgeHtml = '';
-          if (isToday) {
-            badgeHtml = `<span style="background: #2563eb; color: #ffffff; font-size: 8px; font-weight: 800; padding: 1.5px 5px; border-radius: 3px; letter-spacing: 0.3px;">HARI INI</span>`;
-          } else if (isHoliday) {
+          if (isHoliday) {
             badgeHtml = `<span style="background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c; font-size: 8px; font-weight: 700; padding: 1.5px 5px; border-radius: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; display: inline-block;">🔴 ${holidayInfo.name}</span>`;
           } else if (isCuti) {
             badgeHtml = `<span style="background: #fef3c7; border: 1px solid #fde68a; color: #b45309; font-size: 8px; font-weight: 700; padding: 1.5px 5px; border-radius: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; display: inline-block;">🟠 ${holidayInfo.name}</span>`;
@@ -1687,9 +1685,9 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
           }
 
-          const cellBg = isToday ? '#eff6ff' : (isSunday || isHoliday ? '#fff5f5' : (isCuti ? '#fffbeb' : '#ffffff'));
-          const numColor = isToday ? '#1d4ed8' : (isSunday || isHoliday ? '#dc2626' : '#334155');
-          const cellBorder = isToday ? '2px solid #2563eb' : '1px solid #e2e8f0';
+          const cellBg = (isSunday || isHoliday ? '#fff5f5' : (isCuti ? '#fffbeb' : '#ffffff'));
+          const numColor = (isSunday || isHoliday ? '#dc2626' : '#334155');
+          const cellBorder = '1px solid #e2e8f0';
 
           rowCells += `
             <td style="background: ${cellBg}; border: ${cellBorder}; vertical-align: top; height: 80px; padding: 6px 8px; position: relative;">
@@ -1824,7 +1822,6 @@ document.addEventListener('DOMContentLoaded', () => {
           .legend-indicator.work { background: #ffffff; }
           .legend-indicator.holiday { background: #fee2e2; border-color: #fca5a5; }
           .legend-indicator.cuti { background: #fef3c7; border-color: #fde68a; }
-          .legend-indicator.today { background: #eff6ff; border-color: #2563eb; }
           .legend-right {
             color: #475569;
             font-size: 10px;
@@ -1875,10 +1872,6 @@ document.addEventListener('DOMContentLoaded', () => {
               <div class="legend-item">
                 <span class="legend-indicator cuti"></span>
                 <span>Cuti Bersama</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-indicator today"></span>
-                <span>Hari Ini</span>
               </div>
             </div>
             <div class="legend-right">
