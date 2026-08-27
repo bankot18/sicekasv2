@@ -595,15 +595,22 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
             return json;
           }
+        } else {
+          const errJson = await res.json().catch(() => ({}));
+          console.warn('API D1 Template Save returned non-ok status:', res.status, errJson);
+          if (errJson.error) {
+            throw new Error(errJson.error);
+          }
         }
       } catch (e) {
-        console.warn('Fallback save SPPD template', e);
+        console.warn('Fallback save SPPD template to local cache', e);
+        let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
+        const idx = local.findIndex(i => i.id === item.id);
+        if (idx >= 0) local[idx] = item;
+        else local.unshift(item);
+        localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+        return { success: true, id: item.id, isLocalFallback: true };
       }
-      let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
-      const idx = local.findIndex(i => i.id === item.id);
-      if (idx >= 0) local[idx] = item;
-      else local.unshift(item);
-      localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
       return { success: true, id: item.id };
     },
 
