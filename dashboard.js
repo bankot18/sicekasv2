@@ -6716,6 +6716,14 @@ document.addEventListener('DOMContentLoaded', () => {
                   <div style="color: #cbd5e1;">${maksud}</div>
                 </div>
               </div>
+              ${t.tgl_berangkat ? `
+              <div class="evidence-detail-row">
+                <span class="evidence-detail-icon">📅</span>
+                <div>
+                  <strong style="color: #ffffff;">Jadwal Dinas:</strong>
+                  <div style="color: #ffd166; font-weight: 600;">${escapeHtmlHelper(t.tgl_berangkat)}${t.tgl_kembali && t.tgl_kembali !== t.tgl_berangkat ? ` s/d ${escapeHtmlHelper(t.tgl_kembali)}` : ''}</div>
+                </div>
+              </div>` : ''}
               <div class="evidence-detail-row">
                 <span class="evidence-detail-icon">👤</span>
                 <div>
@@ -6776,6 +6784,14 @@ document.addEventListener('DOMContentLoaded', () => {
                   <div style="color: #cbd5e1;">${tujuan}</div>
                 </div>
               </div>
+              ${lpt.tanggal_laporan ? `
+              <div class="evidence-detail-row">
+                <span class="evidence-detail-icon">📅</span>
+                <div>
+                  <strong style="color: #ffffff;">Tanggal Laporan:</strong>
+                  <div style="color: #38bdf8; font-weight: 600;">${escapeHtmlHelper(lpt.tanggal_laporan)}</div>
+                </div>
+              </div>` : ''}
               <div class="evidence-detail-row">
                 <span class="evidence-detail-icon">📝</span>
                 <div>
@@ -6954,6 +6970,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const optUser = (pegawaiEl && pegawaiEl.selectedIndex >= 0) ? pegawaiEl.options[pegawaiEl.selectedIndex] : null;
 
         // SPPD Details
+        const noSurat = document.getElementById('sppdInputNoSurat')?.value || '';
+        const tglBerangkat = document.getElementById('sppdInputTglBerangkat')?.value || '';
+        const tglKembali = document.getElementById('sppdInputTglKembali')?.value || '';
         const pegawai = pegawaiEl ? pegawaiEl.value : '';
         const nip = optUser ? (optUser.getAttribute('data-nip') || '') : '';
         const maksud = document.getElementById('sppdInputMaksud')?.value || '';
@@ -6977,10 +6996,11 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
 
-        // LPT Details
+        // LPT Details (Termasuk Tanggal Laporan)
         const lptData = {
           dasar: document.getElementById('lptInputDasar')?.value || '',
           tujuan: document.getElementById('lptInputTujuanPerjalanan')?.value || '',
+          tanggal_laporan: document.getElementById('lptInputTanggalLaporan')?.value || '',
           proses: document.getElementById('lptInputProses')?.value || '',
           masalah: document.getElementById('lptInputMasalah')?.value || '',
           kesimpulan: document.getElementById('lptInputKesimpulan')?.value || '',
@@ -7038,7 +7058,10 @@ document.addEventListener('DOMContentLoaded', () => {
           id: `tmpl-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
           template_type: targetType,
           nama_template: templateName,
-          username: CURRENT_USER?.username || 'ozie',
+          username: this.getCurrentUsername(),
+          no_surat: noSurat,
+          tgl_berangkat: tglBerangkat,
+          tgl_kembali: tglKembali,
           pegawai_nama: pegawai,
           pegawai_nip: nip,
           maksud_kegiatan: maksud,
@@ -7092,6 +7115,15 @@ document.addEventListener('DOMContentLoaded', () => {
           updateFormDisplay();
         }
 
+        if (sppdInputNoSurat && tmpl.no_surat) {
+          sppdInputNoSurat.value = tmpl.no_surat;
+        }
+        if (sppdInputTglBerangkat && tmpl.tgl_berangkat) {
+          sppdInputTglBerangkat.value = tmpl.tgl_berangkat;
+        }
+        if (sppdInputTglKembali && tmpl.tgl_kembali) {
+          sppdInputTglKembali.value = tmpl.tgl_kembali;
+        }
         if (sppdInputPegawai && tmpl.pegawai_nama) {
           sppdInputPegawai.value = tmpl.pegawai_nama;
         }
@@ -7164,6 +7196,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) { el.value = lpt.tujuan; el.dataset.userEdited = 'true'; }
             const docEl = document.getElementById('lptValTujuanPerjalanan');
             if (docEl) docEl.textContent = lpt.tujuan;
+          }
+          if (lpt.tanggal_laporan) {
+            const el = document.getElementById('lptInputTanggalLaporan');
+            if (el) { el.value = lpt.tanggal_laporan; el.dataset.userEdited = 'true'; }
+            const docEl = document.getElementById('lptSigDate');
+            if (docEl && typeof formatIndoDate === 'function') {
+              docEl.textContent = formatIndoDate(lpt.tanggal_laporan);
+            }
           }
           if (lpt.proses) {
             const el = document.getElementById('lptInputProses');

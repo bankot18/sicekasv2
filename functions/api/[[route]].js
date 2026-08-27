@@ -1029,6 +1029,9 @@ async function handleApiRequest(request, env, ctx) {
             template_type TEXT NOT NULL DEFAULT 'sppd',
             nama_template TEXT NOT NULL,
             username TEXT NOT NULL,
+            no_surat TEXT,
+            tgl_berangkat TEXT,
+            tgl_kembali TEXT,
             pegawai_nama TEXT,
             pegawai_nip TEXT,
             maksud_kegiatan TEXT,
@@ -1048,6 +1051,9 @@ async function handleApiRequest(request, env, ctx) {
       try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN template_type TEXT NOT NULL DEFAULT 'sppd'").run(); } catch(e) {}
       try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN lpt_data TEXT").run(); } catch(e) {}
       try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN dok_data TEXT").run(); } catch(e) {}
+      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN no_surat TEXT").run(); } catch(e) {}
+      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN tgl_berangkat TEXT").run(); } catch(e) {}
+      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN tgl_kembali TEXT").run(); } catch(e) {}
 
       // Check 30 template limitation per user per template_type
       const targetUser = item.username || 'ozie';
@@ -1064,12 +1070,15 @@ async function handleApiRequest(request, env, ctx) {
       }
 
       await db.prepare(`
-        INSERT INTO sppd_templates (id, template_type, nama_template, username, pegawai_nama, pegawai_nip, maksud_kegiatan, tempat_berangkat, tempat_tujuan, pengikut_data, lpt_data, dok_data, is_favorite, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        INSERT INTO sppd_templates (id, template_type, nama_template, username, no_surat, tgl_berangkat, tgl_kembali, pegawai_nama, pegawai_nip, maksud_kegiatan, tempat_berangkat, tempat_tujuan, pengikut_data, lpt_data, dok_data, is_favorite, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(id) DO UPDATE SET
           template_type = excluded.template_type,
           nama_template = excluded.nama_template,
           username = excluded.username,
+          no_surat = excluded.no_surat,
+          tgl_berangkat = excluded.tgl_berangkat,
+          tgl_kembali = excluded.tgl_kembali,
           pegawai_nama = excluded.pegawai_nama,
           pegawai_nip = excluded.pegawai_nip,
           maksud_kegiatan = excluded.maksud_kegiatan,
@@ -1085,6 +1094,9 @@ async function handleApiRequest(request, env, ctx) {
         templateType,
         item.nama_template || 'Template',
         item.username || 'ozie',
+        item.no_surat || '',
+        item.tgl_berangkat || '',
+        item.tgl_kembali || '',
         item.pegawai_nama || '',
         item.pegawai_nip || '',
         item.maksud_kegiatan || '',
