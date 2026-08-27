@@ -6968,22 +6968,42 @@ document.addEventListener('DOMContentLoaded', () => {
           toggle3: document.getElementById('lptTogglePetugas3')?.checked || false
         };
 
-        // Dokumentasi Details
+        // Dokumentasi Details - Pastikan file gambar tersimpan di Cloudflare R2
         const photoCards = Array.from(document.querySelectorAll('#dokPhotoContainer .dok-photo-card'));
-        const dokPhotos = photoCards.slice(0, 30).map((card, idx) => {
+        const dokPhotos = [];
+        for (let idx = 0; idx < Math.min(photoCards.length, 30); idx++) {
+          const card = photoCards[idx];
           const img = card.querySelector('.dok-photo-img');
           const cap = card.querySelector('.dok-photo-caption');
           let sz = 'M';
           if (card.classList.contains('size-s')) sz = 'S';
           else if (card.classList.contains('size-l')) sz = 'L';
           else if (card.classList.contains('size-full')) sz = '100%';
-          return {
+
+          let photoUrl = img ? img.src : '';
+          // Jika gambar masih Base64 data URI, upload langsung ke Cloudflare R2 Bucket
+          if (photoUrl && photoUrl.startsWith('data:')) {
+            try {
+              const r2Res = await CloudflareDB.uploadFotoR2(photoUrl, `foto_tmpl_${Date.now()}_${idx + 1}.jpg`);
+              if (r2Res && r2Res.url) {
+                photoUrl = r2Res.url;
+                if (img) {
+                  img.src = r2Res.url;
+                  img.setAttribute('data-r2-key', r2Res.key || '');
+                }
+              }
+            } catch (r2Err) {
+              console.warn('Upload R2 fallback:', r2Err);
+            }
+          }
+
+          dokPhotos.push({
             id: `photo-${Date.now()}-${idx}`,
-            url: img ? img.src : '',
+            url: photoUrl,
             caption: cap ? cap.textContent.trim() : '',
             size: sz
-          };
-        });
+          });
+        }
 
         const dokData = {
           judul: document.getElementById('dokInputJudulKegiatan')?.value || '',
