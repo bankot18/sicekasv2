@@ -6856,152 +6856,183 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     async saveCurrentAsTemplate(forcedType) {
-      const targetType = forcedType || this.activeTab || 'sppd';
-      const currentList = this.templates.filter(t => (t.template_type || 'sppd') === targetType);
+      try {
+        const targetType = forcedType || this.activeTab || 'sppd';
+        const currentList = this.templates.filter(t => (t.template_type || 'sppd') === targetType);
 
-      // Check 30 Template Limit for this specific type
-      if (currentList.length >= MAX_TEMPLATES_PER_TYPE) {
+        // Check 30 Template Limit for this specific type
+        if (currentList.length >= MAX_TEMPLATES_PER_TYPE) {
+          const typeLabel = targetType === 'lpt' ? 'LPT' : (targetType === 'dok' ? 'Foto Kegiatan' : 'SPPD');
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Batas Kuota Tercapai',
+              text: `Anda telah mencapai batas maksimal ${MAX_TEMPLATES_PER_TYPE} template untuk ${typeLabel}. Harap hapus salah satu template lama terlebih dahulu sebelum menambah yang baru.`,
+              confirmButtonText: 'Mengerti',
+              background: '#0f172a',
+              color: '#ffffff'
+            });
+          } else {
+            alert(`Batas maksimal ${MAX_TEMPLATES_PER_TYPE} template untuk ${typeLabel} telah tercapai.`);
+          }
+          return;
+        }
+
+        let defaultName = '';
+        let dialogTitle = '';
+
+        if (targetType === 'sppd') {
+          const kegText = document.getElementById('sppdInputMaksud')?.value || document.getElementById('sppdInputTujuan')?.value || 'SPPD';
+          const tglSurat = document.getElementById('sppdInputTglBerangkat')?.value || '';
+          defaultName = formatTemplateNameHelper(kegText, tglSurat);
+          dialogTitle = 'Simpan Template SPPD';
+        } else if (targetType === 'lpt') {
+          const tujuanLpt = document.getElementById('lptInputTujuanPerjalanan')?.value || document.getElementById('lptInputDasar')?.value || 'Laporan LPT';
+          const tglLpt = document.getElementById('lptInputTanggalLaporan')?.value || '';
+          defaultName = formatTemplateNameHelper(tujuanLpt, tglLpt);
+          dialogTitle = 'Simpan Template LPT';
+        } else if (targetType === 'dok') {
+          const judulDok = document.getElementById('dokInputJudulKegiatan')?.value || 'Dokumentasi Kegiatan';
+          defaultName = formatTemplateNameHelper(judulDok, null);
+          dialogTitle = 'Simpan Template Foto Kegiatan';
+        }
+
+        // Prompt for Template Name with SweetAlert2
+        let templateName = '';
+        if (typeof Swal !== 'undefined') {
+          const { value: nameInput, isConfirmed } = await Swal.fire({
+            title: dialogTitle,
+            html: `<div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Format nama otomatis <strong>(Kegiatan-dd-mm-yyyy)</strong>:</div>`,
+            input: 'text',
+            inputValue: defaultName,
+            showCancelButton: true,
+            confirmButtonText: '💾 Simpan Template',
+            cancelButtonText: 'Batal',
+            background: '#0f172a',
+            color: '#ffffff',
+            customClass: {
+              popup: 'sicekas-swal-modal',
+              confirmButton: 'btn-swal-teal',
+              cancelButton: 'btn-swal-cancel'
+            },
+            inputValidator: (val) => {
+              if (!val || !val.trim()) return 'Nama template tidak boleh kosong!';
+            }
+          });
+          if (!isConfirmed || !nameInput) return;
+          templateName = nameInput.trim();
+        } else {
+          templateName = prompt(`${dialogTitle} (Kegiatan-dd-mm-yyyy):`, defaultName) || '';
+          if (!templateName.trim()) return;
+        }
+
+        // Gather Data safely according to targetType
+        const pegawaiEl = document.getElementById('sppdInputPegawai');
+        const optUser = (pegawaiEl && pegawaiEl.selectedIndex >= 0) ? pegawaiEl.options[pegawaiEl.selectedIndex] : null;
+
+        // SPPD Details
+        const pegawai = pegawaiEl ? pegawaiEl.value : '';
+        const nip = optUser ? (optUser.getAttribute('data-nip') || '') : '';
+        const maksud = document.getElementById('sppdInputMaksud')?.value || '';
+        const tempatBerangkat = document.getElementById('sppdInputTempatBerangkat')?.value || '';
+        const tujuan = document.getElementById('sppdInputTujuan')?.value || '';
+
+        const pengikutList = [];
+        for (let i = 1; i <= 4; i++) {
+          const select = document.getElementById(`sppdPengikutSelect${i}`);
+          const inNama = document.getElementById(`sppdPengikutInputNama${i}`);
+          const inNip = document.getElementById(`sppdPengikutInputNip${i}`);
+          const inKet = document.getElementById(`sppdPengikutInputKet${i}`);
+          if (select && select.value) {
+            pengikutList.push({
+              index: i,
+              selectVal: select.value,
+              customNama: inNama ? inNama.value : '',
+              customNip: inNip ? inNip.value : '',
+              customKet: inKet ? inKet.value : ''
+            });
+          }
+        }
+
+        // LPT Details
+        const lptData = {
+          dasar: document.getElementById('lptInputDasar')?.value || '',
+          tujuan: document.getElementById('lptInputTujuanPerjalanan')?.value || '',
+          proses: document.getElementById('lptInputProses')?.value || '',
+          masalah: document.getElementById('lptInputMasalah')?.value || '',
+          kesimpulan: document.getElementById('lptInputKesimpulan')?.value || '',
+          petugas1: document.getElementById('lptSelectPetugas1')?.value || '',
+          petugas2: document.getElementById('lptSelectPetugas2')?.value || '',
+          petugas3: document.getElementById('lptSelectPetugas3')?.value || '',
+          toggle2: document.getElementById('lptTogglePetugas2')?.checked || false,
+          toggle3: document.getElementById('lptTogglePetugas3')?.checked || false
+        };
+
+        // Dokumentasi Details
+        const photoCards = Array.from(document.querySelectorAll('#dokPhotoContainer .dok-photo-card'));
+        const dokPhotos = photoCards.slice(0, 30).map((card, idx) => {
+          const img = card.querySelector('.dok-photo-img');
+          const cap = card.querySelector('.dok-photo-caption');
+          let sz = 'M';
+          if (card.classList.contains('size-s')) sz = 'S';
+          else if (card.classList.contains('size-l')) sz = 'L';
+          else if (card.classList.contains('size-full')) sz = '100%';
+          return {
+            id: `photo-${Date.now()}-${idx}`,
+            url: img ? img.src : '',
+            caption: cap ? cap.textContent.trim() : '',
+            size: sz
+          };
+        });
+
+        const dokData = {
+          judul: document.getElementById('dokInputJudulKegiatan')?.value || '',
+          layout: document.getElementById('dokSelectLayout')?.value || 'grid-2',
+          photos: dokPhotos
+        };
+
+        const payload = {
+          id: `tmpl-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          template_type: targetType,
+          nama_template: templateName,
+          username: CURRENT_USER?.username || 'ozie',
+          pegawai_nama: pegawai,
+          pegawai_nip: nip,
+          maksud_kegiatan: maksud,
+          tempat_berangkat: tempatBerangkat || 'Puskesmas Banjaran Kota',
+          tempat_tujuan: tujuan,
+          pengikut_data: pengikutList,
+          lpt_data: lptData,
+          dok_data: dokData,
+          is_favorite: 0,
+          created_at: new Date().toISOString()
+        };
+
+        // Optimistic update
+        this.templates.unshift(payload);
+        this.render();
+
+        const res = await CloudflareDB.saveSppdTemplate(payload);
+
         const typeLabel = targetType === 'lpt' ? 'LPT' : (targetType === 'dok' ? 'Foto Kegiatan' : 'SPPD');
+        const countNow = this.templates.filter(t => (t.template_type || 'sppd') === targetType).length;
+
+        if (typeof showToast === 'function') {
+          showToast(`✓ Template ${typeLabel} "${templateName}" berhasil disimpan (${countNow}/${MAX_TEMPLATES_PER_TYPE})!`, 'success');
+        }
+      } catch (err) {
+        console.error('Error saat menyimpan template:', err);
         if (typeof Swal !== 'undefined') {
           Swal.fire({
-            icon: 'warning',
-            title: 'Batas Kuota Tercapai',
-            text: `Anda telah mencapai batas maksimal ${MAX_TEMPLATES_PER_TYPE} template untuk ${typeLabel}. Harap hapus salah satu template lama terlebih dahulu sebelum menambah yang baru.`,
-            confirmButtonText: 'Mengerti',
+            icon: 'error',
+            title: 'Gagal Menyimpan Template',
+            text: err.message || 'Terjadi kesalahan sistem saat menyimpan template.',
             background: '#0f172a',
             color: '#ffffff'
           });
         } else {
-          alert(`Batas maksimal ${MAX_TEMPLATES_PER_TYPE} template untuk ${typeLabel} telah tercapai.`);
+          alert('Gagal menyimpan template: ' + (err.message || err));
         }
-        return;
-      }
-
-      let defaultName = '';
-      let dialogTitle = '';
-
-      if (targetType === 'sppd') {
-        const kegText = sppdInputMaksud ? sppdInputMaksud.value : (sppdInputTujuan ? sppdInputTujuan.value : 'SPPD');
-        const tglSurat = sppdInputTglSurat ? sppdInputTglSurat.value : '';
-        defaultName = formatTemplateNameHelper(kegText, tglSurat);
-        dialogTitle = 'Simpan Template SPPD';
-      } else if (targetType === 'lpt') {
-        const tujuanLpt = document.getElementById('lptInputTujuanPerjalanan')?.value || document.getElementById('lptInputDasar')?.value || 'Laporan LPT';
-        const tglLpt = document.getElementById('lptInputTanggalLaporan')?.value || '';
-        defaultName = formatTemplateNameHelper(tujuanLpt, tglLpt);
-        dialogTitle = 'Simpan Template LPT';
-      } else if (targetType === 'dok') {
-        const judulDok = document.getElementById('dokInputJudulKegiatan')?.value || 'Dokumentasi Kegiatan';
-        defaultName = formatTemplateNameHelper(judulDok, null);
-        dialogTitle = 'Simpan Template Foto Kegiatan';
-      }
-
-      // Prompt for Template Name
-      let templateName = '';
-      if (typeof Swal !== 'undefined') {
-        const { value: nameInput } = await Swal.fire({
-          title: dialogTitle,
-          html: `<div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Format otomatis <strong>(Kegiatan-dd-mm-yyyy)</strong>:</div>`,
-          input: 'text',
-          inputValue: defaultName,
-          showCancelButton: true,
-          confirmButtonText: '💾 Simpan ke Cloud D1',
-          cancelButtonText: 'Batal',
-          background: '#0f172a',
-          color: '#ffffff',
-          inputValidator: (val) => {
-            if (!val || !val.trim()) return 'Nama template tidak boleh kosong!';
-          }
-        });
-        if (!nameInput) return;
-        templateName = nameInput.trim();
-      } else {
-        templateName = prompt(`${dialogTitle} (Kegiatan-dd-mm-yyyy):`, defaultName) || '';
-        if (!templateName.trim()) return;
-      }
-
-      // Gather Data according to targetType
-      const optUser = (sppdInputPegawai && sppdInputPegawai.selectedIndex >= 0)
-        ? sppdInputPegawai.options[sppdInputPegawai.selectedIndex] : null;
-
-      // SPPD Details
-      const pegawai = sppdInputPegawai ? sppdInputPegawai.value : '';
-      const nip = optUser ? (optUser.getAttribute('data-nip') || '') : '';
-      const maksud = sppdInputMaksud ? sppdInputMaksud.value : '';
-      const tempatBerangkat = sppdInputTempatBerangkat ? sppdInputTempatBerangkat.value : '';
-      const tujuan = sppdInputTujuan ? sppdInputTujuan.value : '';
-
-      const pengikutList = [];
-      for (let i = 1; i <= 4; i++) {
-        const select = document.getElementById(`sppdPengikutSelect${i}`);
-        const inNama = document.getElementById(`sppdPengikutInputNama${i}`);
-        const inNip = document.getElementById(`sppdPengikutInputNip${i}`);
-        const inKet = document.getElementById(`sppdPengikutInputKet${i}`);
-        if (select && select.value) {
-          pengikutList.push({
-            index: i,
-            selectVal: select.value,
-            customNama: inNama ? inNama.value : '',
-            customNip: inNip ? inNip.value : '',
-            customKet: inKet ? inKet.value : ''
-          });
-        }
-      }
-
-      // LPT Details
-      const lptData = {
-        dasar: document.getElementById('lptInputDasar')?.value || '',
-        tujuan: document.getElementById('lptInputTujuanPerjalanan')?.value || '',
-        proses: document.getElementById('lptInputProses')?.value || '',
-        masalah: document.getElementById('lptInputMasalah')?.value || '',
-        kesimpulan: document.getElementById('lptInputKesimpulan')?.value || '',
-        petugas1: document.getElementById('lptSelectPetugas1')?.value || '',
-        petugas2: document.getElementById('lptSelectPetugas2')?.value || '',
-        petugas3: document.getElementById('lptSelectPetugas3')?.value || '',
-        toggle2: document.getElementById('lptTogglePetugas2')?.checked || false,
-        toggle3: document.getElementById('lptTogglePetugas3')?.checked || false
-      };
-
-      // Dokumentasi Details
-      const dokData = {
-        judul: document.getElementById('dokInputJudulKegiatan')?.value || '',
-        layout: document.getElementById('dokSelectLayout')?.value || 'grid-2',
-        photos: (Array.isArray(dokPhotoItems) ? dokPhotoItems : []).slice(0, 30).map(p => ({
-          id: p.id,
-          url: p.url,
-          caption: p.caption || '',
-          size: p.size || 'M'
-        }))
-      };
-
-      const payload = {
-        id: `tmpl-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-        template_type: targetType,
-        nama_template: templateName,
-        username: CURRENT_USER?.username || 'ozie',
-        pegawai_nama: pegawai,
-        pegawai_nip: nip,
-        maksud_kegiatan: maksud,
-        tempat_berangkat: tempatBerangkat || 'Puskesmas Banjaran Kota',
-        tempat_tujuan: tujuan,
-        pengikut_data: pengikutList,
-        lpt_data: lptData,
-        dok_data: dokData,
-        is_favorite: 0,
-        created_at: new Date().toISOString()
-      };
-
-      // Optimistic update
-      this.templates.unshift(payload);
-      this.render();
-
-      await CloudflareDB.saveSppdTemplate(payload);
-
-      const typeLabel = targetType === 'lpt' ? 'LPT' : (targetType === 'dok' ? 'Foto Kegiatan' : 'SPPD');
-      const countNow = this.templates.filter(t => (t.template_type || 'sppd') === targetType).length;
-
-      if (typeof showToast === 'function') {
-        showToast(`✓ Template ${typeLabel} "${templateName}" berhasil disimpan (${countNow}/${MAX_TEMPLATES_PER_TYPE})!`, 'success');
       }
     },
 
@@ -7210,6 +7241,26 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   window.SppdTemplateController = SppdTemplateController;
   SppdTemplateController.init();
+
+  // Global event delegation for 100% reliable template button clicks
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#btnOpenSppdTemplateModal')) {
+      e.preventDefault();
+      window.SppdTemplateController.openModal();
+    } else if (e.target.closest('#btnSaveSppdTemplate') || e.target.closest('#btnSaveCurrentAsTemplate')) {
+      e.preventDefault();
+      window.SppdTemplateController.saveCurrentAsTemplate('sppd');
+    } else if (e.target.closest('#btnSaveLptTemplate')) {
+      e.preventDefault();
+      window.SppdTemplateController.saveCurrentAsTemplate('lpt');
+    } else if (e.target.closest('#btnSaveDokTemplate')) {
+      e.preventDefault();
+      window.SppdTemplateController.saveCurrentAsTemplate('dok');
+    } else if (e.target.closest('#btnModalSaveCurrentTemplate')) {
+      e.preventDefault();
+      window.SppdTemplateController.saveCurrentAsTemplate(window.SppdTemplateController.activeTab);
+    }
+  });
 
   // Initial update
   updateTpPolDocHeader();
