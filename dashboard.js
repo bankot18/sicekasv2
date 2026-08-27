@@ -6419,17 +6419,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const sppdList = this.templates.filter(t => (t.template_type || 'sppd') === 'sppd');
       const lptList = this.templates.filter(t => t.template_type === 'lpt');
       const dokList = this.templates.filter(t => t.template_type === 'dok');
+      const totalAll = sppdList.length + lptList.length + dokList.length;
 
       if (this.tabBadgeSppd) this.tabBadgeSppd.textContent = `${sppdList.length}/${MAX_TEMPLATES_PER_TYPE}`;
       if (this.tabBadgeLpt) this.tabBadgeLpt.textContent = `${lptList.length}/${MAX_TEMPLATES_PER_TYPE}`;
       if (this.tabBadgeDok) this.tabBadgeDok.textContent = `${dokList.length}/${MAX_TEMPLATES_PER_TYPE}`;
 
       if (this.heroBadge) {
-        this.heroBadge.textContent = `${sppdList.length}/30 SPPD • ${lptList.length}/30 LPT`;
-        this.heroBadge.title = `Template Tersimpan: ${sppdList.length}/30 SPPD, ${lptList.length}/30 LPT, ${dokList.length}/30 Foto`;
+        this.heroBadge.textContent = `${totalAll} Template`;
+        this.heroBadge.title = `Template Tersimpan: ${sppdList.length} SPPD, ${lptList.length} LPT, ${dokList.length} Foto Dokumentasi`;
       }
       if (this.usageBadge) {
-        this.usageBadge.textContent = `${sppdList.length + lptList.length + dokList.length} Template Cloud`;
+        this.usageBadge.textContent = `${totalAll} Template Cloud`;
       }
     },
 
@@ -6459,7 +6460,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <div class="sppd-template-card" data-id="${t.id}" title="Klik untuk terapkan template SPPD ini">
                 <div class="sppd-template-card-main">
                   <div class="sppd-template-title">
-                    <span>⚡</span>
+                    <span style="color: #ffd166;">📄</span>
                     <span>${title}</span>
                   </div>
                   <div class="sppd-template-sub">
@@ -6548,18 +6549,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const dok = t.dok_data || {};
             const photoCount = Array.isArray(dok.photos) ? dok.photos.length : 0;
             html += `
-              <div class="sppd-template-card" data-id="${t.id}" title="Klik untuk terapkan template foto ini" style="border-left: 3px solid #fbbf24;">
+              <div class="sppd-template-card" data-id="${t.id}" title="Klik untuk terapkan template foto ini" style="border-left: 3px solid #2dd4bf;">
                 <div class="sppd-template-card-main">
                   <div class="sppd-template-title">
-                    <span style="color: #fbbf24;">📷</span>
+                    <span style="color: #2dd4bf;">📷</span>
                     <span>${title}</span>
                   </div>
                   <div class="sppd-template-sub">
-                    🖼️ ${photoCount} Foto • Layout: ${dok.layout || 'grid-2'}
+                    ${photoCount} Foto • Tata Letak: ${dok.layout || 'grid-2'}
                   </div>
                 </div>
                 <div class="sppd-template-actions">
-                  <button type="button" class="sppd-template-btn-apply" data-id="${t.id}" style="color: #fbbf24; border-color: rgba(251,191,36,0.4);">Terapkan</button>
+                  <button type="button" class="sppd-template-btn-apply" data-id="${t.id}" style="color: #2dd4bf; border-color: rgba(45,212,191,0.4);">Terapkan</button>
                   <button type="button" class="sppd-template-btn-del" data-id="${t.id}" title="Hapus Template">✕</button>
                 </div>
               </div>
@@ -6568,7 +6569,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (dokItems.length > 6) {
             html += `
               <div style="text-align: center; padding-top: 4px;">
-                <button type="button" class="sppd-template-btn-apply" onclick="window.SppdTemplateController.openModal('dok')" style="font-size: 11px; padding: 4px 10px;">
+                <button type="button" class="sppd-template-btn-apply" onclick="window.SppdTemplateController.openModal('dok')" style="font-size: 11px; padding: 4px 10px; color: #2dd4bf; border-color: rgba(45,212,191,0.4);">
                   Lihat Semua (${dokItems.length} Template Foto) ↗
                 </button>
               </div>
@@ -6621,15 +6622,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (filtered.length === 0) {
         this.evidenceGrid.innerHTML = `
           <div class="evidence-empty-box">
-            <div style="font-size: 38px; margin-bottom: 8px; opacity: 0.6;">📦</div>
-            <h4 style="font-size: 15px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
-              ${q ? `Tidak ada ${typeTitle} yang cocok dengan pencarian` : `Belum Ada ${typeTitle} Tersimpan (0/${MAX_TEMPLATES_PER_TYPE})`}
+            <div class="evidence-empty-icon-wrap">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>
+            </div>
+            <h4 style="font-size: 15px; font-weight: 700; color: #ffffff; margin-bottom: 6px;">
+              ${q ? `Tidak ada template yang cocok` : `Belum Ada ${typeTitle} Tersimpan`}
             </h4>
-            <p style="font-size: 12px; color: #94a3b8; max-width: 460px; margin: 0 auto 16px auto;">
-              ${q ? 'Coba ubah kata kunci pencarian Anda.' : `Simpan konfigurasi ${typeTitle} yang sering digunakan agar tinggal 1 klik untuk memuat dokumen dinas berikutnya.`}
+            <p style="font-size: 12px; color: #94a3b8; max-width: 440px; margin: 0 auto 18px auto; line-height: 1.5;">
+              ${q ? 'Silakan periksa kembali kata kunci pencarian Anda.' : `Simpan konfigurasi ${typeTitle} yang sering digunakan agar dapat diterapkan kembali dalam 1 detik.`}
             </p>
             <button type="button" class="btn-save-current-template-modal" onclick="window.SppdTemplateController.saveCurrentAsTemplate('${type}')" style="margin: 0 auto; display: inline-flex;">
-              <span>💾 + Simpan Form Saat Ini Sebagai ${typeTitle}</span>
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <span>Simpan Form Saat Ini ke Pustaka</span>
             </button>
           </div>
         `;
@@ -6654,7 +6660,7 @@ document.addEventListener('DOMContentLoaded', () => {
             t.pengikut_data.forEach(p => {
               const pName = p.customNama || p.selectVal;
               if (pName && pName !== 'CUSTOM') {
-                pengikutHtml += `<span class="evidence-pengikut-tag">👥 ${escapeHtmlHelper(pName)}</span>`;
+                pengikutHtml += `<span class="evidence-pengikut-tag">${escapeHtmlHelper(pName)}</span>`;
               }
             });
             pengikutHtml += `</div>`;
@@ -6665,23 +6671,26 @@ document.addEventListener('DOMContentLoaded', () => {
           html += `
             <div class="evidence-card" data-id="${t.id}">
               <div class="evidence-card-header">
-                <span class="evidence-idx-badge">#${idx + 1} • SPPD BOK</span>
-                <span class="evidence-time-text">🕒 ${dateFormatted}</span>
+                <span class="evidence-idx-badge">SPPD #${idx + 1}</span>
+                <span class="evidence-time-text">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  ${dateFormatted}
+                </span>
               </div>
               <h4 class="evidence-card-title">
-                <span style="color: #34d399;">⚡</span>
+                <span style="color: #ffd166;">📄</span>
                 <span>${title}</span>
               </h4>
               <div class="evidence-route-pill">
-                <span>🏛️ ${berangkat}</span>
+                <span>${berangkat}</span>
                 <span class="evidence-route-arrow">➔</span>
-                <span style="font-weight: 700; color: #38bdf8;">📍 ${tujuan}</span>
+                <span style="font-weight: 700; color: #ffffff;">${tujuan}</span>
               </div>
               <div class="evidence-detail-row">
                 <span class="evidence-detail-icon">📋</span>
                 <div>
-                  <strong style="color: #ffffff;">Maksud Kegiatan:</strong>
-                  <div>${maksud}</div>
+                  <strong style="color: #ffffff;">Maksud:</strong>
+                  <div style="color: #cbd5e1;">${maksud}</div>
                 </div>
               </div>
               <div class="evidence-detail-row">
@@ -6700,10 +6709,12 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
               <div class="evidence-card-actions">
                 <button type="button" class="btn-evidence-apply" data-id="${t.id}">
-                  <span>⚡ Terapkan SPPD</span>
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Terapkan Template</span>
                 </button>
                 <button type="button" class="btn-evidence-delete" data-id="${t.id}" title="Hapus Template SPPD">
-                  <span>🗑️ Hapus</span>
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <span>Hapus</span>
                 </button>
               </div>
             </div>
@@ -6716,10 +6727,13 @@ document.addEventListener('DOMContentLoaded', () => {
           const pet1 = escapeHtmlHelper(lpt.petugas1 || t.pegawai_nama || '-');
 
           html += `
-            <div class="evidence-card" data-id="${t.id}" style="border-color: rgba(56, 189, 248, 0.3);">
+            <div class="evidence-card" data-id="${t.id}" style="border-color: rgba(56, 189, 248, 0.25);">
               <div class="evidence-card-header">
-                <span class="evidence-idx-badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);">#${idx + 1} • LAPORAN TUGAS (LPT)</span>
-                <span class="evidence-time-text">🕒 ${dateFormatted}</span>
+                <span class="evidence-idx-badge" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);">LPT #${idx + 1}</span>
+                <span class="evidence-time-text">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  ${dateFormatted}
+                </span>
               </div>
               <h4 class="evidence-card-title">
                 <span style="color: #38bdf8;">📋</span>
@@ -6729,36 +6743,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span class="evidence-detail-icon">📜</span>
                 <div>
                   <strong style="color: #ffffff;">Dasar SPT:</strong>
-                  <div style="color: #94a3b8;">${dasar}</div>
+                  <div style="color: #cbd5e1;">${dasar}</div>
                 </div>
               </div>
               <div class="evidence-detail-row">
                 <span class="evidence-detail-icon">🎯</span>
                 <div>
                   <strong style="color: #ffffff;">Tujuan Laporan:</strong>
-                  <div>${tujuan}</div>
+                  <div style="color: #cbd5e1;">${tujuan}</div>
                 </div>
               </div>
               <div class="evidence-detail-row">
                 <span class="evidence-detail-icon">📝</span>
                 <div>
-                  <strong style="color: #ffffff;">Ringkasan Proses / Hasil:</strong>
+                  <strong style="color: #ffffff;">Ringkasan Hasil:</strong>
                   <div style="font-size: 11px; color: #94a3b8;">${hasil}</div>
                 </div>
               </div>
               <div class="evidence-detail-row">
                 <span class="evidence-detail-icon">👤</span>
                 <div>
-                  <strong style="color: #ffffff;">Pelapor Utama:</strong>
+                  <strong style="color: #ffffff;">Pelapor:</strong>
                   <div>${pet1}</div>
                 </div>
               </div>
               <div class="evidence-card-actions">
-                <button type="button" class="btn-evidence-apply" data-id="${t.id}" style="background: linear-gradient(135deg, rgba(56, 189, 248, 0.25) 0%, rgba(14, 165, 233, 0.35) 100%); color: #38bdf8;">
-                  <span>📋 Terapkan LPT</span>
+                <button type="button" class="btn-evidence-apply" data-id="${t.id}" style="background: linear-gradient(135deg, rgba(56, 189, 248, 0.18) 0%, rgba(14, 165, 233, 0.28) 100%); border-color: rgba(56, 189, 248, 0.45); color: #38bdf8;">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Terapkan Template</span>
                 </button>
                 <button type="button" class="btn-evidence-delete" data-id="${t.id}" title="Hapus Template LPT">
-                  <span>🗑️ Hapus</span>
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <span>Hapus</span>
                 </button>
               </div>
             </div>
@@ -6770,20 +6786,23 @@ document.addEventListener('DOMContentLoaded', () => {
           const photoCount = Array.isArray(dok.photos) ? dok.photos.length : 0;
 
           html += `
-            <div class="evidence-card" data-id="${t.id}" style="border-color: rgba(251, 191, 36, 0.3);">
+            <div class="evidence-card" data-id="${t.id}" style="border-color: rgba(45, 212, 191, 0.25);">
               <div class="evidence-card-header">
-                <span class="evidence-idx-badge" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border-color: rgba(251, 191, 36, 0.3);">#${idx + 1} • FOTO KEGIATAN</span>
-                <span class="evidence-time-text">🕒 ${dateFormatted}</span>
+                <span class="evidence-idx-badge" style="background: rgba(45, 212, 191, 0.12); color: #2dd4bf; border-color: rgba(45, 212, 191, 0.3);">FOTO #${idx + 1}</span>
+                <span class="evidence-time-text">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  ${dateFormatted}
+                </span>
               </div>
               <h4 class="evidence-card-title">
-                <span style="color: #fbbf24;">📷</span>
+                <span style="color: #2dd4bf;">📷</span>
                 <span>${title}</span>
               </h4>
               <div class="evidence-detail-row">
                 <span class="evidence-detail-icon">🏷️</span>
                 <div>
                   <strong style="color: #ffffff;">Judul Kegiatan:</strong>
-                  <div>${judul}</div>
+                  <div style="color: #cbd5e1;">${judul}</div>
                 </div>
               </div>
               <div class="evidence-detail-row">
@@ -6796,16 +6815,18 @@ document.addEventListener('DOMContentLoaded', () => {
               <div class="evidence-detail-row">
                 <span class="evidence-detail-icon">📐</span>
                 <div>
-                  <strong style="color: #ffffff;">Format Tata Letak:</strong>
-                  <div>${layout === 'grid-2' ? 'Grid 2 Kolom (Standar)' : (layout === 'grid-3' ? 'Grid 3 Kolom (Kompak)' : (layout === 'grid-1' ? '1 Kolom Penuh' : 'Free Drag Canvas'))}</div>
+                  <strong style="color: #ffffff;">Tata Letak:</strong>
+                  <div>${layout === 'grid-2' ? 'Grid 2 Kolom (Standar Rapi)' : (layout === 'grid-3' ? 'Grid 3 Kolom (Kompak)' : (layout === 'grid-1' ? '1 Kolom Besar' : 'Bebas Drag & Drop'))}</div>
                 </div>
               </div>
               <div class="evidence-card-actions">
-                <button type="button" class="btn-evidence-apply" data-id="${t.id}" style="background: linear-gradient(135deg, rgba(251, 191, 36, 0.25) 0%, rgba(245, 158, 11, 0.35) 100%); color: #fbbf24; border-color: rgba(251, 191, 36, 0.5);">
-                  <span>📷 Terapkan Foto &amp; Layout</span>
+                <button type="button" class="btn-evidence-apply" data-id="${t.id}" style="background: linear-gradient(135deg, rgba(45, 212, 191, 0.18) 0%, rgba(13, 148, 136, 0.28) 100%); border-color: rgba(45, 212, 191, 0.45); color: #2dd4bf;">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Terapkan Template</span>
                 </button>
                 <button type="button" class="btn-evidence-delete" data-id="${t.id}" title="Hapus Template Foto">
-                  <span>🗑️ Hapus</span>
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <span>Hapus</span>
                 </button>
               </div>
             </div>
