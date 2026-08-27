@@ -126,6 +126,9 @@ while ($listener.IsListening) {
         if ((Test-Path $fullPath -PathType Container) -and (Test-Path (Join-Path $fullPath "index.html"))) {
             $fullPath = Join-Path $fullPath "index.html"
         }
+        if (-not (Test-Path $fullPath -PathType Leaf) -and (Test-Path ($fullPath + ".html") -PathType Leaf)) {
+            $fullPath = $fullPath + ".html"
+        }
 
         if (Test-Path $fullPath -PathType Leaf) {
             $ext = [System.IO.Path]::GetExtension($fullPath).ToLower()

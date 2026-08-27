@@ -348,7 +348,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data) {
-            localStorage.setItem('SICEKAS_BOK_DATA_V2', JSON.stringify(json.data));
+            let local = JSON.parse(localStorage.getItem('SICEKAS_BOK_DATA_V2')) || [];
+            json.data.forEach(item => {
+              const idx = local.findIndex(i => i.id === item.id);
+              if (idx >= 0) local[idx] = item;
+              else local.push(item);
+            });
+            localStorage.setItem('SICEKAS_BOK_DATA_V2', JSON.stringify(local));
             return json.data;
           }
         }
@@ -421,7 +427,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch(url);
         if (res.ok) {
           const json = await res.json();
-          if (json.success) return json.data;
+          if (json.success && json.data) {
+            let local = JSON.parse(localStorage.getItem('SICEKAS_POA_DATA_V2')) || [];
+            json.data.forEach(item => {
+              const idx = local.findIndex(i => i.id === item.id);
+              if (idx >= 0) local[idx] = item;
+              else local.push(item);
+            });
+            localStorage.setItem('SICEKAS_POA_DATA_V2', JSON.stringify(local));
+            return json.data;
+          }
         }
       } catch (e) {
         console.warn('Fallback fetch POA', e);
@@ -436,10 +451,50 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(item)
         });
-        if (res.ok) return await res.json();
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) {
+            let local = JSON.parse(localStorage.getItem('SICEKAS_POA_DATA_V2')) || [];
+            const idx = local.findIndex(i => i.id === item.id);
+            if (idx >= 0) local[idx] = item;
+            else local.push(item);
+            localStorage.setItem('SICEKAS_POA_DATA_V2', JSON.stringify(local));
+            return json;
+          }
+        }
       } catch (e) {
         console.warn('Fallback save POA', e);
       }
+      let local = JSON.parse(localStorage.getItem('SICEKAS_POA_DATA_V2')) || [];
+      const idx = local.findIndex(i => i.id === item.id);
+      if (idx >= 0) local[idx] = item;
+      else local.push(item);
+      localStorage.setItem('SICEKAS_POA_DATA_V2', JSON.stringify(local));
+      return { success: true, id: item.id };
+    },
+
+    async deletePoa(id) {
+      try {
+        const res = await fetch('/api/poa/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) {
+            let local = JSON.parse(localStorage.getItem('SICEKAS_POA_DATA_V2')) || [];
+            local = local.filter(i => i.id !== id);
+            localStorage.setItem('SICEKAS_POA_DATA_V2', JSON.stringify(local));
+            return json;
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback delete POA', e);
+      }
+      let local = JSON.parse(localStorage.getItem('SICEKAS_POA_DATA_V2')) || [];
+      local = local.filter(i => i.id !== id);
+      localStorage.setItem('SICEKAS_POA_DATA_V2', JSON.stringify(local));
       return { success: true };
     },
 
@@ -1163,35 +1218,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
-  // State store for POA activities (strictly initialized empty & populated from Cloudflare D1)
+  // State store for POA activities (strictly initialized empty & populated from Cloudflare D1 poa_bulanan table)
   const poaActivitiesState = {};
 
-  // Sync POA calendar data live from Cloudflare D1 Database
+  // Sync POA calendar data live from Cloudflare D1 Database (poa_bulanan table)
   const syncPoaFromCloud = async (month, year, officerName) => {
     // Clear existing in-memory map
     for (const k in poaActivitiesState) delete poaActivitiesState[k];
     
     try {
-      const items = await CloudflareDB.fetchJadwal(month, year);
+      const officerObj = (typeof DAFTAR_PEGAWAI !== 'undefined' ? DAFTAR_PEGAWAI : []).find(p => p.nama === officerName) || {};
+      const items = await CloudflareDB.fetchPoa(month, year, officerObj.nip || '');
       if (!Array.isArray(items)) return;
 
       const normSearch = (officerName || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
 
       items.forEach(it => {
         const itemOfficer = (it.petugas_nama || '').toLowerCase();
-        const collabs = Array.isArray(it.rekan_kolaborasi) ? it.rekan_kolaborasi : [];
-        const isCollabMatch = collabs.some(c => {
-          const cName = (typeof c === 'string' ? c : (c.nama || '')).toLowerCase();
-          return cName.includes(normSearch) || normSearch.includes(cName);
-        });
-        const isPrimaryMatch = itemOfficer.includes(normSearch) || normSearch.includes(itemOfficer);
+        const isPrimaryMatch = itemOfficer.includes(normSearch) || normSearch.includes(itemOfficer) || (it.petugas_nip && officerObj.nip && it.petugas_nip === officerObj.nip);
 
-        if ((isPrimaryMatch || isCollabMatch) && it.tanggal) {
-          poaActivitiesState[it.tanggal] = it.nama_kegiatan;
+        if (isPrimaryMatch && it.tanggal) {
+          poaActivitiesState[it.tanggal] = {
+            kegiatan: it.uraian_kegiatan || it.kegiatan || it.nama_kegiatan || '',
+            keterangan: it.keterangan || ''
+          };
         }
       });
     } catch (e) {
-      console.warn('Error fetching POA data from Cloudflare D1:', e);
+      console.warn('Error fetching POA data from Cloudflare D1 poa_bulanan:', e);
     }
   };
 
@@ -1317,12 +1371,21 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
 
-      // Task Activities from Cloudflare D1
-      const currentTask = poaActivitiesState[dateKey] || '';
+      // Task Activities from Cloudflare D1 poa_bulanan
+      const taskData = poaActivitiesState[dateKey];
+      const currentTask = typeof taskData === 'object' ? (taskData.kegiatan || '') : (taskData || '');
+      const currentDesc = typeof taskData === 'object' ? (taskData.keterangan || '') : '';
+
       let taskHtml = '';
-      if (currentTask) {
+      if (currentTask || currentDesc) {
         const isHighlight = isToday ? 'highlight' : '';
-        taskHtml = `<div class="poa-task-badge ${isHighlight}" title="${currentTask}">${currentTask}</div>`;
+        const titleTooltip = currentDesc ? `${currentTask} (${currentDesc})` : currentTask;
+        taskHtml = `
+          <div class="poa-task-badge ${isHighlight}" title="${titleTooltip}">
+            ${currentTask ? `<div class="poa-task-title">${currentTask}</div>` : ''}
+            ${currentDesc ? `<div class="poa-task-desc" style="font-size: 10.5px; font-weight: 500; color: #047857; margin-top: 3px; font-style: italic; border-top: 1px dashed rgba(5, 150, 105, 0.3); padding-top: 2px;">📌 ${currentDesc}</div>` : ''}
+          </div>
+        `;
       }
 
       const activitiesDiv = `<div class="cell-activities">${taskHtml}</div>`;
@@ -1369,17 +1432,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const day = cell.getAttribute('data-day');
         const dayname = cell.getAttribute('data-dayname');
         const dateDisplayStr = `${parseInt(day, 10)} ${monthName} ${year} (${dayname})`;
-        openSingleActivityModal(dateKey, dateDisplayStr, badge.textContent.trim());
+        const taskData = poaActivitiesState[dateKey];
+        const taskKeg = typeof taskData === 'object' ? (taskData.kegiatan || '') : (taskData || '');
+        const taskKet = typeof taskData === 'object' ? (taskData.keterangan || '') : '';
+        openSingleActivityModal(dateKey, dateDisplayStr, taskKeg, taskKet);
       });
     });
   };
 
   // Open Single Activity Modal
-  const openSingleActivityModal = (dateKey, dateDisplayStr, currentText = '') => {
+  const openSingleActivityModal = (dateKey, dateDisplayStr, currentText = '', currentDesc = '') => {
     currentActiveDateKey = dateKey;
+    const taskData = poaActivitiesState[dateKey];
+    const initialText = currentText || (typeof taskData === 'object' ? taskData.kegiatan : taskData) || '';
+    const initialDesc = currentDesc || (typeof taskData === 'object' ? taskData.keterangan : '') || '';
+
     if (singleModalDateTitle) singleModalDateTitle.textContent = `📅 ${dateDisplayStr}`;
-    if (activityInput) activityInput.value = currentText || (poaActivitiesState[dateKey] || '');
-    if (activityDesc) activityDesc.value = '';
+    if (activityInput) activityInput.value = initialText;
+    if (activityDesc) activityDesc.value = initialDesc;
     if (singleActivityModal) singleActivityModal.classList.add('active');
   };
 
@@ -1397,40 +1467,41 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Handle Single Activity Form Save (Persist to Cloudflare D1)
+  // Handle Single Activity Form Save (Persist to Cloudflare D1 poa_bulanan table)
   if (singleActivityForm) {
     singleActivityForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const val = activityInput.value.trim();
+      const ketVal = activityDesc ? activityDesc.value.trim() : '';
       const selectedMonth = parseInt(poaSelectMonth.value, 10);
       const selectedYear = parseInt(poaSelectYear.value, 10);
       const officerText = getPoaOfficerName();
       const officerObj = DAFTAR_PEGAWAI.find(p => p.nama === officerText) || {};
 
       if (currentActiveDateKey) {
-        const scheduleId = `poa-${currentActiveDateKey}-${(officerObj.nip || 'user').replace(/[^a-zA-Z0-9]/g, '')}`;
+        const poaId = `poa-${currentActiveDateKey}-${(officerObj.nip || 'user').replace(/[^a-zA-Z0-9]/g, '')}`;
 
-        if (val) {
-          poaActivitiesState[currentActiveDateKey] = val;
-          await CloudflareDB.saveJadwal({
-            id: scheduleId,
+        if (val || ketVal) {
+          poaActivitiesState[currentActiveDateKey] = { kegiatan: val, keterangan: ketVal };
+          await CloudflareDB.savePoa({
+            id: poaId,
             tanggal: currentActiveDateKey,
             bulan: selectedMonth,
             tahun: selectedYear,
-            nama_kegiatan: val,
-            keterangan: (activityDesc ? activityDesc.value.trim() : ''),
-            lokasi: 'Puskesmas / Wilayah Kerja',
             petugas_nip: officerObj.nip || '',
             petugas_nama: officerText,
             petugas_jabatan: officerObj.jabatan || '',
-            rekan_kolaborasi: [],
-            status: 'Disetujui'
+            program_kesehatan: 'BOK Puskesmas',
+            uraian_kegiatan: val,
+            keterangan: ketVal,
+            lokasi_pelaksanaan: 'Puskesmas / Wilayah Kerja',
+            status: 'Aktif'
           });
-          if (typeof showToast === 'function') showToast('✅ Kegiatan POA berhasil disimpan ke Cloud D1!', 'success');
+          if (typeof showToast === 'function') showToast('✅ Kegiatan POA berhasil disimpan ke Database POA!', 'success');
         } else {
           delete poaActivitiesState[currentActiveDateKey];
-          await CloudflareDB.deleteJadwal(scheduleId);
-          if (typeof showToast === 'function') showToast('Kegiatan POA dihapus dari Cloud D1.', 'info');
+          await CloudflareDB.deletePoa(poaId);
+          if (typeof showToast === 'function') showToast('Kegiatan POA dihapus dari Database POA.', 'info');
         }
 
         // Re-render calendar to reflect update
@@ -1470,7 +1541,9 @@ document.addEventListener('DOMContentLoaded', () => {
         holidayTag = `<span style="font-size: 10px; color: ${color}; display: block; font-weight: 600;">${icon} ${holidayInfo.name}</span>`;
       }
 
-      const currentVal = poaActivitiesState[dateKey] || '';
+      const taskData = poaActivitiesState[dateKey];
+      const currentVal = typeof taskData === 'object' ? (taskData.kegiatan || '') : (taskData || '');
+      const currentKet = typeof taskData === 'object' ? (taskData.keterangan || '') : '';
 
       tr.innerHTML = `
         <td>
@@ -1483,7 +1556,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <input type="text" class="bulk-input input-kegiatan" data-datekey="${dateKey}" placeholder="Kegiatan..." value="${currentVal}">
         </td>
         <td>
-          <input type="text" class="bulk-input input-keterangan" data-datekey="${dateKey}" placeholder="Keterangan..." value="">
+          <input type="text" class="bulk-input input-keterangan" data-datekey="${dateKey}" placeholder="Keterangan..." value="${currentKet}">
         </td>
       `;
       bulkTableBody.appendChild(tr);
@@ -1516,7 +1589,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Handle Bulk Form Save (Persist to Cloudflare D1)
+  // Handle Bulk Form Save (Persist to Cloudflare D1 poa_bulanan table)
   if (bulkActivityForm) {
     bulkActivityForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -1526,43 +1599,47 @@ document.addEventListener('DOMContentLoaded', () => {
       const officerText = getPoaOfficerName();
       const officerObj = DAFTAR_PEGAWAI.find(p => p.nama === officerText) || {};
 
-      const inputs = bulkActivityForm.querySelectorAll('.input-kegiatan');
       let savedCount = 0;
 
-      for (const input of inputs) {
-        const dateKey = input.getAttribute('data-datekey');
-        const val = input.value.trim();
-        const scheduleId = `poa-${dateKey}-${(officerObj.nip || 'user').replace(/[^a-zA-Z0-9]/g, '')}`;
+      for (const tr of bulkTableBody.querySelectorAll('tr')) {
+        const inputKeg = tr.querySelector('.input-kegiatan');
+        const inputKet = tr.querySelector('.input-keterangan');
+        if (!inputKeg) continue;
 
-        if (val) {
-          poaActivitiesState[dateKey] = val;
-          await CloudflareDB.saveJadwal({
-            id: scheduleId,
+        const dateKey = inputKeg.getAttribute('data-datekey');
+        const val = inputKeg.value.trim();
+        const ket = inputKet ? inputKet.value.trim() : '';
+        const poaId = `poa-${dateKey}-${(officerObj.nip || 'user').replace(/[^a-zA-Z0-9]/g, '')}`;
+
+        if (val || ket) {
+          poaActivitiesState[dateKey] = { kegiatan: val, keterangan: ket };
+          await CloudflareDB.savePoa({
+            id: poaId,
             tanggal: dateKey,
             bulan: selectedMonth,
             tahun: selectedYear,
-            nama_kegiatan: val,
-            keterangan: '',
-            lokasi: 'Puskesmas / Wilayah Kerja',
             petugas_nip: officerObj.nip || '',
             petugas_nama: officerText,
             petugas_jabatan: officerObj.jabatan || '',
-            rekan_kolaborasi: [],
-            status: 'Disetujui'
+            program_kesehatan: 'BOK Puskesmas',
+            uraian_kegiatan: val,
+            keterangan: ket,
+            lokasi_pelaksanaan: 'Puskesmas / Wilayah Kerja',
+            status: 'Aktif'
           });
           savedCount++;
         } else if (poaActivitiesState[dateKey]) {
           delete poaActivitiesState[dateKey];
-          await CloudflareDB.deleteJadwal(scheduleId);
+          await CloudflareDB.deletePoa(poaId);
         }
       }
 
       await renderPoaCalendar(selectedMonth, selectedYear, officerText);
 
       if (typeof showToast === 'function') {
-        showToast(`✅ ${savedCount} agenda kegiatan POA berhasil disimpan ke Cloud D1!`, 'success');
+        showToast(`✅ ${savedCount} agenda kegiatan POA berhasil disimpan ke Database POA!`, 'success');
       } else {
-        alert(`Semua rencana kegiatan POA berhasil disimpan ke Cloud D1!`);
+        alert(`Semua rencana kegiatan POA berhasil disimpan ke Database POA!`);
       }
       closeBulkModalFunc();
     });
@@ -1667,7 +1744,10 @@ document.addEventListener('DOMContentLoaded', () => {
           const isHoliday = (holidayInfo && holidayInfo.type === 'national');
           const isCuti = (holidayInfo && holidayInfo.type === 'cuti');
           const isToday = (year === currentRealYear && month === currentRealMonth && day === currentRealDay);
-          const task = poaActivitiesState[dateKey] || '';
+          
+          const taskData = poaActivitiesState[dateKey];
+          const task = typeof taskData === 'object' ? (taskData.kegiatan || '') : (taskData || '');
+          const taskDesc = typeof taskData === 'object' ? (taskData.keterangan || '') : '';
 
           let badgeHtml = '';
           if (isHoliday) {
@@ -1677,10 +1757,11 @@ document.addEventListener('DOMContentLoaded', () => {
           }
 
           let taskContent = '';
-          if (task) {
+          if (task || taskDesc) {
             taskContent = `
               <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-left: 3px solid #10b981; color: #065f46; font-size: 9px; font-weight: 700; padding: 3px 5px; border-radius: 4px; line-height: 1.25; margin-top: 4px; word-break: break-word;">
-                ${task}
+                ${task ? `<div>${task}</div>` : ''}
+                ${taskDesc ? `<div style="font-size: 8px; font-weight: 500; color: #047857; margin-top: 2px; font-style: italic; border-top: 1px dashed #a7f3d0; padding-top: 1px;">📌 ${taskDesc}</div>` : ''}
               </div>
             `;
           }
@@ -6150,21 +6231,82 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const cloudData = await CloudflareDB.fetchJadwal(this.currentMonth, this.currentYear);
         // Normalize cloud data fields to match local format
-        const normalized = (cloudData || []).map(item => ({
-          id: item.id,
-          tanggal: item.tanggal,
-          noKegiatan: item.noKegiatan || 0,
-          namaKegiatan: item.namaKegiatan || item.nama_kegiatan || '',
-          keterangan: item.keterangan || '',
-          lokasi: item.lokasi || '',
-          username: item.username || '',
-          namaUser: item.namaUser || item.petugas_nama || '',
-          jabatan: item.jabatan || item.petugas_jabatan || '',
-          petugas_nip: item.petugas_nip || '',
-          rekan_kolaborasi: item.rekan_kolaborasi || [],
-          status: item.status || 'Disetujui',
-          createdAt: item.created_at || item.createdAt || ''
-        }));
+        const normalized = (cloudData || []).map(item => {
+          const kegName = item.namaKegiatan || item.nama_kegiatan || '';
+          let noKeg = item.noKegiatan || item.no_kegiatan;
+          if (!noKeg || noKeg === 0) {
+            const kegIdx = KEGIATAN_BOK_LIST.indexOf(kegName);
+            noKeg = (kegIdx >= 0) ? (kegIdx + 1) : 0;
+          }
+
+          let normTanggal = item.tanggal || '';
+          if (normTanggal && typeof normTanggal === 'string' && normTanggal.includes('-')) {
+            const parts = normTanggal.split('-');
+            if (parts.length === 3) {
+              const y = parts[0];
+              const m = String(parseInt(parts[1], 10)).padStart(2, '0');
+              const d = String(parseInt(parts[2], 10)).padStart(2, '0');
+              normTanggal = `${y}-${m}-${d}`;
+            }
+          }
+
+          let bulanVal = item.bulan;
+          let tahunVal = item.tahun;
+          if (normTanggal && normTanggal.includes('-')) {
+            const parts = normTanggal.split('-');
+            tahunVal = parseInt(parts[0], 10) || tahunVal;
+            bulanVal = parseInt(parts[1], 10) || bulanVal;
+          }
+
+          return {
+            id: item.id,
+            tanggal: normTanggal,
+            bulan: bulanVal,
+            tahun: tahunVal,
+            noKegiatan: noKeg,
+            namaKegiatan: kegName,
+            keterangan: item.keterangan || '',
+            lokasi: item.lokasi || '',
+            username: item.username || '',
+            namaUser: item.namaUser || item.petugas_nama || '',
+            jabatan: item.jabatan || item.petugas_jabatan || '',
+            petugas_nip: item.petugas_nip || '',
+            rekan_kolaborasi: item.rekan_kolaborasi || [],
+            status: item.status || 'Disetujui',
+            createdAt: item.created_at || item.createdAt || ''
+          };
+        });
+        // Safety net: merge localStorage items yang belum ter-sync ke cloud
+        // Ini menangkap data yang tersimpan lokal saat cloud save gagal
+        try {
+          const localData = JSON.parse(localStorage.getItem(STORAGE_BOK_DATA)) || [];
+          localData.forEach(localItem => {
+            if (!localItem || !localItem.id) return;
+            const existsInCloud = normalized.some(c => c.id === localItem.id);
+            if (!existsInCloud) {
+              normalized.push({
+                id: localItem.id,
+                tanggal: localItem.tanggal || '',
+                bulan: localItem.bulan,
+                tahun: localItem.tahun,
+                noKegiatan: localItem.noKegiatan || localItem.no_kegiatan || 0,
+                namaKegiatan: localItem.namaKegiatan || localItem.nama_kegiatan || '',
+                keterangan: localItem.keterangan || '',
+                lokasi: localItem.lokasi || '',
+                username: localItem.username || '',
+                namaUser: localItem.namaUser || localItem.petugas_nama || '',
+                jabatan: localItem.jabatan || localItem.petugas_jabatan || '',
+                petugas_nip: localItem.petugas_nip || '',
+                rekan_kolaborasi: localItem.rekan_kolaborasi || [],
+                status: localItem.status || 'Disetujui',
+                createdAt: localItem.created_at || localItem.createdAt || ''
+              });
+            }
+          });
+        } catch (mergeErr) {
+          console.warn('[SICEKAS] localStorage merge skipped', mergeErr);
+        }
+
         this._cachedData = normalized;
         this._lastFetchKey = fetchKey;
         return normalized;
@@ -6402,6 +6544,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const closeModalTambah = () => {
         if (modalTambah) modalTambah.classList.remove('active');
+        const editIdEl = document.getElementById('bokEditId');
+        if (editIdEl) editIdEl.value = '';
+        if (formTambah) formTambah.reset();
       };
       if (closeTambah) closeTambah.addEventListener('click', closeModalTambah);
       if (btnCancelTambah) btnCancelTambah.addEventListener('click', closeModalTambah);
@@ -6496,15 +6641,26 @@ document.addEventListener('DOMContentLoaded', () => {
       const monthStr = String(this.currentMonth).padStart(2, '0');
       const yearMonthPrefix = `${this.currentYear}-${monthStr}`;
 
-      return all.filter(item => {
-        if (!item.tanggal || !item.tanggal.startsWith(yearMonthPrefix)) return false;
+      return (all || []).filter(item => {
+        if (!item || !item.tanggal) return false;
+
+        // Match year & month (via string prefix or explicit bulan/tahun numbers)
+        const isMonthMatch = item.tanggal.startsWith(yearMonthPrefix) || 
+                             (parseInt(item.bulan, 10) === this.currentMonth && parseInt(item.tahun, 10) === this.currentYear);
+        if (!isMonthMatch) return false;
 
         // Staff filter
-        if (this.selectedStaff && item.namaUser !== this.selectedStaff) return false;
+        if (this.selectedStaff) {
+          const sNorm = this.selectedStaff.toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+          const uNorm = (item.namaUser || item.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+          if (!uNorm.includes(sNorm) && !sNorm.includes(uNorm)) return false;
+        }
 
         // Tab filter
         if (this.activeTab === 'mine') {
-          if (item.namaUser !== CURRENT_USER.nama) return false;
+          const myNorm = (CURRENT_USER.nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+          const uNorm = (item.namaUser || item.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+          if (!uNorm.includes(myNorm) && !myNorm.includes(uNorm)) return false;
         } else if (this.activeTab === 'collab') {
           if (!item.keterangan || !item.keterangan.toLowerCase().includes('kolaborasi')) return false;
         }
@@ -6513,7 +6669,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (this.searchKeyword) {
           const matchKeg = (item.namaKegiatan || '').toLowerCase().includes(this.searchKeyword);
           const matchKet = (item.keterangan || '').toLowerCase().includes(this.searchKeyword);
-          const matchUser = (item.namaUser || '').toLowerCase().includes(this.searchKeyword);
+          const matchUser = (item.namaUser || item.petugas_nama || '').toLowerCase().includes(this.searchKeyword);
           if (!matchKeg && !matchKet && !matchUser) return false;
         }
 
@@ -6729,21 +6885,20 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="bok-cal-events-wrap">
         `;
 
-        dayEvents.slice(0, 2).forEach(ev => {
-          const isMine = ev.namaUser === CURRENT_USER.nama;
+        dayEvents.forEach(ev => {
+          const myNorm = (CURRENT_USER.nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+          const uNorm = (ev.namaUser || ev.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+          const isMine = uNorm.includes(myNorm) || myNorm.includes(uNorm);
           const isCollab = ev.keterangan && ev.keterangan.toLowerCase().includes('kolaborasi');
           const cls = isMine ? 'mine' : (isCollab ? 'collab' : 'other');
+          const noPrefix = (ev.noKegiatan && ev.noKegiatan > 0) ? `No.${ev.noKegiatan} ` : '';
 
           html += `
-            <span class="bok-cal-pill ${cls}" title="No.${ev.noKegiatan} ${ev.namaKegiatan} (${ev.namaUser})">
-              No.${ev.noKegiatan} ${ev.namaKegiatan}
+            <span class="bok-cal-pill ${cls}" title="${noPrefix}${ev.namaKegiatan} (${ev.namaUser || ev.petugas_nama || ''})" onclick="event.stopPropagation(); window.JadwalBOKController.bukaModalDetail('${ev.id}')">
+              ${noPrefix}${ev.namaKegiatan}
             </span>
           `;
         });
-
-        if (dayEvents.length > 2) {
-          html += `<span class="bok-cal-more-pill">+${dayEvents.length - 2} kegiatan lagi</span>`;
-        }
 
         html += `
             </div>
@@ -6879,29 +7034,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const isMine = item.namaUser === CURRENT_USER.nama;
         const isCollab = item.keterangan && item.keterangan.toLowerCase().includes('kolaborasi');
 
-        let badgeTime = '';
-        if (diffDays === 0) {
-          badgeTime = '<span class="badge-system-live" style="font-size:10.5px; background:rgba(239,68,68,0.2); color:#f87171; border-color:rgba(239,68,68,0.35);"><span class="live-dot" style="background:#ef4444;"></span> Hari Ini!</span>';
-        } else if (diffDays === 1) {
-          badgeTime = '<span class="badge-system-live" style="font-size:10.5px; background:rgba(245,158,11,0.2); color:#fbbf24; border-color:rgba(245,158,11,0.35);">Besok</span>';
-        } else {
-          badgeTime = `<span class="badge-system-live" style="font-size:10.5px; background:rgba(14,165,233,0.15); color:#38bdf8; border-color:rgba(14,165,233,0.3);">${diffDays} hari lagi</span>`;
-        }
-
         html += `
-          <div class="bok-beranda-item ${isMine ? 'is-mine' : ''}">
-            <div class="bok-beranda-date-box">
-              <span class="num">${dayNum}</span>
-              <span class="mth">${mthStr}</span>
-            </div>
-            <div class="bok-beranda-info">
-              <h5 title="${item.namaKegiatan}">${item.noKegiatan ? 'No.' + item.noKegiatan + ' ' : ''}${item.namaKegiatan}</h5>
-              <div class="bok-beranda-meta">
-                <span class="bok-staff-pill ${isMine ? 'mine' : 'other'}">${isMine ? 'Jadwal Anda' : item.namaUser}</span>
-                ${isCollab ? '<span class="bok-collab-tag-pill">👥 Kolaborasi</span>' : ''}
-                ${badgeTime}
+          <div class="dash-list-item" style="padding: 12px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(255, 209, 102, 0.12); border: 1px solid rgba(255, 209, 102, 0.25); display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0;">
+                <span style="font-size: 14px; font-weight: 800; color: #ffd166; line-height: 1;">${dayNum}</span>
+                <span style="font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">${monthName.slice(0, 3)}</span>
+              </div>
+              <div>
+                <h5 style="margin: 0 0 3px 0; font-size: 13.5px; font-weight: 700; color: #ffffff;">${item.namaKegiatan}</h5>
+                <div style="font-size: 11.5px; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
+                  <span>${dayName}</span>
+                  <span>•</span>
+                  <span style="color: ${isMine ? '#ffd166' : '#94a3b8'};">${isMine ? 'Anda' : item.namaUser}</span>
+                </div>
               </div>
             </div>
+            <button type="button" class="btn-bok-act" title="Detail" onclick="window.JadwalBOKController.bukaModalDetail('${item.id}')" style="flex-shrink: 0;">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            </button>
           </div>
         `;
       });
@@ -6920,6 +7071,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (form) form.reset();
       if (editId) editId.value = '';
+      if (kegInput) kegInput.value = '';
+      if (ketInput) ketInput.value = '';
       if (titleEl) titleEl.textContent = 'Tambah Jadwal Kegiatan BOK';
 
       // Default date
@@ -6952,16 +7105,23 @@ document.addEventListener('DOMContentLoaded', () => {
       if (titleEl) titleEl.textContent = 'Edit Jadwal Kegiatan BOK';
       if (editId) editId.value = item.id;
       if (tglInput) tglInput.value = item.tanggal;
-      if (kegInput) kegInput.value = item.noKegiatan;
+      
+      let kegVal = item.noKegiatan;
+      if (!kegVal || kegVal === 0) {
+        const kegIdx = KEGIATAN_BOK_LIST.indexOf(item.namaKegiatan);
+        if (kegIdx >= 0) kegVal = kegIdx + 1;
+      }
+      if (kegInput) kegInput.value = kegVal || '';
       if (ketInput) ketInput.value = item.keterangan || '';
 
       if (modal) modal.classList.add('active');
     },
 
     async simpanJadwal() {
-      const editId = document.getElementById('bokEditId').value;
+      const editIdEl = document.getElementById('bokEditId');
+      const editId = editIdEl ? editIdEl.value.trim() : '';
       const tanggal = document.getElementById('inputTanggalBOK').value;
-      const noKeg = parseInt(document.getElementById('inputKegiatanBOK').value);
+      const noKeg = parseInt(document.getElementById('inputKegiatanBOK').value, 10);
       const keterangan = document.getElementById('inputKeteranganBOK').value.trim();
 
       if (!tanggal) {
@@ -6974,11 +7134,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const namaKegiatan = KEGIATAN_BOK_LIST[noKeg - 1];
-      const entryId = editId || ('bok-' + Date.now());
+      const entryId = editId ? editId : (`bok-${tanggal}-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`);
+
+      const tParts = tanggal.split('-');
+      const tahunVal = parseInt(tParts[0], 10);
+      const bulanVal = parseInt(tParts[1], 10);
 
       const payload = {
         id: entryId,
         tanggal: tanggal,
+        bulan: bulanVal,
+        tahun: tahunVal,
         noKegiatan: noKeg,
         nama_kegiatan: namaKegiatan,
         namaKegiatan: namaKegiatan,
@@ -7000,11 +7166,54 @@ document.addEventListener('DOMContentLoaded', () => {
         window.showToast(editId ? '✓ Jadwal berhasil diperbarui di Cloudflare D1!' : '✓ Jadwal berhasil ditambahkan ke Cloudflare D1!', 'success');
       }
 
-      // Close modal, invalidate cache & refresh from cloud
+      // Close modal & reset form
       const modal = document.getElementById('modalTambahJadwalBOK');
+      const form = document.getElementById('formTambahJadwalBOK');
+      if (form) form.reset();
+      if (editIdEl) editIdEl.value = '';
       if (modal) modal.classList.remove('active');
-      this.invalidateCache();
+
+      // OPTIMISTIC UPDATE: Langsung tambah/update item di cache tanpa re-fetch dari cloud
+      // Ini mencegah data hilang akibat eventual consistency Cloudflare D1
+      const optimisticItem = {
+        id: entryId,
+        tanggal: tanggal,
+        bulan: bulanVal,
+        tahun: tahunVal,
+        noKegiatan: noKeg,
+        namaKegiatan: namaKegiatan,
+        keterangan: keterangan,
+        lokasi: 'Puskesmas / Wilayah Kerja',
+        username: CURRENT_USER.username,
+        namaUser: CURRENT_USER.nama,
+        jabatan: CURRENT_USER.jabatan,
+        petugas_nip: CURRENT_USER.nip,
+        rekan_kolaborasi: [],
+        status: 'Disetujui',
+        createdAt: new Date().toISOString()
+      };
+
+      if (this._cachedData && this._lastFetchKey === `${this.currentMonth}-${this.currentYear}`) {
+        const existIdx = this._cachedData.findIndex(i => i.id === entryId);
+        if (existIdx >= 0) {
+          this._cachedData[existIdx] = optimisticItem;
+        } else {
+          this._cachedData.push(optimisticItem);
+        }
+      } else {
+        // Cache belum ada atau beda bulan, invalidate agar fetch fresh
+        this.invalidateCache();
+      }
+
       await this.render();
+
+      // Background re-sync: setelah 2 detik, fetch ulang dari cloud untuk sinkronisasi
+      // Ini memastikan data akhirnya konsisten dengan Cloudflare D1
+      const self = this;
+      setTimeout(() => {
+        self.invalidateCache();
+        self.render();
+      }, 2000);
     },
 
     async hapusJadwal(id) {
@@ -7019,8 +7228,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
       await CloudflareDB.deleteJadwal(id);
       if (window.showToast) window.showToast('✓ Jadwal kegiatan berhasil dihapus dari Cloudflare D1.', 'info');
-      this.invalidateCache();
+
+      // OPTIMISTIC DELETE: Langsung hapus dari cache tanpa re-fetch
+      if (this._cachedData) {
+        this._cachedData = this._cachedData.filter(i => i.id !== id);
+      } else {
+        this.invalidateCache();
+      }
+
       await this.render();
+
+      // Background re-sync
+      const self = this;
+      setTimeout(() => {
+        self.invalidateCache();
+        self.render();
+      }, 2000);
     },
 
     bukaModalCollab() {
@@ -7090,10 +7313,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       this.saveCollabData(collabs);
 
+      const cParts = (tanggal || '').split('-');
+      const cYear = parseInt(cParts[0], 10) || new Date().getFullYear();
+      const cMonth = parseInt(cParts[1], 10) || (new Date().getMonth() + 1);
+
       // Also save current user's schedule to cloud database
       const collabPayload = {
         id: 'bok-' + Date.now(),
         tanggal: tanggal,
+        bulan: cMonth,
+        tahun: cYear,
         nama_kegiatan: namaKegiatan,
         namaKegiatan: namaKegiatan,
         noKegiatan: noKeg,
@@ -7169,10 +7398,16 @@ document.addEventListener('DOMContentLoaded', () => {
       req.status = 'accepted';
       this.saveCollabData(collabs);
 
+      const aParts = (req.tanggal || '').split('-');
+      const aYear = parseInt(aParts[0], 10) || new Date().getFullYear();
+      const aMonth = parseInt(aParts[1], 10) || (new Date().getMonth() + 1);
+
       // Auto-insert to user's schedule via cloud database
       const acceptPayload = {
         id: 'bok-' + Date.now(),
         tanggal: req.tanggal,
+        bulan: aMonth,
+        tahun: aYear,
         nama_kegiatan: req.namaKegiatan,
         namaKegiatan: req.namaKegiatan,
         noKegiatan: req.noKegiatan,
@@ -7185,7 +7420,8 @@ document.addEventListener('DOMContentLoaded', () => {
         namaUser: CURRENT_USER.nama,
         jabatan: CURRENT_USER.jabatan,
         rekan_kolaborasi: [],
-        status: 'Disetujui'
+        status: 'Disetujui',
+        updatedAt: new Date().toISOString()
       };
       await CloudflareDB.saveJadwal(acceptPayload);
 
