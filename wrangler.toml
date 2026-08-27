@@ -18,6 +18,11 @@ binding = "DB"
 database_name = "sicekas-v2"
 database_id = "8186f6c9-f454-4a87-a541-50d09e74b929"
 
+# Cloudflare R2 Object Storage Binding (Foto Kegiatan & Media)
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "sicekas-storage"
+
 [vars]
 ENVIRONMENT = "production"
 APP_NAME = "SICEKAS v2.0"

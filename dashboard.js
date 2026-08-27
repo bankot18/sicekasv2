@@ -560,6 +560,106 @@ document.addEventListener('DOMContentLoaded', () => {
       return { success: true };
     },
 
+    // 5b. SPPD Templates (Cloud D1)
+    async fetchSppdTemplates(username) {
+      try {
+        const url = `/api/sppd/templates?username=${username || ''}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(json.data));
+            return json.data;
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback fetch SPPD templates', e);
+      }
+      return JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
+    },
+
+    async saveSppdTemplate(item) {
+      try {
+        const res = await fetch('/api/sppd/templates/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item)
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) {
+            let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
+            const idx = local.findIndex(i => i.id === item.id);
+            if (idx >= 0) local[idx] = item;
+            else local.unshift(item);
+            localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+            return json;
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback save SPPD template', e);
+      }
+      let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
+      const idx = local.findIndex(i => i.id === item.id);
+      if (idx >= 0) local[idx] = item;
+      else local.unshift(item);
+      localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+      return { success: true, id: item.id };
+    },
+
+    async deleteSppdTemplate(id) {
+      try {
+        const res = await fetch('/api/sppd/templates/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) {
+            let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
+            local = local.filter(i => i.id !== id);
+            localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+            return json;
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback delete SPPD template', e);
+      }
+      let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
+      local = local.filter(i => i.id !== id);
+      localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+      return { success: true };
+    },
+
+    // 5c. Cloudflare R2 Media Upload Engine
+    async uploadFotoR2(base64OrFile, originalName = 'foto_kegiatan.jpg') {
+      try {
+        let res;
+        if (typeof base64OrFile === 'string') {
+          res = await fetch('/api/foto/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ base64: base64OrFile, name: originalName })
+          });
+        } else {
+          const formData = new FormData();
+          formData.append('file', base64OrFile, originalName);
+          res = await fetch('/api/foto/upload', {
+            method: 'POST',
+            body: formData
+          });
+        }
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) return json;
+        }
+      } catch (e) {
+        console.warn('Cloudflare R2 direct upload fallback', e);
+      }
+      return null;
+    },
+
     // 6. Audit Logs
     async fetchAuditLogs() {
       try {
@@ -5035,6 +5135,36 @@ document.addEventListener('DOMContentLoaded', () => {
       dokPhotoContainer.appendChild(card);
     }
     updateDokEmptyState();
+
+    // Direct Cloudflare R2 Upload Sync
+    if (typeof imageSrc === 'string' && imageSrc.startsWith('data:')) {
+      const cloudBadge = document.createElement('span');
+      cloudBadge.className = 'dok-r2-cloud-badge';
+      cloudBadge.innerHTML = '<span class="dok-upload-spinner"></span> Menyimpan ke R2...';
+      const imgWrap = card.querySelector('.dok-photo-img-wrap');
+      if (imgWrap) imgWrap.appendChild(cloudBadge);
+
+      CloudflareDB.uploadFotoR2(imageSrc, 'dok_kegiatan.jpg').then(res => {
+        if (res && res.url) {
+          const img = card.querySelector('.dok-photo-img');
+          if (img) {
+            img.src = res.url;
+            img.setAttribute('data-r2-key', res.key || '');
+          }
+          cloudBadge.innerHTML = '☁️ R2 Cloud';
+          setTimeout(() => {
+            cloudBadge.style.opacity = '0.75';
+          }, 2000);
+        } else {
+          cloudBadge.innerHTML = '💾 Lokal Preview';
+          setTimeout(() => {
+            if (cloudBadge.parentNode) cloudBadge.parentNode.removeChild(cloudBadge);
+          }, 2500);
+        }
+      }).catch(() => {
+        if (cloudBadge.parentNode) cloudBadge.parentNode.removeChild(cloudBadge);
+      });
+    }
   };
 
   const handleDokImageFiles = (files) => {
@@ -6094,6 +6224,267 @@ document.addEventListener('DOMContentLoaded', () => {
   syncLptOfficer(3);
   updateLptPetugasVisibility();
   updateFormDisplay();
+
+  // ==========================================================================
+  // SPPD TEMPLATES CONTROLLER (CLOUDFLARE D1)
+  // ==========================================================================
+  const SppdTemplateController = {
+    templates: [],
+    container: document.getElementById('sppdTemplateListContainer'),
+    btnSave: document.getElementById('btnSaveCurrentAsTemplate'),
+
+    async init() {
+      if (this.btnSave) {
+        this.btnSave.addEventListener('click', () => this.saveCurrentAsTemplate());
+      }
+      await this.loadTemplates();
+    },
+
+    async loadTemplates() {
+      const u = CURRENT_USER?.username || 'ozie';
+      this.templates = await CloudflareDB.fetchSppdTemplates(u);
+      this.render();
+    },
+
+    render() {
+      if (!this.container) return;
+      if (!this.templates || this.templates.length === 0) {
+        this.container.innerHTML = `
+          <div class="sppd-template-empty" style="font-size: 11px; color: #94a3b8; text-align: center; padding: 12px 4px;">
+            Belum ada template. Isi form SPPD lalu klik <strong>"+ Simpan Template"</strong> untuk membuat template baru.
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      this.templates.forEach(t => {
+        const title = escapeHtmlHelper(t.nama_template || 'Template SPPD');
+        const pegawai = escapeHtmlHelper(t.pegawai_nama || '-');
+        const tujuan = escapeHtmlHelper(t.tempat_tujuan || '-');
+        const maksud = escapeHtmlHelper(t.maksud_kegiatan || '-');
+
+        html += `
+          <div class="sppd-template-card" data-id="${t.id}" title="Klik untuk terapkan template ini">
+            <div class="sppd-template-card-main">
+              <div class="sppd-template-title">
+                <span>⚡</span>
+                <span>${title}</span>
+              </div>
+              <div class="sppd-template-sub">
+                ${tujuan !== '-' ? `📍 ${tujuan}` : ''} ${maksud !== '-' ? `• ${maksud}` : ''}
+              </div>
+            </div>
+            <div class="sppd-template-actions">
+              <button type="button" class="sppd-template-btn-apply" data-id="${t.id}">Terapkan</button>
+              <button type="button" class="sppd-template-btn-del" data-id="${t.id}" title="Hapus Template">✕</button>
+            </div>
+          </div>
+        `;
+      });
+
+      this.container.innerHTML = html;
+
+      // Attach click listeners
+      this.container.querySelectorAll('.sppd-template-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.sppd-template-btn-del')) return;
+          const id = card.getAttribute('data-id');
+          this.applyTemplate(id);
+        });
+      });
+
+      this.container.querySelectorAll('.sppd-template-btn-del').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const id = btn.getAttribute('data-id');
+          await this.deleteTemplate(id);
+        });
+      });
+    },
+
+    async saveCurrentAsTemplate() {
+      const pegawai = sppdInputPegawai ? sppdInputPegawai.value : '';
+      const maksud = sppdInputMaksud ? sppdInputMaksud.value : '';
+      const tempatBerangkat = sppdInputTempatBerangkat ? sppdInputTempatBerangkat.value : '';
+      const tujuan = sppdInputTujuan ? sppdInputTujuan.value : '';
+
+      if (!maksud && !tujuan && !pegawai) {
+        if (typeof showToast === 'function') {
+          showToast('Isi minimal Petugas, Maksud Kegiatan, atau Tempat Tujuan untuk disimpan sebagai template.', 'warn');
+        }
+        return;
+      }
+
+      // Collect pengikut 1..4
+      const pengikutList = [];
+      for (let i = 1; i <= 4; i++) {
+        const select = document.getElementById(`sppdPengikutSelect${i}`);
+        const inNama = document.getElementById(`sppdPengikutInputNama${i}`);
+        const inNip = document.getElementById(`sppdPengikutInputNip${i}`);
+        const inKet = document.getElementById(`sppdPengikutInputKet${i}`);
+
+        if (select && select.value) {
+          pengikutList.push({
+            index: i,
+            selectVal: select.value,
+            customNama: inNama ? inNama.value : '',
+            customNip: inNip ? inNip.value : '',
+            customKet: inKet ? inKet.value : ''
+          });
+        }
+      }
+
+      // Prompt for Template Name
+      let templateName = '';
+      if (typeof Swal !== 'undefined') {
+        const defaultName = maksud ? maksud.slice(0, 30) : (tujuan ? `SPPD ke ${tujuan}` : 'Template SPPD Baru');
+        const { value: nameInput } = await Swal.fire({
+          title: 'Simpan Template SPPD',
+          text: 'Beri nama untuk template ini agar mudah dipilih kembali:',
+          input: 'text',
+          inputValue: defaultName,
+          showCancelButton: true,
+          confirmButtonText: '💾 Simpan ke Cloud D1',
+          cancelButtonText: 'Batal',
+          background: '#0f172a',
+          color: '#ffffff',
+          inputValidator: (val) => {
+            if (!val || !val.trim()) return 'Nama template tidak boleh kosong!';
+          }
+        });
+        if (!nameInput) return;
+        templateName = nameInput.trim();
+      } else {
+        templateName = prompt('Nama template SPPD:', maksud || tujuan || 'Template SPPD') || '';
+        if (!templateName.trim()) return;
+      }
+
+      const optUser = (sppdInputPegawai && sppdInputPegawai.selectedIndex >= 0)
+        ? sppdInputPegawai.options[sppdInputPegawai.selectedIndex] : null;
+
+      const payload = {
+        id: `tmpl-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        nama_template: templateName,
+        username: CURRENT_USER?.username || 'ozie',
+        pegawai_nama: pegawai,
+        pegawai_nip: optUser ? (optUser.getAttribute('data-nip') || '') : '',
+        maksud_kegiatan: maksud,
+        tempat_berangkat: tempatBerangkat || 'Puskesmas Banjaran Kota',
+        tempat_tujuan: tujuan,
+        pengikut_data: pengikutList,
+        is_favorite: 0
+      };
+
+      // Optimistic update
+      this.templates.unshift(payload);
+      this.render();
+
+      await CloudflareDB.saveSppdTemplate(payload);
+
+      if (typeof showToast === 'function') {
+        showToast(`✓ Template "${templateName}" berhasil disimpan ke Cloud D1!`, 'success');
+      }
+    },
+
+    applyTemplate(templateId) {
+      const tmpl = this.templates.find(t => t.id === templateId);
+      if (!tmpl) return;
+
+      if (sppdInputPegawai && tmpl.pegawai_nama) {
+        sppdInputPegawai.value = tmpl.pegawai_nama;
+      }
+      if (sppdInputMaksud && tmpl.maksud_kegiatan) {
+        sppdInputMaksud.value = tmpl.maksud_kegiatan;
+      }
+      if (sppdInputTempatBerangkat && tmpl.tempat_berangkat) {
+        sppdInputTempatBerangkat.value = tmpl.tempat_berangkat;
+      }
+      if (sppdInputTujuan && tmpl.tempat_tujuan) {
+        sppdInputTujuan.value = tmpl.tempat_tujuan;
+      }
+
+      // Reset pengikut first
+      for (let i = 1; i <= 4; i++) {
+        const select = document.getElementById(`sppdPengikutSelect${i}`);
+        const customDiv = document.getElementById(`sppdPengikutCustomWrap${i}`);
+        const inNama = document.getElementById(`sppdPengikutInputNama${i}`);
+        const inNip = document.getElementById(`sppdPengikutInputNip${i}`);
+        const inKet = document.getElementById(`sppdPengikutInputKet${i}`);
+        if (select) select.value = '';
+        if (customDiv) customDiv.style.display = 'none';
+        if (inNama) inNama.value = '';
+        if (inNip) inNip.value = '';
+        if (inKet) inKet.value = '';
+      }
+
+      // Restore saved pengikut
+      if (Array.isArray(tmpl.pengikut_data)) {
+        tmpl.pengikut_data.forEach(p => {
+          const idx = p.index;
+          const select = document.getElementById(`sppdPengikutSelect${idx}`);
+          const customDiv = document.getElementById(`sppdPengikutCustomWrap${idx}`);
+          const inNama = document.getElementById(`sppdPengikutInputNama${idx}`);
+          const inNip = document.getElementById(`sppdPengikutInputNip${idx}`);
+          const inKet = document.getElementById(`sppdPengikutInputKet${idx}`);
+
+          if (select && p.selectVal) {
+            select.value = p.selectVal;
+            if (p.selectVal === 'CUSTOM' && customDiv) {
+              customDiv.style.display = 'flex';
+              if (inNama) inNama.value = p.customNama || '';
+              if (inNip) inNip.value = p.customNip || '';
+              if (inKet) inKet.value = p.customKet || '';
+            }
+          }
+        });
+      }
+
+      // Realtime sync document preview & LPT
+      syncSppdLptData();
+
+      if (typeof showToast === 'function') {
+        showToast(`✓ Template "${tmpl.nama_template}" berhasil diterapkan!`, 'success');
+      }
+    },
+
+    async deleteTemplate(templateId) {
+      const tmpl = this.templates.find(t => t.id === templateId);
+      const name = tmpl ? tmpl.nama_template : 'Template';
+
+      let confirmed = true;
+      if (typeof Swal !== 'undefined') {
+        const res = await Swal.fire({
+          title: 'Hapus Template?',
+          text: `Yakin ingin menghapus template "${name}" dari Cloud D1?`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Ya, Hapus',
+          cancelButtonText: 'Batal',
+          confirmButtonColor: '#ef4444',
+          background: '#0f172a',
+          color: '#ffffff'
+        });
+        confirmed = res.isConfirmed;
+      } else {
+        confirmed = confirm(`Hapus template "${name}"?`);
+      }
+
+      if (!confirmed) return;
+
+      // Optimistic delete
+      this.templates = this.templates.filter(t => t.id !== templateId);
+      this.render();
+
+      await CloudflareDB.deleteSppdTemplate(templateId);
+
+      if (typeof showToast === 'function') {
+        showToast(`✓ Template "${name}" berhasil dihapus dari Cloud D1.`, 'info');
+      }
+    }
+  };
+  window.SppdTemplateController = SppdTemplateController;
+  SppdTemplateController.init();
 
   // Initial update
   updateTpPolDocHeader();

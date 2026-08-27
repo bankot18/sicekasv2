@@ -940,6 +940,246 @@ async function handleApiRequest(request, env, ctx) {
     }
 
     // ------------------------------------------------------------------------
+    // 7b. SPPD TEMPLATES (/api/sppd/templates, /api/sppd/templates/save, /api/sppd/templates/delete)
+    // ------------------------------------------------------------------------
+    if (pathname === '/api/sppd/templates' && method === 'GET') {
+      const username = url.searchParams.get('username');
+
+      // Auto-migration: Ensure table exists
+      try {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS sppd_templates (
+            id TEXT PRIMARY KEY,
+            nama_template TEXT NOT NULL,
+            username TEXT NOT NULL,
+            pegawai_nama TEXT,
+            pegawai_nip TEXT,
+            maksud_kegiatan TEXT,
+            tempat_berangkat TEXT,
+            tempat_tujuan TEXT,
+            pengikut_data TEXT,
+            is_favorite INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+        `).run();
+      } catch (tblErr) {}
+
+      let query = 'SELECT * FROM sppd_templates WHERE 1=1';
+      const params = [];
+      if (username) {
+        query += ' AND username = ?';
+        params.push(username);
+      }
+      query += ' ORDER BY is_favorite DESC, updated_at DESC';
+
+      const stmt = db.prepare(query);
+      const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
+
+      const parsed = (results || []).map(r => ({
+        ...r,
+        pengikut_data: typeof r.pengikut_data === 'string' ? JSON.parse(r.pengikut_data || '[]') : (r.pengikut_data || [])
+      }));
+
+      return jsonResponse({ success: true, total: parsed.length, data: parsed });
+    }
+
+    if (pathname === '/api/sppd/templates/save' && method === 'POST') {
+      const item = await request.json();
+      const id = item.id || `tmpl-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+      const pengikutJson = typeof item.pengikut_data === 'string' ? item.pengikut_data : JSON.stringify(item.pengikut_data || []);
+
+      // Auto-migration: Ensure table exists
+      try {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS sppd_templates (
+            id TEXT PRIMARY KEY,
+            nama_template TEXT NOT NULL,
+            username TEXT NOT NULL,
+            pegawai_nama TEXT,
+            pegawai_nip TEXT,
+            maksud_kegiatan TEXT,
+            tempat_berangkat TEXT,
+            tempat_tujuan TEXT,
+            pengikut_data TEXT,
+            is_favorite INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+        `).run();
+      } catch (tblErr) {}
+
+      await db.prepare(`
+        INSERT INTO sppd_templates (id, nama_template, username, pegawai_nama, pegawai_nip, maksud_kegiatan, tempat_berangkat, tempat_tujuan, pengikut_data, is_favorite, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(id) DO UPDATE SET
+          nama_template = excluded.nama_template,
+          username = excluded.username,
+          pegawai_nama = excluded.pegawai_nama,
+          pegawai_nip = excluded.pegawai_nip,
+          maksud_kegiatan = excluded.maksud_kegiatan,
+          tempat_berangkat = excluded.tempat_berangkat,
+          tempat_tujuan = excluded.tempat_tujuan,
+          pengikut_data = excluded.pengikut_data,
+          is_favorite = excluded.is_favorite,
+          updated_at = CURRENT_TIMESTAMP
+      `).bind(
+        id,
+        item.nama_template || 'Template SPPD',
+        item.username || 'ozie',
+        item.pegawai_nama || '',
+        item.pegawai_nip || '',
+        item.maksud_kegiatan || '',
+        item.tempat_berangkat || 'Puskesmas Banjaran Kota',
+        item.tempat_tujuan || '',
+        pengikutJson,
+        item.is_favorite ? 1 : 0
+      ).run();
+
+      return jsonResponse({ success: true, message: 'Template SPPD berhasil disimpan ke Cloud D1!', id });
+    }
+
+    if (pathname === '/api/sppd/templates/delete' && (method === 'DELETE' || method === 'POST')) {
+      const body = await request.json();
+      const { id } = body;
+      if (!id) {
+        return jsonResponse({ success: false, error: 'ID Template wajib disertakan!' }, 400);
+      }
+      await db.prepare('DELETE FROM sppd_templates WHERE id = ?').bind(id).run();
+      return jsonResponse({ success: true, message: `Template [${id}] berhasil dihapus.` });
+    }
+
+    // ------------------------------------------------------------------------
+    // 7c. CLOUDFLARE R2 OBJECT STORAGE (FOTO KEGIATAN & MEDIA)
+    // ------------------------------------------------------------------------
+    if (pathname === '/api/foto/upload' && method === 'POST') {
+      const bucket = env.BUCKET;
+      if (!bucket) {
+        return jsonResponse({
+          success: false,
+          error: 'Cloudflare R2 Bucket [BUCKET] belum terhubung di Settings > Bindings.'
+        }, 503);
+      }
+
+      const contentType = request.headers.get('content-type') || '';
+      let fileBuffer;
+      let originalName = 'foto.jpg';
+      let mimeType = 'image/jpeg';
+
+      if (contentType.includes('multipart/form-data')) {
+        const formData = await request.formData();
+        const file = formData.get('file') || formData.get('foto') || formData.get('image');
+        if (!file) {
+          return jsonResponse({ success: false, error: 'Tidak ada file yang diunggah!' }, 400);
+        }
+        originalName = file.name || 'foto.jpg';
+        mimeType = file.type || 'image/jpeg';
+        fileBuffer = await file.arrayBuffer();
+      } else if (contentType.includes('application/json')) {
+        const body = await request.json();
+        const base64Data = body.data || body.base64 || body.image;
+        if (!base64Data) {
+          return jsonResponse({ success: false, error: 'Data gambar base64 wajib disertakan!' }, 400);
+        }
+        originalName = body.name || 'foto.jpg';
+        
+        // Parse data URI if present (e.g. data:image/png;base64,xxxx)
+        let pureBase64 = base64Data;
+        if (base64Data.startsWith('data:')) {
+          const parts = base64Data.split(',');
+          const mimeMatch = parts[0].match(/:(.*?);/);
+          if (mimeMatch) mimeType = mimeMatch[1];
+          pureBase64 = parts[1];
+        }
+        
+        const binaryStr = atob(pureBase64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+        fileBuffer = bytes.buffer;
+      } else {
+        // Raw binary upload
+        mimeType = contentType;
+        fileBuffer = await request.arrayBuffer();
+      }
+
+      const ext = originalName.split('.').pop() || 'jpg';
+      const cleanExt = ext.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'jpg';
+      const fileKey = `foto-${Date.now()}-${Math.random().toString(36).substr(2, 6)}.${cleanExt}`;
+
+      // Upload to R2 Bucket
+      await bucket.put(fileKey, fileBuffer, {
+        httpMetadata: {
+          contentType: mimeType,
+          cacheControl: 'public, max-age=31536000, immutable'
+        },
+        customMetadata: {
+          originalName: encodeURIComponent(originalName),
+          uploadedAt: new Date().toISOString()
+        }
+      });
+
+      return jsonResponse({
+        success: true,
+        message: 'Foto berhasil diunggah ke Cloudflare R2!',
+        key: fileKey,
+        url: `/api/foto/${fileKey}`,
+        name: originalName,
+        size: fileBuffer.byteLength
+      });
+    }
+
+    // Serve Image from R2
+    if (pathname.startsWith('/api/foto/') && method === 'GET') {
+      const bucket = env.BUCKET;
+      const fileKey = pathname.replace('/api/foto/', '').trim();
+
+      if (!bucket) {
+        return jsonResponse({ success: false, error: 'R2 Bucket tidak tersedia.' }, 503);
+      }
+      if (!fileKey) {
+        return jsonResponse({ success: false, error: 'Key foto wajib disertakan.' }, 400);
+      }
+
+      const object = await bucket.get(fileKey);
+      if (!object) {
+        return new Response('Foto tidak ditemukan di Cloudflare R2', { status: 404 });
+      }
+
+      const headers = new Headers();
+      object.writeHttpMetadata(headers);
+      headers.set('Access-Control-Allow-Origin', '*');
+      headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+      if (!headers.get('Content-Type')) {
+        headers.set('Content-Type', 'image/jpeg');
+      }
+
+      return new Response(object.body, { headers });
+    }
+
+    // Delete Image from R2
+    if ((pathname.startsWith('/api/foto/') && method === 'DELETE') || (pathname === '/api/foto/delete' && method === 'POST')) {
+      const bucket = env.BUCKET;
+      let fileKey = pathname.startsWith('/api/foto/') ? pathname.replace('/api/foto/', '').trim() : '';
+
+      if (method === 'POST') {
+        const body = await request.json();
+        fileKey = body.key || fileKey;
+      }
+
+      if (!bucket) {
+        return jsonResponse({ success: false, error: 'R2 Bucket tidak tersedia.' }, 503);
+      }
+      if (!fileKey) {
+        return jsonResponse({ success: false, error: 'Key foto wajib disertakan.' }, 400);
+      }
+
+      await bucket.delete(fileKey);
+      return jsonResponse({ success: true, message: `Foto [${fileKey}] berhasil dihapus dari Cloudflare R2.` });
+    }
+
+    // ------------------------------------------------------------------------
     // 8. AUDIT LOGS (/api/audit-logs)
     // ------------------------------------------------------------------------
     if (pathname === '/api/audit-logs' && method === 'GET') {
