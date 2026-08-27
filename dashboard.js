@@ -4180,6 +4180,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const sppdSheetDepan = document.getElementById('sppdSheetDepan');
   const sppdSheetBelakang = document.getElementById('sppdSheetBelakang');
   const lptSheetDoc = document.getElementById('lptSheetDoc');
+  const dokSheetDoc = document.getElementById('dokSheetDoc');
+
+  const sppdSidebarSections = document.getElementById('sppdSidebarSections');
+  const lptSidebarSections = document.getElementById('lptSidebarSections');
+  const dokSidebarSections = document.getElementById('dokSidebarSections');
 
   const sppdInputNoSurat = document.getElementById('sppdInputNoSurat');
   const sppdInputPegawai = document.getElementById('sppdInputPegawai');
@@ -4692,9 +4697,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // LPT Form Specific Elements
-  const sppdSidebarSections = document.getElementById('sppdSidebarSections');
-  const lptSidebarSections = document.getElementById('lptSidebarSections');
-
   const lptInputDasar = document.getElementById('lptInputDasar');
   const lptInputTujuanPerjalanan = document.getElementById('lptInputTujuanPerjalanan');
   const lptInputTanggalLaporan = document.getElementById('lptInputTanggalLaporan');
@@ -4922,8 +4924,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================================================
   // DOKUMENTASI KEGIATAN LOGIC & MULTI-CHANNEL IMAGE INGESTION ENGINE
   // ==========================================================================
-  const dokSidebarSections = document.getElementById('dokSidebarSections');
-  const dokSheetDoc = document.getElementById('dokSheetDoc');
   const dokInputJudulKegiatan = document.getElementById('dokInputJudulKegiatan');
   const dokValJudulKegiatan = document.getElementById('dokValJudulKegiatan');
   const dokFileInput = document.getElementById('dokFileInput');
