@@ -5167,19 +5167,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const MAX_DOK_PHOTOS = 30;
+
   const handleDokImageFiles = (files) => {
     if (!files || files.length === 0) return;
-    Array.from(files).forEach(file => {
-      if (file.type && file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          createPhotoCard(e.target.result);
-        };
-        reader.readAsDataURL(file);
+    const currentCards = dokPhotoContainer ? dokPhotoContainer.querySelectorAll('.dok-photo-card') : [];
+    const currentCount = currentCards.length;
+
+    if (currentCount >= MAX_DOK_PHOTOS) {
+      if (typeof showToast === 'function') {
+        showToast('⚠️ Batas maksimal 30 foto kegiatan telah tercapai!', 'warn');
       }
+      return;
+    }
+
+    const availableSlots = MAX_DOK_PHOTOS - currentCount;
+    const fileArray = Array.from(files).filter(file => file.type && file.type.startsWith('image/'));
+    const filesToProcess = fileArray.slice(0, availableSlots);
+
+    if (fileArray.length > availableSlots) {
+      if (typeof showToast === 'function') {
+        showToast(`⚠️ Hanya ${availableSlots} foto yang dapat ditambahkan (Batas maksimal 30 foto per kegiatan).`, 'warn');
+      }
+    }
+
+    filesToProcess.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        createPhotoCard(e.target.result);
+      };
+      reader.readAsDataURL(file);
     });
-    if (typeof showToast === 'function') {
-      showToast(`✓ Berhasil menambahkan ${files.length} foto dokumentasi!`, 'success');
+
+    if (filesToProcess.length > 0 && typeof showToast === 'function') {
+      showToast(`✓ Berhasil menambahkan ${filesToProcess.length} foto dokumentasi!`, 'success');
     }
   };
 
@@ -5282,6 +5303,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const items = (e.clipboardData || window.clipboardData).items;
     if (!items) return;
+
+    const currentCards = dokPhotoContainer ? dokPhotoContainer.querySelectorAll('.dok-photo-card') : [];
+    if (currentCards.length >= MAX_DOK_PHOTOS) {
+      if (typeof showToast === 'function') {
+        showToast('⚠️ Batas maksimal 30 foto kegiatan telah tercapai!', 'warn');
+      }
+      return;
+    }
 
     let imageFound = false;
     for (let i = 0; i < items.length; i++) {
@@ -6226,18 +6255,71 @@ document.addEventListener('DOMContentLoaded', () => {
   updateFormDisplay();
 
   // ==========================================================================
-  // SPPD TEMPLATES CONTROLLER (CLOUDFLARE D1)
+  // SPPD TEMPLATES CONTROLLER (CLOUDFLARE D1 - EVIDENCE MODEL STUDIO)
   // ==========================================================================
+  const MAX_SPPD_TEMPLATES = 30;
+
   const SppdTemplateController = {
     templates: [],
     container: document.getElementById('sppdTemplateListContainer'),
+    evidenceGrid: document.getElementById('sppdEvidenceGridContainer'),
     btnSave: document.getElementById('btnSaveCurrentAsTemplate'),
+    btnModalSave: document.getElementById('btnModalSaveCurrentTemplate'),
+    btnOpenModal: document.getElementById('btnOpenSppdTemplateModal'),
+    modal: document.getElementById('modalListTemplateSppd'),
+    btnCloseModal: document.getElementById('closeListTemplateModal'),
+    btnCancelModal: document.getElementById('btnCancelListTemplateModal'),
+    searchInput: document.getElementById('sppdTemplateSearchInput'),
+    heroBadge: document.getElementById('sppdHeroTemplateBadge'),
+    usageBadge: document.getElementById('modalTemplateUsageBadge'),
+    searchFilter: '',
 
     async init() {
+      // Save triggers
       if (this.btnSave) {
         this.btnSave.addEventListener('click', () => this.saveCurrentAsTemplate());
       }
+      if (this.btnModalSave) {
+        this.btnModalSave.addEventListener('click', () => this.saveCurrentAsTemplate());
+      }
+
+      // Modal Open & Close triggers
+      if (this.btnOpenModal) {
+        this.btnOpenModal.addEventListener('click', () => this.openModal());
+      }
+      if (this.btnCloseModal) {
+        this.btnCloseModal.addEventListener('click', () => this.closeModal());
+      }
+      if (this.btnCancelModal) {
+        this.btnCancelModal.addEventListener('click', () => this.closeModal());
+      }
+      if (this.modal) {
+        this.modal.addEventListener('click', (e) => {
+          if (e.target === this.modal) this.closeModal();
+        });
+      }
+
+      // Search Filter
+      if (this.searchInput) {
+        this.searchInput.addEventListener('input', (e) => {
+          this.searchFilter = (e.target.value || '').toLowerCase().trim();
+          this.renderEvidenceGrid();
+        });
+      }
+
       await this.loadTemplates();
+    },
+
+    openModal() {
+      if (!this.modal) return;
+      this.searchFilter = '';
+      if (this.searchInput) this.searchInput.value = '';
+      this.render();
+      this.modal.classList.add('active');
+    },
+
+    closeModal() {
+      if (this.modal) this.modal.classList.remove('active');
     },
 
     async loadTemplates() {
@@ -6246,21 +6328,43 @@ document.addEventListener('DOMContentLoaded', () => {
       this.render();
     },
 
+    updateBadges() {
+      const count = this.templates.length;
+      if (this.heroBadge) {
+        this.heroBadge.textContent = `${count}/${MAX_SPPD_TEMPLATES}`;
+        if (count >= MAX_SPPD_TEMPLATES) {
+          this.heroBadge.style.color = '#f87171';
+          this.heroBadge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+        } else {
+          this.heroBadge.style.color = '#6ee7b7';
+          this.heroBadge.style.borderColor = 'rgba(52, 211, 153, 0.4)';
+        }
+      }
+      if (this.usageBadge) {
+        this.usageBadge.textContent = `${count} / ${MAX_SPPD_TEMPLATES} Template`;
+      }
+    },
+
     render() {
+      this.updateBadges();
+      this.renderSidebarList();
+      this.renderEvidenceGrid();
+    },
+
+    renderSidebarList() {
       if (!this.container) return;
       if (!this.templates || this.templates.length === 0) {
         this.container.innerHTML = `
           <div class="sppd-template-empty" style="font-size: 11px; color: #94a3b8; text-align: center; padding: 12px 4px;">
-            Belum ada template. Isi form SPPD lalu klik <strong>"+ Simpan Template"</strong> untuk membuat template baru.
+            Belum ada template. Klik <strong>"+ Simpan Template"</strong> untuk membuat template baru.
           </div>
         `;
         return;
       }
 
       let html = '';
-      this.templates.forEach(t => {
+      this.templates.slice(0, 8).forEach(t => {
         const title = escapeHtmlHelper(t.nama_template || 'Template SPPD');
-        const pegawai = escapeHtmlHelper(t.pegawai_nama || '-');
         const tujuan = escapeHtmlHelper(t.tempat_tujuan || '-');
         const maksud = escapeHtmlHelper(t.maksud_kegiatan || '-');
 
@@ -6283,9 +6387,19 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       });
 
+      if (this.templates.length > 8) {
+        html += `
+          <div style="text-align: center; padding-top: 4px;">
+            <button type="button" class="sppd-template-btn-apply" onclick="window.SppdTemplateController.openModal()" style="font-size: 11px; padding: 4px 10px;">
+              Lihat Semua (${this.templates.length} Template) ↗
+            </button>
+          </div>
+        `;
+      }
+
       this.container.innerHTML = html;
 
-      // Attach click listeners
+      // Click listeners in sidebar
       this.container.querySelectorAll('.sppd-template-card').forEach(card => {
         card.addEventListener('click', (e) => {
           if (e.target.closest('.sppd-template-btn-del')) return;
@@ -6303,7 +6417,168 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     },
 
+    renderEvidenceGrid() {
+      if (!this.evidenceGrid) return;
+
+      const q = this.searchFilter;
+      const filtered = this.templates.filter(t => {
+        if (!q) return true;
+        const name = (t.nama_template || '').toLowerCase();
+        const keg = (t.maksud_kegiatan || '').toLowerCase();
+        const peg = (t.pegawai_nama || '').toLowerCase();
+        const tuj = (t.tempat_tujuan || '').toLowerCase();
+        return name.includes(q) || keg.includes(q) || peg.includes(q) || tuj.includes(q);
+      });
+
+      if (filtered.length === 0) {
+        this.evidenceGrid.innerHTML = `
+          <div class="evidence-empty-box">
+            <div style="font-size: 38px; margin-bottom: 8px; opacity: 0.6;">📦</div>
+            <h4 style="font-size: 15px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
+              ${q ? 'Tidak ada template yang cocok dengan pencarian' : 'Belum Ada Template SPPD Tersimpan'}
+            </h4>
+            <p style="font-size: 12px; color: #94a3b8; max-width: 440px; margin: 0 auto 16px auto;">
+              ${q ? 'Coba ubah kata kunci pencarian Anda.' : 'Simpan konfigurasi surat tugas dinas yang sering digunakan agar tinggal 1 klik untuk mengisi dokumen berikutnya.'}
+            </p>
+            <button type="button" class="btn-save-current-template-modal" onclick="window.SppdTemplateController.saveCurrentAsTemplate()" style="margin: 0 auto; display: inline-flex;">
+              <span>💾 + Simpan Form Saat Ini Sebagai Template</span>
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      filtered.forEach((t, idx) => {
+        const title = escapeHtmlHelper(t.nama_template || 'Template SPPD');
+        const pegawai = escapeHtmlHelper(t.pegawai_nama || 'Belum dipilih');
+        const nip = escapeHtmlHelper(t.pegawai_nip || '-');
+        const berangkat = escapeHtmlHelper(t.tempat_berangkat || 'Puskesmas Banjaran Kota');
+        const tujuan = escapeHtmlHelper(t.tempat_tujuan || 'Lokasi Tujuan');
+        const maksud = escapeHtmlHelper(t.maksud_kegiatan || 'Kegiatan Pelayanan Puskesmas');
+        const dateFormatted = t.created_at ? new Date(t.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Baru saja';
+
+        // Pengikut Tags
+        let pengikutHtml = '';
+        if (Array.isArray(t.pengikut_data) && t.pengikut_data.length > 0) {
+          pengikutHtml = `<div class="evidence-pengikut-tags">`;
+          t.pengikut_data.forEach(p => {
+            const pName = p.customNama || p.selectVal;
+            if (pName && pName !== 'CUSTOM') {
+              pengikutHtml += `<span class="evidence-pengikut-tag">👥 ${escapeHtmlHelper(pName)}</span>`;
+            }
+          });
+          pengikutHtml += `</div>`;
+        } else {
+          pengikutHtml = `<span style="font-size: 11px; color: #64748b;">(Tanpa Pengikut)</span>`;
+        }
+
+        html += `
+          <div class="evidence-card" data-id="${t.id}">
+            <!-- Header -->
+            <div class="evidence-card-header">
+              <span class="evidence-idx-badge">#${idx + 1} • BOK STANDAR</span>
+              <span class="evidence-time-text">🕒 ${dateFormatted}</span>
+            </div>
+
+            <!-- Title -->
+            <h4 class="evidence-card-title">
+              <span style="color: #fbbf24;">⚡</span>
+              <span>${title}</span>
+            </h4>
+
+            <!-- Route Pill -->
+            <div class="evidence-route-pill">
+              <span>🏛️ ${berangkat}</span>
+              <span class="evidence-route-arrow">➔</span>
+              <span style="font-weight: 700; color: #38bdf8;">📍 ${tujuan}</span>
+            </div>
+
+            <!-- Details -->
+            <div class="evidence-detail-row">
+              <span class="evidence-detail-icon">📋</span>
+              <div>
+                <strong style="color: #ffffff;">Kegiatan:</strong>
+                <div>${maksud}</div>
+              </div>
+            </div>
+
+            <div class="evidence-detail-row">
+              <span class="evidence-detail-icon">👤</span>
+              <div>
+                <strong style="color: #ffffff;">Pelaksana Utama:</strong>
+                <div>${pegawai} ${nip !== '-' ? `<span style="color: #94a3b8; font-size: 10.5px;">(${nip})</span>` : ''}</div>
+              </div>
+            </div>
+
+            <div class="evidence-detail-row">
+              <span class="evidence-detail-icon">👥</span>
+              <div>
+                <strong style="color: #ffffff;">Petugas Pengikut:</strong>
+                <div style="margin-top: 3px;">${pengikutHtml}</div>
+              </div>
+            </div>
+
+            <!-- Actions Footer -->
+            <div class="evidence-card-actions">
+              <button type="button" class="btn-evidence-delete" data-id="${t.id}" title="Hapus Template dari Cloud">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                <span>Hapus</span>
+              </button>
+
+              <button type="button" class="btn-evidence-apply" data-id="${t.id}" title="Terapkan konfigurasi template ini ke form">
+                <span>⚡ Terapkan Template</span>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      this.evidenceGrid.innerHTML = html;
+
+      // Event listeners inside modal grid
+      this.evidenceGrid.querySelectorAll('.btn-evidence-apply').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = btn.getAttribute('data-id');
+          this.applyTemplate(id);
+          this.closeModal();
+        });
+      });
+
+      this.evidenceGrid.querySelectorAll('.btn-evidence-delete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const id = btn.getAttribute('data-id');
+          await this.deleteTemplate(id);
+        });
+      });
+    },
+
     async saveCurrentAsTemplate() {
+      // Check 30 Template Limit
+      if (this.templates.length >= MAX_SPPD_TEMPLATES) {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Batas Kuota Tercapai',
+            text: `Anda telah mencapai batas maksimal ${MAX_SPPD_TEMPLATES} template SPPD per user. Harap hapus salah satu template lama terlebih dahulu sebelum menambah yang baru.`,
+            confirmButtonText: 'Mengerti',
+            background: '#0f172a',
+            color: '#ffffff'
+          });
+        } else {
+          alert(`Batas maksimal ${MAX_SPPD_TEMPLATES} template telah tercapai.`);
+        }
+        return;
+      }
+
       const pegawai = sppdInputPegawai ? sppdInputPegawai.value : '';
       const maksud = sppdInputMaksud ? sppdInputMaksud.value : '';
       const tempatBerangkat = sppdInputTempatBerangkat ? sppdInputTempatBerangkat.value : '';
@@ -6341,7 +6616,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const defaultName = maksud ? maksud.slice(0, 30) : (tujuan ? `SPPD ke ${tujuan}` : 'Template SPPD Baru');
         const { value: nameInput } = await Swal.fire({
           title: 'Simpan Template SPPD',
-          text: 'Beri nama untuk template ini agar mudah dipilih kembali:',
+          html: `<div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Template akan disimpan ke Cloud D1 (${this.templates.length + 1}/${MAX_SPPD_TEMPLATES}):</div>`,
           input: 'text',
           inputValue: defaultName,
           showCancelButton: true,
@@ -6363,6 +6638,31 @@ document.addEventListener('DOMContentLoaded', () => {
       const optUser = (sppdInputPegawai && sppdInputPegawai.selectedIndex >= 0)
         ? sppdInputPegawai.options[sppdInputPegawai.selectedIndex] : null;
 
+      // Collect LPT details if present
+      const lptDasar = document.getElementById('lptInputDasar')?.value || '';
+      const lptTujuan = document.getElementById('lptInputTujuanPerjalanan')?.value || '';
+      const lptProses = document.getElementById('lptInputProses')?.value || '';
+      const lptMasalah = document.getElementById('lptInputMasalah')?.value || '';
+      const lptKesimpulan = document.getElementById('lptInputKesimpulan')?.value || '';
+      const lptPet1 = document.getElementById('lptSelectPetugas1')?.value || '';
+      const lptPet2 = document.getElementById('lptSelectPetugas2')?.value || '';
+      const lptPet3 = document.getElementById('lptSelectPetugas3')?.value || '';
+      const lptTog2 = document.getElementById('lptTogglePetugas2')?.checked || false;
+      const lptTog3 = document.getElementById('lptTogglePetugas3')?.checked || false;
+
+      const lptData = {
+        dasar: lptDasar,
+        tujuan: lptTujuan,
+        proses: lptProses,
+        masalah: lptMasalah,
+        kesimpulan: lptKesimpulan,
+        petugas1: lptPet1,
+        petugas2: lptPet2,
+        petugas3: lptPet3,
+        toggle2: lptTog2,
+        toggle3: lptTog3
+      };
+
       const payload = {
         id: `tmpl-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
         nama_template: templateName,
@@ -6373,7 +6673,9 @@ document.addEventListener('DOMContentLoaded', () => {
         tempat_berangkat: tempatBerangkat || 'Puskesmas Banjaran Kota',
         tempat_tujuan: tujuan,
         pengikut_data: pengikutList,
-        is_favorite: 0
+        lpt_data: lptData,
+        is_favorite: 0,
+        created_at: new Date().toISOString()
       };
 
       // Optimistic update
@@ -6383,7 +6685,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await CloudflareDB.saveSppdTemplate(payload);
 
       if (typeof showToast === 'function') {
-        showToast(`✓ Template "${templateName}" berhasil disimpan ke Cloud D1!`, 'success');
+        showToast(`✓ Template "${templateName}" berhasil disimpan ke Cloud D1 (${this.templates.length}/${MAX_SPPD_TEMPLATES})!`, 'success');
       }
     },
 
@@ -6438,6 +6740,65 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
         });
+      }
+
+      // Restore LPT fields if present
+      if (tmpl.lpt_data) {
+        const lpt = typeof tmpl.lpt_data === 'string' ? JSON.parse(tmpl.lpt_data) : tmpl.lpt_data;
+        if (lpt.dasar) {
+          const el = document.getElementById('lptInputDasar');
+          if (el) { el.value = lpt.dasar; el.dataset.userEdited = 'true'; }
+          const docEl = document.getElementById('lptValDasar');
+          if (docEl) docEl.textContent = lpt.dasar;
+        }
+        if (lpt.tujuan) {
+          const el = document.getElementById('lptInputTujuanPerjalanan');
+          if (el) { el.value = lpt.tujuan; el.dataset.userEdited = 'true'; }
+          const docEl = document.getElementById('lptValTujuanPerjalanan');
+          if (docEl) docEl.textContent = lpt.tujuan;
+        }
+        if (lpt.proses) {
+          const el = document.getElementById('lptInputProses');
+          if (el) el.value = lpt.proses;
+          const docEl = document.getElementById('lptValProses');
+          if (docEl) docEl.innerHTML = textToHtml(lpt.proses);
+        }
+        if (lpt.masalah) {
+          const el = document.getElementById('lptInputMasalah');
+          if (el) el.value = lpt.masalah;
+          const docEl = document.getElementById('lptValMasalah');
+          if (docEl) docEl.innerHTML = textToHtml(lpt.masalah);
+        }
+        if (lpt.kesimpulan) {
+          const el = document.getElementById('lptInputKesimpulan');
+          if (el) el.value = lpt.kesimpulan;
+          const docEl = document.getElementById('lptValKesimpulan');
+          if (docEl) docEl.innerHTML = textToHtml(lpt.kesimpulan);
+        }
+        if (lpt.petugas1) {
+          const el = document.getElementById('lptSelectPetugas1');
+          if (el) { el.value = lpt.petugas1; el.dataset.userEdited = 'true'; }
+          syncLptOfficer(1);
+        }
+        if (lpt.petugas2) {
+          const el = document.getElementById('lptSelectPetugas2');
+          if (el) { el.value = lpt.petugas2; el.dataset.userEdited = 'true'; }
+          syncLptOfficer(2);
+        }
+        if (lpt.petugas3) {
+          const el = document.getElementById('lptSelectPetugas3');
+          if (el) { el.value = lpt.petugas3; el.dataset.userEdited = 'true'; }
+          syncLptOfficer(3);
+        }
+        if (typeof lpt.toggle2 !== 'undefined') {
+          const el = document.getElementById('lptTogglePetugas2');
+          if (el) el.checked = !!lpt.toggle2;
+        }
+        if (typeof lpt.toggle3 !== 'undefined') {
+          const el = document.getElementById('lptTogglePetugas3');
+          if (el) el.checked = !!lpt.toggle3;
+        }
+        updateLptPetugasVisibility();
       }
 
       // Realtime sync document preview & LPT

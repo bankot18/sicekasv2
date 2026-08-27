@@ -901,6 +901,19 @@ async function handleApiRequest(request, env, ctx) {
       const id = item.id || `sppd-${Date.now()}`;
       const fotoJson = typeof item.foto_dokumentasi === 'string' ? item.foto_dokumentasi : JSON.stringify(item.foto_dokumentasi || []);
 
+      // Check 30 records limit per user for SPPD & LPT archives
+      const targetNip = item.petugas_nip || '';
+      const existing = await db.prepare('SELECT id FROM sppd_lpt WHERE id = ?').bind(id).first();
+      if (!existing && targetNip) {
+        const countRes = await db.prepare('SELECT COUNT(*) AS total FROM sppd_lpt WHERE petugas_nip = ?').bind(targetNip).first();
+        if (countRes && countRes.total >= 30) {
+          return jsonResponse({
+            success: false,
+            error: 'Batas maksimal 30 arsip SPPD & LPT per pegawai telah tercapai. Hapus arsip lama sebelum menambah yang baru.'
+          }, 400);
+        }
+      }
+
       await db.prepare(`
         INSERT INTO sppd_lpt (id, no_surat, tanggal_surat, petugas_nip, petugas_nama, maksud_perjalanan, tempat_tujuan, tanggal_berangkat, tanggal_kembali, lama_hari, alat_angkut, hasil_kegiatan, kendala_masalah, saran_tindak_lanjut, foto_dokumentasi, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -1008,6 +1021,19 @@ async function handleApiRequest(request, env, ctx) {
           );
         `).run();
       } catch (tblErr) {}
+
+      // Check 30 template limitation per user
+      const targetUser = item.username || 'ozie';
+      const existing = await db.prepare('SELECT id FROM sppd_templates WHERE id = ?').bind(id).first();
+      if (!existing) {
+        const countRes = await db.prepare('SELECT COUNT(*) AS total FROM sppd_templates WHERE username = ?').bind(targetUser).first();
+        if (countRes && countRes.total >= 30) {
+          return jsonResponse({
+            success: false,
+            error: 'Batas maksimal 30 template per user telah tercapai. Harap hapus template lama sebelum menambah yang baru.'
+          }, 400);
+        }
+      }
 
       await db.prepare(`
         INSERT INTO sppd_templates (id, nama_template, username, pegawai_nama, pegawai_nip, maksud_kegiatan, tempat_berangkat, tempat_tujuan, pengikut_data, is_favorite, updated_at)

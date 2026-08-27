@@ -35,7 +35,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- SweetAlert2 CDN for Luxury Notifications & Interactive Modals -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <link rel="stylesheet" href="dashboard.css?v=44">
+  <link rel="stylesheet" href="dashboard.css?v=65">
 </head>
 <body>
   <!-- Ambient Atmospheric Light Glows -->
@@ -1149,6 +1149,17 @@
             </div>
 
             <div class="sppd-studio-actions">
+              <!-- Tombol List Template di Sebelah Cetak Dokumen -->
+              <button type="button" class="sppd-btn-hero sppd-btn-template-hero" id="btnOpenSppdTemplateModal" title="Buka Daftar Template SPPD (Maks. 30 Template Tersimpan)">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                  <polyline points="7 3 7 8 15 8"></polyline>
+                </svg>
+                <span>List Template</span>
+                <span class="sppd-template-counter-badge" id="sppdHeroTemplateBadge">0/30</span>
+              </button>
+
               <button class="sppd-btn-hero" id="btnPrintSppdLpt" title="Cetak Dokumen SPPD / LPT ke Format A4">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="6 9 6 2 18 2 18 9"></polyline>
@@ -4072,6 +4083,70 @@
   </div>
 
   <!-- ==========================================================================
+       MODAL 12: LIST TEMPLATE SPPD & LPT (MODEL EVIDENCE GRID STUDIO)
+       ========================================================================== -->
+  <div class="modal-backdrop" id="modalListTemplateSppd">
+    <div class="modal-card modal-card-template-evidence">
+      <!-- Modal Header -->
+      <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <div class="modal-title-group">
+          <div class="modal-icon-box gold" style="background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.3)); border-color: rgba(251, 191, 36, 0.4); color: #fbbf24;">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: #ffffff;">Repository Template SPPD &amp; LPT</h3>
+              <span class="evidence-count-tag" id="modalTemplateUsageBadge">0 / 30 Template</span>
+            </div>
+            <p style="margin: 3px 0 0 0; font-size: 12px; color: #94a3b8;">
+              Pilih template tersimpan untuk mengisi SPPD, Visum Belakang, LPT &amp; Dokumentasi dalam 1 detik (Maks. 30 Template per User)
+            </p>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="closeListTemplateModal" title="Tutup Modal">&times;</button>
+      </div>
+
+      <!-- Toolbar: Search & Create New Template -->
+      <div class="template-evidence-toolbar">
+        <div class="template-search-wrapper">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="sppdTemplateSearchInput" placeholder="Cari berdasarkan nama template, kegiatan, tujuan, atau pegawai...">
+        </div>
+        <button type="button" class="btn-save-current-template-modal" id="btnModalSaveCurrentTemplate" title="Simpan formulir SPPD saat ini sebagai template baru">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>+ Simpan Form Saat Ini</span>
+        </button>
+      </div>
+
+      <!-- Grid Body Container (Evidence Cards Model) -->
+      <div class="template-evidence-body">
+        <div class="template-evidence-grid" id="sppdEvidenceGridContainer">
+          <!-- Dynamically populated evidence cards -->
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-actions" style="justify-content: space-between; align-items: center; padding: 12px 20px; border-top: 1px solid rgba(255,255,255,0.06); background: rgba(15, 23, 42, 0.6);">
+        <div style="font-size: 11.5px; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
+          <span>💡</span>
+          <span>Klik <strong>"⚡ Terapkan"</strong> untuk memuat data template langsung ke formulir dokumen aktif.</span>
+        </div>
+        <button type="button" class="btn-cancel" id="btnCancelListTemplateModal" style="padding: 7px 16px; font-size: 12px;">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
        MODAL 9: IN-APP BROWSER WINDOW (CKG BANKOT)
        ========================================================================== -->
   <div class="browser-window-backdrop" id="modalBrowserCkg">
@@ -4177,6 +4252,6 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=64"></script>
+  <script src="dashboard.js?v=65"></script>
 </body>
 </html>
