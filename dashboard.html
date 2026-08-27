@@ -35,7 +35,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- SweetAlert2 CDN for Luxury Notifications & Interactive Modals -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <link rel="stylesheet" href="dashboard.css?v=72">
+  <link rel="stylesheet" href="dashboard.css?v=73">
 </head>
 <body>
   <!-- Ambient Atmospheric Light Glows -->
@@ -3946,6 +3946,15 @@
       <div class="modal-actions">
         <button type="button" class="btn-cancel" id="btnCloseDetailBok">Tutup</button>
         <button type="button" class="btn-save-pass" id="btnDetailBokEdit" style="display:none;">✏️ Edit Jadwal Ini</button>
+        <button type="button" class="btn-save-pass btn-gold" id="btnDetailBokBuatSppd" style="background: linear-gradient(135deg, rgba(255, 209, 102, 0.25), rgba(212, 167, 66, 0.35)); border-color: #ffd166; color: #ffd166; display: inline-flex; align-items: center; gap: 6px;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+          <span>Buat SPPD</span>
+        </button>
       </div>
     </div>
   </div>
@@ -4331,6 +4340,6 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=72"></script>
+  <script src="dashboard.js?v=73"></script>
 </body>
 </html>

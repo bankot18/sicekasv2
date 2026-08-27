@@ -916,6 +916,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // 3. NAVIGATION & VIEW SWITCHING (BERANDA <-> POA BULANAN <-> TP POL <-> SPPD/LPT)
   // ==========================================================================
   const switchView = (targetView) => {
+    // Sync nav active classes
+    if (navLinks && navLinks.length) {
+      navLinks.forEach(l => {
+        if (l.getAttribute('data-view') === targetView) l.classList.add('active');
+        else l.classList.remove('active');
+      });
+    }
+
     // Hide all views first
     if (viewBeranda) viewBeranda.style.display = 'none';
     if (viewPoaBulanan) viewPoaBulanan.style.display = 'none';
@@ -1028,6 +1036,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 100);
     }
   };
+
+  window.switchView = switchView;
 
   navLinks.forEach(link => {
     link.addEventListener('click', (e) => {
@@ -8038,6 +8048,10 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
 
               <div class="bok-event-actions">
+                <button type="button" class="btn-bok-act btn-bok-sppd" title="Buat SPPD dari Jadwal Ini" onclick="window.JadwalBOKController.buatSppdDariJadwal('${ev.id}')">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                  <span>Buat SPPD</span>
+                </button>
                 <button type="button" class="btn-bok-act" title="Lihat Detail" onclick="window.JadwalBOKController.bukaModalDetail('${ev.id}')">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                 </button>
@@ -8300,9 +8314,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
               </div>
             </div>
-            <button type="button" class="btn-bok-act" title="Detail" onclick="window.JadwalBOKController.bukaModalDetail('${item.id}')" style="flex-shrink: 0;">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-            </button>
+            <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+              <button type="button" class="btn-bok-act btn-bok-sppd" title="Buat SPPD dari Jadwal Ini" onclick="window.JadwalBOKController.buatSppdDariJadwal('${item.id}')">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                <span>Buat SPPD</span>
+              </button>
+              <button type="button" class="btn-bok-act" title="Detail" onclick="window.JadwalBOKController.bukaModalDetail('${item.id}')">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+              </button>
+            </div>
           </div>
         `;
       });
@@ -8729,6 +8749,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
+      const btnBuatSppd = document.getElementById('btnDetailBokBuatSppd');
+      if (btnBuatSppd) {
+        btnBuatSppd.onclick = () => {
+          modal.classList.remove('active');
+          this.buatSppdDariJadwal(item.id);
+        };
+      }
+
       if (body) {
         body.innerHTML = `
           <div class="detail-bok-row">
@@ -8763,6 +8791,160 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (modal) modal.classList.add('active');
+    },
+
+    async buatSppdDariJadwal(id) {
+      const data = await this.getData();
+      const item = data.find(i => i.id === id);
+      if (!item) {
+        if (typeof showToast === 'function') showToast('Data kegiatan jadwal tidak ditemukan.', 'error');
+        return;
+      }
+
+      // 1. Switch View ke Halaman SPPD dan LPT
+      if (typeof window.switchView === 'function') {
+        window.switchView('sppd-lpt');
+      } else {
+        const sppdNav = document.querySelector('.nav-link[data-view="sppd-lpt"]');
+        if (sppdNav) sppdNav.click();
+      }
+
+      // Pastikan mode form studio adalah SPPD
+      const formSelect = document.getElementById('sppdLptSelectForm');
+      if (formSelect) {
+        formSelect.value = 'sppd';
+        if (typeof updateFormDisplay === 'function') updateFormDisplay();
+      }
+
+      // 2. Isi Maksud Kegiatan (40 Kegiatan Resmi)
+      const maksudEl = document.getElementById('sppdInputMaksud');
+      if (maksudEl) {
+        maksudEl.value = item.namaKegiatan || item.nama_kegiatan || '';
+      }
+
+      // 3. Isi Lokasi Tempat Tujuan & Tempat Berangkat
+      const tujuanEl = document.getElementById('sppdInputTujuan');
+      if (tujuanEl) {
+        let dest = item.keterangan || item.lokasi || 'Wilayah Kerja Puskesmas Banjaran Kota';
+        dest = dest.replace(/\[Kolaborasi[^\]]*\]/gi, '').replace(/^•\s*/, '').trim();
+        tujuanEl.value = dest || 'Wilayah Kerja Puskesmas Banjaran Kota';
+      }
+      const berangkatEl = document.getElementById('sppdInputTempatBerangkat');
+      if (berangkatEl && (!berangkatEl.value || berangkatEl.value.trim() === '')) {
+        berangkatEl.value = 'Puskesmas Banjaran Kota';
+      }
+
+      // 4. Isi Tanggal Berangkat & Tanggal Kembali (Sesuai tanggal jadwal)
+      if (item.tanggal) {
+        const tglBerangkatEl = document.getElementById('sppdInputTglBerangkat');
+        const tglKembaliEl = document.getElementById('sppdInputTglKembali');
+        if (tglBerangkatEl) tglBerangkatEl.value = item.tanggal;
+        if (tglKembaliEl) tglKembaliEl.value = item.tanggal;
+      }
+
+      // 5. Isi Pegawai Utama (Pelaksana Utama SPPD)
+      const pegawaiEl = document.getElementById('sppdInputPegawai');
+      const targetStaff = item.namaUser || item.petugas_nama || (typeof CURRENT_USER !== 'undefined' ? CURRENT_USER.nama : '');
+      if (pegawaiEl && targetStaff) {
+        let matched = false;
+        for (let i = 0; i < pegawaiEl.options.length; i++) {
+          const opt = pegawaiEl.options[i];
+          if (opt.value && (opt.value.toLowerCase().includes(targetStaff.toLowerCase()) || targetStaff.toLowerCase().includes(opt.value.toLowerCase()))) {
+            pegawaiEl.selectedIndex = i;
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) {
+          pegawaiEl.value = targetStaff;
+        }
+      }
+
+      // 6. Reset & Isi Petugas Pengikut jika Kegiatan Kolaborasi (1 - 4)
+      for (let i = 1; i <= 4; i++) {
+        const select = document.getElementById(`sppdPengikutSelect${i}`);
+        const customDiv = document.getElementById(`sppdPengikutCustomWrap${i}`);
+        const inNama = document.getElementById(`sppdPengikutInputNama${i}`);
+        const inNip = document.getElementById(`sppdPengikutInputNip${i}`);
+        const inKet = document.getElementById(`sppdPengikutInputKet${i}`);
+        const selectWrap = document.getElementById(`sppdPengikutSelectWrap${i}`);
+
+        if (select) select.value = '';
+        if (selectWrap) selectWrap.style.display = 'block';
+        if (customDiv) customDiv.style.display = 'none';
+        if (inNama) { inNama.value = ''; inNama.style.display = 'none'; }
+        if (inNip) inNip.value = '';
+        if (inKet) inKet.value = '';
+      }
+
+      // Kumpulkan rekan kolaborasi
+      let collabPartners = [];
+      if (Array.isArray(item.rekan_kolaborasi) && item.rekan_kolaborasi.length > 0) {
+        collabPartners = item.rekan_kolaborasi.map(r => typeof r === 'string' ? r : (r.nama || ''));
+      }
+      try {
+        const allCollabs = this.getCollabData ? this.getCollabData() : [];
+        const relevant = allCollabs.filter(c => c.tanggal === item.tanggal && c.noKegiatan === item.noKegiatan && (c.status === 'accepted' || c.status === 'pending'));
+        relevant.forEach(c => {
+          if (c.toNama && c.toNama !== targetStaff && !collabPartners.includes(c.toNama)) collabPartners.push(c.toNama);
+          if (c.fromNama && c.fromNama !== targetStaff && !collabPartners.includes(c.fromNama)) collabPartners.push(c.fromNama);
+        });
+      } catch (e) {}
+
+      collabPartners.slice(0, 4).forEach((partnerName, idx) => {
+        const slotIdx = idx + 1;
+        const select = document.getElementById(`sppdPengikutSelect${slotIdx}`);
+        const inNip = document.getElementById(`sppdPengikutInputNip${slotIdx}`);
+        const inKet = document.getElementById(`sppdPengikutInputKet${slotIdx}`);
+
+        if (select && partnerName) {
+          let found = false;
+          for (let i = 0; i < select.options.length; i++) {
+            const opt = select.options[i];
+            if (opt.value && (opt.value.toLowerCase().includes(partnerName.toLowerCase()) || partnerName.toLowerCase().includes(opt.value.toLowerCase()))) {
+              select.selectedIndex = i;
+              if (inNip) inNip.value = (opt.getAttribute('data-nip') || '').replace(/^(NIP|NRP)\.?\s*/i, '');
+              if (inKet) inKet.value = opt.getAttribute('data-ket') || '';
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            select.value = partnerName;
+          }
+        }
+      });
+
+      // 7. Auto-isi juga formulir LPT
+      const lptDasar = document.getElementById('lptInputDasar');
+      if (lptDasar) {
+        lptDasar.value = `Surat Perintah Tugas (SPT) Kegiatan ${item.namaKegiatan || ''}`;
+      }
+      const lptTujuan = document.getElementById('lptInputTujuanPerjalanan');
+      if (lptTujuan) {
+        lptTujuan.value = item.namaKegiatan ? `Melaksanakan ${item.namaKegiatan}` : '';
+      }
+      const lptTgl = document.getElementById('lptInputTanggalLaporan');
+      if (lptTgl && item.tanggal) {
+        lptTgl.value = item.tanggal;
+        lptTgl.dataset.userEdited = 'true';
+      }
+
+      // 8. Sinkronkan dokumen preview
+      if (typeof syncSppdLptData === 'function') {
+        syncSppdLptData();
+      }
+
+      // Tutup modal detail jika sedang terbuka
+      const modal = document.getElementById('modalDetailJadwalBOK');
+      if (modal) modal.classList.remove('active');
+
+      if (typeof showToast === 'function') {
+        showToast(`✓ Data kegiatan "${item.namaKegiatan}" berhasil dimuat ke SPPD & LPT!`, 'success');
+      }
+
+      // Scroll ke bagian atas studio form
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     },
 
     async cetakJadwalBulanan() {
