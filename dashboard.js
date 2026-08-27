@@ -563,7 +563,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 5b. SPPD Templates (Cloud D1)
     async fetchSppdTemplates(username) {
       try {
-        const url = `/api/sppd/templates?username=${username || ''}`;
+        const u = username || '';
+        const url = u ? `/api/sppd/templates?username=${encodeURIComponent(u)}` : '/api/sppd/templates';
         const res = await fetch(url);
         if (res.ok) {
           const json = await res.json();
@@ -6391,13 +6392,25 @@ document.addEventListener('DOMContentLoaded', () => {
       this.renderEvidenceGrid();
     },
 
+    getCurrentUsername() {
+      try {
+        const stored = localStorage.getItem('SICEKAS_CURRENT_USER');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.username) return parsed.username;
+        }
+      } catch (e) {}
+      return 'ozie';
+    },
+
     openModal(preferredTab) {
+      if (!this.modal) this.modal = document.getElementById('modalListTemplateSppd');
       if (!this.modal) return;
       if (preferredTab) {
         this.switchTab(preferredTab);
       } else {
         // Auto-detect current active form in studio
-        const formMode = sppdLptSelectForm ? sppdLptSelectForm.value : 'sppd';
+        const formMode = (typeof sppdLptSelectForm !== 'undefined' && sppdLptSelectForm) ? sppdLptSelectForm.value : 'sppd';
         if (formMode === 'lpt') {
           this.switchTab('lpt');
         } else if (formMode === 'dok') {
@@ -6410,6 +6423,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (this.searchInput) this.searchInput.value = '';
       this.render();
       this.modal.classList.add('active');
+      // Always fetch latest data from Cloud D1 on open
+      this.loadTemplates();
     },
 
     closeModal() {
@@ -6417,8 +6432,9 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     async loadTemplates() {
-      const u = CURRENT_USER?.username || 'ozie';
-      this.templates = await CloudflareDB.fetchSppdTemplates(u);
+      const u = this.getCurrentUsername();
+      const list = await CloudflareDB.fetchSppdTemplates(u);
+      this.templates = Array.isArray(list) ? list : [];
       this.render();
     },
 

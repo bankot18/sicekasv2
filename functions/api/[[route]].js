@@ -989,13 +989,13 @@ async function handleApiRequest(request, env, ctx) {
 
       let query = 'SELECT * FROM sppd_templates WHERE 1=1';
       const params = [];
-      if (username) {
-        query += ' AND username = ?';
-        params.push(username);
+      if (username && username.trim() && username !== 'all') {
+        query += ' AND (LOWER(TRIM(username)) = LOWER(TRIM(?)) OR username IS NULL OR username = "" OR username = "all")';
+        params.push(username.trim());
       }
-      if (type) {
-        query += ' AND template_type = ?';
-        params.push(type);
+      if (type && type.trim() && type !== 'all') {
+        query += ' AND (template_type = ? OR (template_type IS NULL AND ? = "sppd"))';
+        params.push(type.trim(), type.trim());
       }
       query += ' ORDER BY is_favorite DESC, updated_at DESC';
 
@@ -1004,7 +1004,7 @@ async function handleApiRequest(request, env, ctx) {
 
       const parsed = (results || []).map(r => ({
         ...r,
-        template_type: r.template_type || 'sppd',
+        template_type: (r.template_type && r.template_type.trim()) ? r.template_type.trim() : 'sppd',
         pengikut_data: typeof r.pengikut_data === 'string' ? JSON.parse(r.pengikut_data || '[]') : (r.pengikut_data || []),
         lpt_data: typeof r.lpt_data === 'string' ? JSON.parse(r.lpt_data || '{}') : (r.lpt_data || {}),
         dok_data: typeof r.dok_data === 'string' ? JSON.parse(r.dok_data || '{}') : (r.dok_data || {})
