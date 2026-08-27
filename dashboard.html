@@ -35,7 +35,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- SweetAlert2 CDN for Luxury Notifications & Interactive Modals -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <link rel="stylesheet" href="dashboard.css?v=65">
+  <link rel="stylesheet" href="dashboard.css?v=66">
 </head>
 <body>
   <!-- Ambient Atmospheric Light Glows -->
@@ -2321,6 +2321,35 @@
                       </div>
 
                     </div>
+                  <!-- Section 4: Template SPPD (Cloud D1) -->
+                  <div class="sppd-section-label" style="margin-top: 18px;">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                      <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                      <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    <span>4. Template SPPD Cepat (Maks. 30)</span>
+                  </div>
+
+                  <div class="sppd-template-box" style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 10px; padding: 10px 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                      <span style="font-size: 11.5px; font-weight: 700; color: #34d399;">⚡ Template SPPD</span>
+                      <button type="button" id="btnSaveSppdTemplate" class="sppd-btn-save-template" title="Simpan konfigurasi form SPPD saat ini sebagai Template Cloud">
+                        <span>💾 + Simpan Template SPPD</span>
+                      </button>
+                    </div>
+                    <div id="sppdTemplateListContainer" class="sppd-template-list">
+                      <div class="sppd-template-empty" style="font-size: 11px; color: #94a3b8; text-align: center; padding: 12px 4px;">
+                        Belum ada template SPPD. Klik <strong>"+ Simpan Template"</strong> untuk membuat template baru.
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Tips Info Box SPPD -->
+                  <div style="margin-top: 14px; padding: 10px; border-radius: 8px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2);">
+                    <div style="font-size: 11.5px; color: #bae6fd; text-align: center; line-height: 1.4;">
+                      💡 <strong>Tips:</strong> Klik salah satu template untuk langsung mengisi seluruh data SPPD dalam 1 detik!
+                    </div>
                   </div>
 
                 </div>
@@ -2553,34 +2582,34 @@
                     </div>
                   </div>
 
-                  <!-- Section 5: Template SPPD (Cloud D1) -->
+                  <!-- Section 4: Template LPT (Cloud D1) -->
                   <div class="sppd-section-label" style="margin-top: 18px;">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
                       <polyline points="17 21 17 13 7 13 7 21"></polyline>
                       <polyline points="7 3 7 8 15 8"></polyline>
                     </svg>
-                    <span>4. Template SPPD Cepat (Cloud D1)</span>
+                    <span>4. Template LPT Cepat (Maks. 30)</span>
                   </div>
 
-                  <div class="sppd-template-box" style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 10px; padding: 10px 12px;">
+                  <div class="sppd-template-box" style="background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 10px; padding: 10px 12px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                      <span style="font-size: 11.5px; font-weight: 700; color: #34d399;">⚡ Template Tersimpan</span>
-                      <button type="button" id="btnSaveCurrentAsTemplate" class="sppd-btn-save-template" title="Simpan konfigurasi form SPPD saat ini sebagai Template Cloud">
-                        <span>💾 + Simpan Template</span>
+                      <span style="font-size: 11.5px; font-weight: 700; color: #38bdf8;">⚡ Template LPT</span>
+                      <button type="button" id="btnSaveLptTemplate" class="sppd-btn-save-template" style="background: rgba(56, 189, 248, 0.2); border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;" title="Simpan formulir LPT saat ini sebagai Template Cloud">
+                        <span>💾 + Simpan Template LPT</span>
                       </button>
                     </div>
-                    <div id="sppdTemplateListContainer" class="sppd-template-list">
+                    <div id="lptTemplateListContainer" class="sppd-template-list">
                       <div class="sppd-template-empty" style="font-size: 11px; color: #94a3b8; text-align: center; padding: 12px 4px;">
-                        Belum ada template. Isi form SPPD lalu klik <strong>"+ Simpan Template"</strong> untuk membuat template baru.
+                        Belum ada template LPT. Klik <strong>"+ Simpan Template LPT"</strong> untuk membuat template baru.
                       </div>
                     </div>
                   </div>
 
-                  <!-- Tips Info Box -->
+                  <!-- Tips Info Box LPT -->
                   <div style="margin-top: 14px; padding: 10px; border-radius: 8px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2);">
                     <div style="font-size: 11.5px; color: #bae6fd; text-align: center; line-height: 1.4;">
-                      💡 <strong>Tips:</strong> Klik salah satu template untuk langsung mengisi seluruh data SPPD, LPT &amp; Dokumentasi dalam 1 detik!
+                      💡 <strong>Tips:</strong> Klik template LPT untuk langsung mengisi seluruh data laporan dalam 1 detik!
                     </div>
                   </div>
 
@@ -2606,8 +2635,8 @@
                     <div class="sppd-searchable-combobox" id="dokJudulCombobox">
                       <div class="sppd-combobox-input-wrap">
                         <input type="text" id="dokInputJudulKegiatan" class="sppd-input-styled sppd-combobox-input" 
-                               placeholder="Ketik untuk mencari atau pilih kegiatan..." 
-                               value="" autocomplete="off">
+                                placeholder="Ketik untuk mencari atau pilih kegiatan..." 
+                                value="" autocomplete="off">
                         <button type="button" class="sppd-combobox-arrow-btn" id="dokJudulToggleBtn" title="Buka Daftar Kegiatan">
                           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
                         </button>
@@ -2632,7 +2661,7 @@
                     <div class="dok-dropzone-content" id="dokDropzoneClickArea">
                       <div style="font-size: 26px; margin-bottom: 4px;">🖼️</div>
                       <div style="font-size: 12.5px; font-weight: 600; color: #ffffff;">Klik untuk Upload / Drag Foto ke Sini</div>
-                      <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Mendukung PNG, JPG, JPEG, WebP (Bisa banyak foto)</div>
+                      <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Mendukung PNG, JPG, JPEG, WebP (Maks. 30 foto)</div>
                     </div>
                     <div class="dok-paste-badge">
                       <span>📋 Bisa <strong>Ctrl + V</strong> (Paste screenshot/foto langsung)</span>
@@ -2663,6 +2692,30 @@
                     <button type="button" class="sppd-btn-reset-dates" id="dokBtnClearAll" style="justify-content: center; padding: 7px 10px; font-size: 11.5px; color: #ef4444; border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.08);" title="Hapus Semua Foto">
                       <span>🗑️ Hapus</span>
                     </button>
+                  </div>
+
+                  <!-- Section 4: Template Foto Dokumentasi (Cloud D1) -->
+                  <div class="sppd-section-label" style="margin-top: 18px;">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                      <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                      <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    <span>4. Template Foto &amp; Layout (Maks. 30)</span>
+                  </div>
+
+                  <div class="sppd-template-box" style="background: rgba(251, 191, 36, 0.05); border: 1px solid rgba(251, 191, 36, 0.2); border-radius: 10px; padding: 10px 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                      <span style="font-size: 11.5px; font-weight: 700; color: #fbbf24;">⚡ Template Foto</span>
+                      <button type="button" id="btnSaveDokTemplate" class="sppd-btn-save-template" style="background: rgba(251, 191, 36, 0.2); border-color: rgba(251, 191, 36, 0.4); color: #fbbf24;" title="Simpan judul dan susunan foto saat ini sebagai Template Cloud">
+                        <span>💾 + Simpan Template Foto</span>
+                      </button>
+                    </div>
+                    <div id="dokTemplateListContainer" class="sppd-template-list">
+                      <div class="sppd-template-empty" style="font-size: 11px; color: #94a3b8; text-align: center; padding: 12px 4px;">
+                        Belum ada template foto kegiatan. Klik <strong>"+ Simpan Template Foto"</strong> untuk membuat template baru.
+                      </div>
+                    </div>
                   </div>
 
                   <!-- Info Tips -->
@@ -4110,6 +4163,25 @@
         <button class="modal-close-btn" id="closeListTemplateModal" title="Tutup Modal">&times;</button>
       </div>
 
+      <!-- Category Tabs (SPPD, LPT, Foto Dokumentasi) -->
+      <div class="template-type-tabs-bar">
+        <button type="button" class="btn-template-type-tab active" data-tab-type="sppd" id="tabBtnSppd">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          <span>1. Template SPPD</span>
+          <span class="tab-pill-badge" id="tabBadgeSppd">0/30</span>
+        </button>
+        <button type="button" class="btn-template-type-tab" data-tab-type="lpt" id="tabBtnLpt">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+          <span>2. Template LPT</span>
+          <span class="tab-pill-badge" id="tabBadgeLpt">0/30</span>
+        </button>
+        <button type="button" class="btn-template-type-tab" data-tab-type="dok" id="tabBtnDok">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+          <span>3. Template Foto Kegiatan</span>
+          <span class="tab-pill-badge" id="tabBadgeDok">0/30</span>
+        </button>
+      </div>
+
       <!-- Toolbar: Search & Create New Template -->
       <div class="template-evidence-toolbar">
         <div class="template-search-wrapper">
@@ -4117,14 +4189,14 @@
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
-          <input type="text" id="sppdTemplateSearchInput" placeholder="Cari berdasarkan nama template, kegiatan, tujuan, atau pegawai...">
+          <input type="text" id="sppdTemplateSearchInput" placeholder="Cari template berdasarkan kegiatan, tujuan, atau nama...">
         </div>
-        <button type="button" class="btn-save-current-template-modal" id="btnModalSaveCurrentTemplate" title="Simpan formulir SPPD saat ini sebagai template baru">
+        <button type="button" class="btn-save-current-template-modal" id="btnModalSaveCurrentTemplate" title="Simpan formulir saat ini sebagai template baru">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          <span>+ Simpan Form Saat Ini</span>
+          <span id="btnModalSaveText">+ Simpan Form Saat Ini</span>
         </button>
       </div>
 
@@ -4252,6 +4324,6 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=65"></script>
+  <script src="dashboard.js?v=66"></script>
 </body>
 </html>

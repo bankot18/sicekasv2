@@ -953,16 +953,18 @@ async function handleApiRequest(request, env, ctx) {
     }
 
     // ------------------------------------------------------------------------
-    // 7b. SPPD TEMPLATES (/api/sppd/templates, /api/sppd/templates/save, /api/sppd/templates/delete)
+    // 7b. SPPD & LPT & DOK TEMPLATES (/api/sppd/templates, /api/sppd/templates/save, /api/sppd/templates/delete)
     // ------------------------------------------------------------------------
     if (pathname === '/api/sppd/templates' && method === 'GET') {
       const username = url.searchParams.get('username');
+      const type = url.searchParams.get('type') || url.searchParams.get('template_type');
 
-      // Auto-migration: Ensure table exists
+      // Auto-migration: Ensure table and columns exist
       try {
         await db.prepare(`
           CREATE TABLE IF NOT EXISTS sppd_templates (
             id TEXT PRIMARY KEY,
+            template_type TEXT NOT NULL DEFAULT 'sppd',
             nama_template TEXT NOT NULL,
             username TEXT NOT NULL,
             pegawai_nama TEXT,
@@ -971,6 +973,8 @@ async function handleApiRequest(request, env, ctx) {
             tempat_berangkat TEXT,
             tempat_tujuan TEXT,
             pengikut_data TEXT,
+            lpt_data TEXT,
+            dok_data TEXT,
             is_favorite INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -978,11 +982,20 @@ async function handleApiRequest(request, env, ctx) {
         `).run();
       } catch (tblErr) {}
 
+      // Add missing columns if legacy table
+      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN template_type TEXT NOT NULL DEFAULT 'sppd'").run(); } catch(e) {}
+      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN lpt_data TEXT").run(); } catch(e) {}
+      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN dok_data TEXT").run(); } catch(e) {}
+
       let query = 'SELECT * FROM sppd_templates WHERE 1=1';
       const params = [];
       if (username) {
         query += ' AND username = ?';
         params.push(username);
+      }
+      if (type) {
+        query += ' AND template_type = ?';
+        params.push(type);
       }
       query += ' ORDER BY is_favorite DESC, updated_at DESC';
 
@@ -991,7 +1004,10 @@ async function handleApiRequest(request, env, ctx) {
 
       const parsed = (results || []).map(r => ({
         ...r,
-        pengikut_data: typeof r.pengikut_data === 'string' ? JSON.parse(r.pengikut_data || '[]') : (r.pengikut_data || [])
+        template_type: r.template_type || 'sppd',
+        pengikut_data: typeof r.pengikut_data === 'string' ? JSON.parse(r.pengikut_data || '[]') : (r.pengikut_data || []),
+        lpt_data: typeof r.lpt_data === 'string' ? JSON.parse(r.lpt_data || '{}') : (r.lpt_data || {}),
+        dok_data: typeof r.dok_data === 'string' ? JSON.parse(r.dok_data || '{}') : (r.dok_data || {})
       }));
 
       return jsonResponse({ success: true, total: parsed.length, data: parsed });
@@ -1000,13 +1016,17 @@ async function handleApiRequest(request, env, ctx) {
     if (pathname === '/api/sppd/templates/save' && method === 'POST') {
       const item = await request.json();
       const id = item.id || `tmpl-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+      const templateType = item.template_type || 'sppd';
       const pengikutJson = typeof item.pengikut_data === 'string' ? item.pengikut_data : JSON.stringify(item.pengikut_data || []);
+      const lptJson = typeof item.lpt_data === 'string' ? item.lpt_data : JSON.stringify(item.lpt_data || {});
+      const dokJson = typeof item.dok_data === 'string' ? item.dok_data : JSON.stringify(item.dok_data || {});
 
       // Auto-migration: Ensure table exists
       try {
         await db.prepare(`
           CREATE TABLE IF NOT EXISTS sppd_templates (
             id TEXT PRIMARY KEY,
+            template_type TEXT NOT NULL DEFAULT 'sppd',
             nama_template TEXT NOT NULL,
             username TEXT NOT NULL,
             pegawai_nama TEXT,
@@ -1015,6 +1035,8 @@ async function handleApiRequest(request, env, ctx) {
             tempat_berangkat TEXT,
             tempat_tujuan TEXT,
             pengikut_data TEXT,
+            lpt_data TEXT,
+            dok_data TEXT,
             is_favorite INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -1022,23 +1044,30 @@ async function handleApiRequest(request, env, ctx) {
         `).run();
       } catch (tblErr) {}
 
-      // Check 30 template limitation per user
+      // Add missing columns if legacy table
+      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN template_type TEXT NOT NULL DEFAULT 'sppd'").run(); } catch(e) {}
+      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN lpt_data TEXT").run(); } catch(e) {}
+      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN dok_data TEXT").run(); } catch(e) {}
+
+      // Check 30 template limitation per user per template_type
       const targetUser = item.username || 'ozie';
       const existing = await db.prepare('SELECT id FROM sppd_templates WHERE id = ?').bind(id).first();
       if (!existing) {
-        const countRes = await db.prepare('SELECT COUNT(*) AS total FROM sppd_templates WHERE username = ?').bind(targetUser).first();
+        const countRes = await db.prepare('SELECT COUNT(*) AS total FROM sppd_templates WHERE username = ? AND template_type = ?').bind(targetUser, templateType).first();
         if (countRes && countRes.total >= 30) {
+          const typeLabel = templateType === 'lpt' ? 'LPT' : (templateType === 'dok' ? 'Foto Dokumentasi' : 'SPPD');
           return jsonResponse({
             success: false,
-            error: 'Batas maksimal 30 template per user telah tercapai. Harap hapus template lama sebelum menambah yang baru.'
+            error: `Batas maksimal 30 template untuk ${typeLabel} per user telah tercapai. Harap hapus template lama sebelum menambah yang baru.`
           }, 400);
         }
       }
 
       await db.prepare(`
-        INSERT INTO sppd_templates (id, nama_template, username, pegawai_nama, pegawai_nip, maksud_kegiatan, tempat_berangkat, tempat_tujuan, pengikut_data, is_favorite, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        INSERT INTO sppd_templates (id, template_type, nama_template, username, pegawai_nama, pegawai_nip, maksud_kegiatan, tempat_berangkat, tempat_tujuan, pengikut_data, lpt_data, dok_data, is_favorite, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(id) DO UPDATE SET
+          template_type = excluded.template_type,
           nama_template = excluded.nama_template,
           username = excluded.username,
           pegawai_nama = excluded.pegawai_nama,
@@ -1047,11 +1076,14 @@ async function handleApiRequest(request, env, ctx) {
           tempat_berangkat = excluded.tempat_berangkat,
           tempat_tujuan = excluded.tempat_tujuan,
           pengikut_data = excluded.pengikut_data,
+          lpt_data = excluded.lpt_data,
+          dok_data = excluded.dok_data,
           is_favorite = excluded.is_favorite,
           updated_at = CURRENT_TIMESTAMP
       `).bind(
         id,
-        item.nama_template || 'Template SPPD',
+        templateType,
+        item.nama_template || 'Template',
         item.username || 'ozie',
         item.pegawai_nama || '',
         item.pegawai_nip || '',
@@ -1059,10 +1091,12 @@ async function handleApiRequest(request, env, ctx) {
         item.tempat_berangkat || 'Puskesmas Banjaran Kota',
         item.tempat_tujuan || '',
         pengikutJson,
+        lptJson,
+        dokJson,
         item.is_favorite ? 1 : 0
       ).run();
 
-      return jsonResponse({ success: true, message: 'Template SPPD berhasil disimpan ke Cloud D1!', id });
+      return jsonResponse({ success: true, message: `Template [${templateType.toUpperCase()}] berhasil disimpan ke Cloud D1!`, id });
     }
 
     if (pathname === '/api/sppd/templates/delete' && (method === 'DELETE' || method === 'POST')) {

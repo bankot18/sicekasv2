@@ -6255,32 +6255,71 @@ document.addEventListener('DOMContentLoaded', () => {
   updateFormDisplay();
 
   // ==========================================================================
-  // SPPD TEMPLATES CONTROLLER (CLOUDFLARE D1 - EVIDENCE MODEL STUDIO)
+  // SPPD, LPT, & FOTO KEGIATAN TEMPLATES CONTROLLER (CLOUDFLARE D1 STUDIO)
+  // Max 30 templates per user for each category (SPPD, LPT, DOK)
+  // Format Nama: Kegiatan-dd-mm-yyyy
   // ==========================================================================
-  const MAX_SPPD_TEMPLATES = 30;
+  const MAX_TEMPLATES_PER_TYPE = 30;
+
+  function formatTemplateNameHelper(baseText, dateVal) {
+    const d = dateVal ? new Date(dateVal) : new Date();
+    const validDate = isNaN(d.getTime()) ? new Date() : d;
+    const dd = String(validDate.getDate()).padStart(2, '0');
+    const mm = String(validDate.getMonth() + 1).padStart(2, '0');
+    const yyyy = validDate.getFullYear();
+    const dateFormatted = `${dd}-${mm}-${yyyy}`;
+    const cleanTitle = (baseText || 'Kegiatan').trim().replace(/[\/\\:*?"<>|]/g, ' ') || 'Kegiatan';
+    return `${cleanTitle}-${dateFormatted}`;
+  }
 
   const SppdTemplateController = {
     templates: [],
-    container: document.getElementById('sppdTemplateListContainer'),
+    activeTab: 'sppd', // 'sppd' | 'lpt' | 'dok'
+    searchFilter: '',
+
+    // Containers
+    sppdContainer: document.getElementById('sppdTemplateListContainer'),
+    lptContainer: document.getElementById('lptTemplateListContainer'),
+    dokContainer: document.getElementById('dokTemplateListContainer'),
     evidenceGrid: document.getElementById('sppdEvidenceGridContainer'),
-    btnSave: document.getElementById('btnSaveCurrentAsTemplate'),
+
+    // Buttons
+    btnSaveSppd: document.getElementById('btnSaveSppdTemplate') || document.getElementById('btnSaveCurrentAsTemplate'),
+    btnSaveLpt: document.getElementById('btnSaveLptTemplate'),
+    btnSaveDok: document.getElementById('btnSaveDokTemplate'),
     btnModalSave: document.getElementById('btnModalSaveCurrentTemplate'),
+    btnModalSaveText: document.getElementById('btnModalSaveText'),
     btnOpenModal: document.getElementById('btnOpenSppdTemplateModal'),
+
+    // Modal
     modal: document.getElementById('modalListTemplateSppd'),
     btnCloseModal: document.getElementById('closeListTemplateModal'),
     btnCancelModal: document.getElementById('btnCancelListTemplateModal'),
     searchInput: document.getElementById('sppdTemplateSearchInput'),
+
+    // Badges & Tabs
     heroBadge: document.getElementById('sppdHeroTemplateBadge'),
     usageBadge: document.getElementById('modalTemplateUsageBadge'),
-    searchFilter: '',
+    tabBtnSppd: document.getElementById('tabBtnSppd'),
+    tabBtnLpt: document.getElementById('tabBtnLpt'),
+    tabBtnDok: document.getElementById('tabBtnDok'),
+    tabBadgeSppd: document.getElementById('tabBadgeSppd'),
+    tabBadgeLpt: document.getElementById('tabBadgeLpt'),
+    tabBadgeDok: document.getElementById('tabBadgeDok'),
 
     async init() {
-      // Save triggers
-      if (this.btnSave) {
-        this.btnSave.addEventListener('click', () => this.saveCurrentAsTemplate());
+      // Sidebar Save triggers for each menu
+      if (this.btnSaveSppd) {
+        this.btnSaveSppd.addEventListener('click', () => this.saveCurrentAsTemplate('sppd'));
+      }
+      if (this.btnSaveLpt) {
+        this.btnSaveLpt.addEventListener('click', () => this.saveCurrentAsTemplate('lpt'));
+      }
+      if (this.btnSaveDok) {
+        this.btnSaveDok.addEventListener('click', () => this.saveCurrentAsTemplate('dok'));
       }
       if (this.btnModalSave) {
-        this.btnModalSave.addEventListener('click', () => this.saveCurrentAsTemplate());
+        this.btnModalSave.addEventListener('click', () => this.saveCurrentAsTemplate(this.activeTab));
       }
 
       // Modal Open & Close triggers
@@ -6299,6 +6338,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
+      // Category Tabs inside Modal
+      const setupTab = (btn, type) => {
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+          this.switchTab(type);
+        });
+      };
+      setupTab(this.tabBtnSppd, 'sppd');
+      setupTab(this.tabBtnLpt, 'lpt');
+      setupTab(this.tabBtnDok, 'dok');
+
       // Search Filter
       if (this.searchInput) {
         this.searchInput.addEventListener('input', (e) => {
@@ -6310,8 +6360,45 @@ document.addEventListener('DOMContentLoaded', () => {
       await this.loadTemplates();
     },
 
-    openModal() {
+    switchTab(type) {
+      this.activeTab = type;
+      [this.tabBtnSppd, this.tabBtnLpt, this.tabBtnDok].forEach(btn => {
+        if (!btn) return;
+        if (btn.getAttribute('data-tab-type') === type) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+
+      if (this.btnModalSaveText) {
+        if (type === 'lpt') {
+          this.btnModalSaveText.textContent = '+ Simpan Form LPT Saat Ini';
+        } else if (type === 'dok') {
+          this.btnModalSaveText.textContent = '+ Simpan Foto & Layout Saat Ini';
+        } else {
+          this.btnModalSaveText.textContent = '+ Simpan Form SPPD Saat Ini';
+        }
+      }
+
+      this.renderEvidenceGrid();
+    },
+
+    openModal(preferredTab) {
       if (!this.modal) return;
+      if (preferredTab) {
+        this.switchTab(preferredTab);
+      } else {
+        // Auto-detect current active form in studio
+        const formMode = sppdLptSelectForm ? sppdLptSelectForm.value : 'sppd';
+        if (formMode === 'lpt') {
+          this.switchTab('lpt');
+        } else if (formMode === 'dok') {
+          this.switchTab('dok');
+        } else {
+          this.switchTab('sppd');
+        }
+      }
       this.searchFilter = '';
       if (this.searchInput) this.searchInput.value = '';
       this.render();
@@ -6329,90 +6416,184 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     updateBadges() {
-      const count = this.templates.length;
+      const sppdList = this.templates.filter(t => (t.template_type || 'sppd') === 'sppd');
+      const lptList = this.templates.filter(t => t.template_type === 'lpt');
+      const dokList = this.templates.filter(t => t.template_type === 'dok');
+
+      if (this.tabBadgeSppd) this.tabBadgeSppd.textContent = `${sppdList.length}/${MAX_TEMPLATES_PER_TYPE}`;
+      if (this.tabBadgeLpt) this.tabBadgeLpt.textContent = `${lptList.length}/${MAX_TEMPLATES_PER_TYPE}`;
+      if (this.tabBadgeDok) this.tabBadgeDok.textContent = `${dokList.length}/${MAX_TEMPLATES_PER_TYPE}`;
+
       if (this.heroBadge) {
-        this.heroBadge.textContent = `${count}/${MAX_SPPD_TEMPLATES}`;
-        if (count >= MAX_SPPD_TEMPLATES) {
-          this.heroBadge.style.color = '#f87171';
-          this.heroBadge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-        } else {
-          this.heroBadge.style.color = '#6ee7b7';
-          this.heroBadge.style.borderColor = 'rgba(52, 211, 153, 0.4)';
-        }
+        this.heroBadge.textContent = `${sppdList.length}/30 SPPD • ${lptList.length}/30 LPT`;
+        this.heroBadge.title = `Template Tersimpan: ${sppdList.length}/30 SPPD, ${lptList.length}/30 LPT, ${dokList.length}/30 Foto`;
       }
       if (this.usageBadge) {
-        this.usageBadge.textContent = `${count} / ${MAX_SPPD_TEMPLATES} Template`;
+        this.usageBadge.textContent = `${sppdList.length + lptList.length + dokList.length} Template Cloud`;
       }
     },
 
     render() {
       this.updateBadges();
-      this.renderSidebarList();
+      this.renderSidebarLists();
       this.renderEvidenceGrid();
     },
 
-    renderSidebarList() {
-      if (!this.container) return;
-      if (!this.templates || this.templates.length === 0) {
-        this.container.innerHTML = `
-          <div class="sppd-template-empty" style="font-size: 11px; color: #94a3b8; text-align: center; padding: 12px 4px;">
-            Belum ada template. Klik <strong>"+ Simpan Template"</strong> untuk membuat template baru.
-          </div>
-        `;
-        return;
+    renderSidebarLists() {
+      // 1. SPPD Sidebar List
+      if (this.sppdContainer) {
+        const sppdItems = this.templates.filter(t => (t.template_type || 'sppd') === 'sppd');
+        if (sppdItems.length === 0) {
+          this.sppdContainer.innerHTML = `
+            <div class="sppd-template-empty" style="font-size: 11px; color: #94a3b8; text-align: center; padding: 10px 4px;">
+              Belum ada template SPPD (0/${MAX_TEMPLATES_PER_TYPE}). Klik <strong>"+ Simpan Template"</strong> di atas.
+            </div>
+          `;
+        } else {
+          let html = '';
+          sppdItems.slice(0, 6).forEach(t => {
+            const title = escapeHtmlHelper(t.nama_template || 'Template SPPD');
+            const tujuan = escapeHtmlHelper(t.tempat_tujuan || '-');
+            const maksud = escapeHtmlHelper(t.maksud_kegiatan || '-');
+            html += `
+              <div class="sppd-template-card" data-id="${t.id}" title="Klik untuk terapkan template SPPD ini">
+                <div class="sppd-template-card-main">
+                  <div class="sppd-template-title">
+                    <span>⚡</span>
+                    <span>${title}</span>
+                  </div>
+                  <div class="sppd-template-sub">
+                    ${tujuan !== '-' ? `📍 ${tujuan}` : ''} ${maksud !== '-' ? `• ${maksud}` : ''}
+                  </div>
+                </div>
+                <div class="sppd-template-actions">
+                  <button type="button" class="sppd-template-btn-apply" data-id="${t.id}">Terapkan</button>
+                  <button type="button" class="sppd-template-btn-del" data-id="${t.id}" title="Hapus Template">✕</button>
+                </div>
+              </div>
+            `;
+          });
+          if (sppdItems.length > 6) {
+            html += `
+              <div style="text-align: center; padding-top: 4px;">
+                <button type="button" class="sppd-template-btn-apply" onclick="window.SppdTemplateController.openModal('sppd')" style="font-size: 11px; padding: 4px 10px;">
+                  Lihat Semua (${sppdItems.length} Template) ↗
+                </button>
+              </div>
+            `;
+          }
+          this.sppdContainer.innerHTML = html;
+        }
       }
 
-      let html = '';
-      this.templates.slice(0, 8).forEach(t => {
-        const title = escapeHtmlHelper(t.nama_template || 'Template SPPD');
-        const tujuan = escapeHtmlHelper(t.tempat_tujuan || '-');
-        const maksud = escapeHtmlHelper(t.maksud_kegiatan || '-');
-
-        html += `
-          <div class="sppd-template-card" data-id="${t.id}" title="Klik untuk terapkan template ini">
-            <div class="sppd-template-card-main">
-              <div class="sppd-template-title">
-                <span>⚡</span>
-                <span>${title}</span>
-              </div>
-              <div class="sppd-template-sub">
-                ${tujuan !== '-' ? `📍 ${tujuan}` : ''} ${maksud !== '-' ? `• ${maksud}` : ''}
-              </div>
+      // 2. LPT Sidebar List
+      if (this.lptContainer) {
+        const lptItems = this.templates.filter(t => t.template_type === 'lpt');
+        if (lptItems.length === 0) {
+          this.lptContainer.innerHTML = `
+            <div class="sppd-template-empty" style="font-size: 11px; color: #94a3b8; text-align: center; padding: 10px 4px;">
+              Belum ada template LPT (0/${MAX_TEMPLATES_PER_TYPE}). Klik <strong>"+ Simpan Template LPT"</strong> di atas.
             </div>
-            <div class="sppd-template-actions">
-              <button type="button" class="sppd-template-btn-apply" data-id="${t.id}">Terapkan</button>
-              <button type="button" class="sppd-template-btn-del" data-id="${t.id}" title="Hapus Template">✕</button>
-            </div>
-          </div>
-        `;
-      });
-
-      if (this.templates.length > 8) {
-        html += `
-          <div style="text-align: center; padding-top: 4px;">
-            <button type="button" class="sppd-template-btn-apply" onclick="window.SppdTemplateController.openModal()" style="font-size: 11px; padding: 4px 10px;">
-              Lihat Semua (${this.templates.length} Template) ↗
-            </button>
-          </div>
-        `;
+          `;
+        } else {
+          let html = '';
+          lptItems.slice(0, 6).forEach(t => {
+            const title = escapeHtmlHelper(t.nama_template || 'Template LPT');
+            const lpt = t.lpt_data || {};
+            const tujuan = escapeHtmlHelper(lpt.tujuan || t.maksud_kegiatan || '-');
+            html += `
+              <div class="sppd-template-card" data-id="${t.id}" title="Klik untuk terapkan template LPT ini" style="border-left: 3px solid #38bdf8;">
+                <div class="sppd-template-card-main">
+                  <div class="sppd-template-title">
+                    <span style="color: #38bdf8;">📋</span>
+                    <span>${title}</span>
+                  </div>
+                  <div class="sppd-template-sub">
+                    ${tujuan !== '-' ? `🎯 ${tujuan}` : ''}
+                  </div>
+                </div>
+                <div class="sppd-template-actions">
+                  <button type="button" class="sppd-template-btn-apply" data-id="${t.id}" style="color: #38bdf8; border-color: rgba(56,189,248,0.4);">Terapkan</button>
+                  <button type="button" class="sppd-template-btn-del" data-id="${t.id}" title="Hapus Template">✕</button>
+                </div>
+              </div>
+            `;
+          });
+          if (lptItems.length > 6) {
+            html += `
+              <div style="text-align: center; padding-top: 4px;">
+                <button type="button" class="sppd-template-btn-apply" onclick="window.SppdTemplateController.openModal('lpt')" style="font-size: 11px; padding: 4px 10px;">
+                  Lihat Semua (${lptItems.length} Template LPT) ↗
+                </button>
+              </div>
+            `;
+          }
+          this.lptContainer.innerHTML = html;
+        }
       }
 
-      this.container.innerHTML = html;
+      // 3. Dokumentasi Sidebar List
+      if (this.dokContainer) {
+        const dokItems = this.templates.filter(t => t.template_type === 'dok');
+        if (dokItems.length === 0) {
+          this.dokContainer.innerHTML = `
+            <div class="sppd-template-empty" style="font-size: 11px; color: #94a3b8; text-align: center; padding: 10px 4px;">
+              Belum ada template foto kegiatan (0/${MAX_TEMPLATES_PER_TYPE}). Klik <strong>"+ Simpan Template Foto"</strong> di atas.
+            </div>
+          `;
+        } else {
+          let html = '';
+          dokItems.slice(0, 6).forEach(t => {
+            const title = escapeHtmlHelper(t.nama_template || 'Template Foto');
+            const dok = t.dok_data || {};
+            const photoCount = Array.isArray(dok.photos) ? dok.photos.length : 0;
+            html += `
+              <div class="sppd-template-card" data-id="${t.id}" title="Klik untuk terapkan template foto ini" style="border-left: 3px solid #fbbf24;">
+                <div class="sppd-template-card-main">
+                  <div class="sppd-template-title">
+                    <span style="color: #fbbf24;">📷</span>
+                    <span>${title}</span>
+                  </div>
+                  <div class="sppd-template-sub">
+                    🖼️ ${photoCount} Foto • Layout: ${dok.layout || 'grid-2'}
+                  </div>
+                </div>
+                <div class="sppd-template-actions">
+                  <button type="button" class="sppd-template-btn-apply" data-id="${t.id}" style="color: #fbbf24; border-color: rgba(251,191,36,0.4);">Terapkan</button>
+                  <button type="button" class="sppd-template-btn-del" data-id="${t.id}" title="Hapus Template">✕</button>
+                </div>
+              </div>
+            `;
+          });
+          if (dokItems.length > 6) {
+            html += `
+              <div style="text-align: center; padding-top: 4px;">
+                <button type="button" class="sppd-template-btn-apply" onclick="window.SppdTemplateController.openModal('dok')" style="font-size: 11px; padding: 4px 10px;">
+                  Lihat Semua (${dokItems.length} Template Foto) ↗
+                </button>
+              </div>
+            `;
+          }
+          this.dokContainer.innerHTML = html;
+        }
+      }
 
-      // Click listeners in sidebar
-      this.container.querySelectorAll('.sppd-template-card').forEach(card => {
-        card.addEventListener('click', (e) => {
-          if (e.target.closest('.sppd-template-btn-del')) return;
-          const id = card.getAttribute('data-id');
-          this.applyTemplate(id);
+      // Attach event listeners for all 3 sidebar containers
+      [this.sppdContainer, this.lptContainer, this.dokContainer].forEach(container => {
+        if (!container) return;
+        container.querySelectorAll('.sppd-template-card').forEach(card => {
+          card.addEventListener('click', (e) => {
+            if (e.target.closest('.sppd-template-btn-del')) return;
+            const id = card.getAttribute('data-id');
+            this.applyTemplate(id);
+          });
         });
-      });
-
-      this.container.querySelectorAll('.sppd-template-btn-del').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const id = btn.getAttribute('data-id');
-          await this.deleteTemplate(id);
+        container.querySelectorAll('.sppd-template-btn-del').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const id = btn.getAttribute('data-id');
+            await this.deleteTemplate(id);
+          });
         });
       });
     },
@@ -6421,27 +6602,34 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!this.evidenceGrid) return;
 
       const q = this.searchFilter;
-      const filtered = this.templates.filter(t => {
+      const type = this.activeTab || 'sppd';
+      const typedTemplates = this.templates.filter(t => (t.template_type || 'sppd') === type);
+
+      const filtered = typedTemplates.filter(t => {
         if (!q) return true;
         const name = (t.nama_template || '').toLowerCase();
         const keg = (t.maksud_kegiatan || '').toLowerCase();
         const peg = (t.pegawai_nama || '').toLowerCase();
         const tuj = (t.tempat_tujuan || '').toLowerCase();
-        return name.includes(q) || keg.includes(q) || peg.includes(q) || tuj.includes(q);
+        const lpt = t.lpt_data ? JSON.stringify(t.lpt_data).toLowerCase() : '';
+        const dok = t.dok_data ? (t.dok_data.judul || '').toLowerCase() : '';
+        return name.includes(q) || keg.includes(q) || peg.includes(q) || tuj.includes(q) || lpt.includes(q) || dok.includes(q);
       });
+
+      const typeTitle = type === 'lpt' ? 'Template LPT' : (type === 'dok' ? 'Template Foto Kegiatan' : 'Template SPPD');
 
       if (filtered.length === 0) {
         this.evidenceGrid.innerHTML = `
           <div class="evidence-empty-box">
             <div style="font-size: 38px; margin-bottom: 8px; opacity: 0.6;">📦</div>
             <h4 style="font-size: 15px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
-              ${q ? 'Tidak ada template yang cocok dengan pencarian' : 'Belum Ada Template SPPD Tersimpan'}
+              ${q ? `Tidak ada ${typeTitle} yang cocok dengan pencarian` : `Belum Ada ${typeTitle} Tersimpan (0/${MAX_TEMPLATES_PER_TYPE})`}
             </h4>
-            <p style="font-size: 12px; color: #94a3b8; max-width: 440px; margin: 0 auto 16px auto;">
-              ${q ? 'Coba ubah kata kunci pencarian Anda.' : 'Simpan konfigurasi surat tugas dinas yang sering digunakan agar tinggal 1 klik untuk mengisi dokumen berikutnya.'}
+            <p style="font-size: 12px; color: #94a3b8; max-width: 460px; margin: 0 auto 16px auto;">
+              ${q ? 'Coba ubah kata kunci pencarian Anda.' : `Simpan konfigurasi ${typeTitle} yang sering digunakan agar tinggal 1 klik untuk memuat dokumen dinas berikutnya.`}
             </p>
-            <button type="button" class="btn-save-current-template-modal" onclick="window.SppdTemplateController.saveCurrentAsTemplate()" style="margin: 0 auto; display: inline-flex;">
-              <span>💾 + Simpan Form Saat Ini Sebagai Template</span>
+            <button type="button" class="btn-save-current-template-modal" onclick="window.SppdTemplateController.saveCurrentAsTemplate('${type}')" style="margin: 0 auto; display: inline-flex;">
+              <span>💾 + Simpan Form Saat Ini Sebagai ${typeTitle}</span>
             </button>
           </div>
         `;
@@ -6450,94 +6638,179 @@ document.addEventListener('DOMContentLoaded', () => {
 
       let html = '';
       filtered.forEach((t, idx) => {
-        const title = escapeHtmlHelper(t.nama_template || 'Template SPPD');
-        const pegawai = escapeHtmlHelper(t.pegawai_nama || 'Belum dipilih');
-        const nip = escapeHtmlHelper(t.pegawai_nip || '-');
-        const berangkat = escapeHtmlHelper(t.tempat_berangkat || 'Puskesmas Banjaran Kota');
-        const tujuan = escapeHtmlHelper(t.tempat_tujuan || 'Lokasi Tujuan');
-        const maksud = escapeHtmlHelper(t.maksud_kegiatan || 'Kegiatan Pelayanan Puskesmas');
+        const title = escapeHtmlHelper(t.nama_template || typeTitle);
         const dateFormatted = t.created_at ? new Date(t.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Baru saja';
 
-        // Pengikut Tags
-        let pengikutHtml = '';
-        if (Array.isArray(t.pengikut_data) && t.pengikut_data.length > 0) {
-          pengikutHtml = `<div class="evidence-pengikut-tags">`;
-          t.pengikut_data.forEach(p => {
-            const pName = p.customNama || p.selectVal;
-            if (pName && pName !== 'CUSTOM') {
-              pengikutHtml += `<span class="evidence-pengikut-tag">👥 ${escapeHtmlHelper(pName)}</span>`;
-            }
-          });
-          pengikutHtml += `</div>`;
-        } else {
-          pengikutHtml = `<span style="font-size: 11px; color: #64748b;">(Tanpa Pengikut)</span>`;
+        if (type === 'sppd') {
+          const pegawai = escapeHtmlHelper(t.pegawai_nama || 'Belum dipilih');
+          const nip = escapeHtmlHelper(t.pegawai_nip || '-');
+          const berangkat = escapeHtmlHelper(t.tempat_berangkat || 'Puskesmas Banjaran Kota');
+          const tujuan = escapeHtmlHelper(t.tempat_tujuan || 'Lokasi Tujuan');
+          const maksud = escapeHtmlHelper(t.maksud_kegiatan || 'Kegiatan Pelayanan Puskesmas');
+
+          let pengikutHtml = '';
+          if (Array.isArray(t.pengikut_data) && t.pengikut_data.length > 0) {
+            pengikutHtml = `<div class="evidence-pengikut-tags">`;
+            t.pengikut_data.forEach(p => {
+              const pName = p.customNama || p.selectVal;
+              if (pName && pName !== 'CUSTOM') {
+                pengikutHtml += `<span class="evidence-pengikut-tag">👥 ${escapeHtmlHelper(pName)}</span>`;
+              }
+            });
+            pengikutHtml += `</div>`;
+          } else {
+            pengikutHtml = `<span style="font-size: 11px; color: #64748b;">(Tanpa Pengikut)</span>`;
+          }
+
+          html += `
+            <div class="evidence-card" data-id="${t.id}">
+              <div class="evidence-card-header">
+                <span class="evidence-idx-badge">#${idx + 1} • SPPD BOK</span>
+                <span class="evidence-time-text">🕒 ${dateFormatted}</span>
+              </div>
+              <h4 class="evidence-card-title">
+                <span style="color: #34d399;">⚡</span>
+                <span>${title}</span>
+              </h4>
+              <div class="evidence-route-pill">
+                <span>🏛️ ${berangkat}</span>
+                <span class="evidence-route-arrow">➔</span>
+                <span style="font-weight: 700; color: #38bdf8;">📍 ${tujuan}</span>
+              </div>
+              <div class="evidence-detail-row">
+                <span class="evidence-detail-icon">📋</span>
+                <div>
+                  <strong style="color: #ffffff;">Maksud Kegiatan:</strong>
+                  <div>${maksud}</div>
+                </div>
+              </div>
+              <div class="evidence-detail-row">
+                <span class="evidence-detail-icon">👤</span>
+                <div>
+                  <strong style="color: #ffffff;">Pelaksana Utama:</strong>
+                  <div>${pegawai} ${nip !== '-' ? `<span style="color: #94a3b8; font-size: 10.5px;">(${nip})</span>` : ''}</div>
+                </div>
+              </div>
+              <div class="evidence-detail-row">
+                <span class="evidence-detail-icon">👥</span>
+                <div>
+                  <strong style="color: #ffffff;">Petugas Pengikut:</strong>
+                  <div style="margin-top: 3px;">${pengikutHtml}</div>
+                </div>
+              </div>
+              <div class="evidence-card-actions">
+                <button type="button" class="btn-evidence-apply" data-id="${t.id}">
+                  <span>⚡ Terapkan SPPD</span>
+                </button>
+                <button type="button" class="btn-evidence-delete" data-id="${t.id}" title="Hapus Template SPPD">
+                  <span>🗑️ Hapus</span>
+                </button>
+              </div>
+            </div>
+          `;
+        } else if (type === 'lpt') {
+          const lpt = t.lpt_data || {};
+          const dasar = escapeHtmlHelper(lpt.dasar || t.maksud_kegiatan || '-');
+          const tujuan = escapeHtmlHelper(lpt.tujuan || '-');
+          const hasil = escapeHtmlHelper(lpt.proses ? lpt.proses.slice(0, 100) + '...' : '-');
+          const pet1 = escapeHtmlHelper(lpt.petugas1 || t.pegawai_nama || '-');
+
+          html += `
+            <div class="evidence-card" data-id="${t.id}" style="border-color: rgba(56, 189, 248, 0.3);">
+              <div class="evidence-card-header">
+                <span class="evidence-idx-badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);">#${idx + 1} • LAPORAN TUGAS (LPT)</span>
+                <span class="evidence-time-text">🕒 ${dateFormatted}</span>
+              </div>
+              <h4 class="evidence-card-title">
+                <span style="color: #38bdf8;">📋</span>
+                <span>${title}</span>
+              </h4>
+              <div class="evidence-detail-row">
+                <span class="evidence-detail-icon">📜</span>
+                <div>
+                  <strong style="color: #ffffff;">Dasar SPT:</strong>
+                  <div style="color: #94a3b8;">${dasar}</div>
+                </div>
+              </div>
+              <div class="evidence-detail-row">
+                <span class="evidence-detail-icon">🎯</span>
+                <div>
+                  <strong style="color: #ffffff;">Tujuan Laporan:</strong>
+                  <div>${tujuan}</div>
+                </div>
+              </div>
+              <div class="evidence-detail-row">
+                <span class="evidence-detail-icon">📝</span>
+                <div>
+                  <strong style="color: #ffffff;">Ringkasan Proses / Hasil:</strong>
+                  <div style="font-size: 11px; color: #94a3b8;">${hasil}</div>
+                </div>
+              </div>
+              <div class="evidence-detail-row">
+                <span class="evidence-detail-icon">👤</span>
+                <div>
+                  <strong style="color: #ffffff;">Pelapor Utama:</strong>
+                  <div>${pet1}</div>
+                </div>
+              </div>
+              <div class="evidence-card-actions">
+                <button type="button" class="btn-evidence-apply" data-id="${t.id}" style="background: linear-gradient(135deg, rgba(56, 189, 248, 0.25) 0%, rgba(14, 165, 233, 0.35) 100%); color: #38bdf8;">
+                  <span>📋 Terapkan LPT</span>
+                </button>
+                <button type="button" class="btn-evidence-delete" data-id="${t.id}" title="Hapus Template LPT">
+                  <span>🗑️ Hapus</span>
+                </button>
+              </div>
+            </div>
+          `;
+        } else if (type === 'dok') {
+          const dok = t.dok_data || {};
+          const judul = escapeHtmlHelper(dok.judul || t.maksud_kegiatan || 'Dokumentasi Foto');
+          const layout = escapeHtmlHelper(dok.layout || 'grid-2');
+          const photoCount = Array.isArray(dok.photos) ? dok.photos.length : 0;
+
+          html += `
+            <div class="evidence-card" data-id="${t.id}" style="border-color: rgba(251, 191, 36, 0.3);">
+              <div class="evidence-card-header">
+                <span class="evidence-idx-badge" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border-color: rgba(251, 191, 36, 0.3);">#${idx + 1} • FOTO KEGIATAN</span>
+                <span class="evidence-time-text">🕒 ${dateFormatted}</span>
+              </div>
+              <h4 class="evidence-card-title">
+                <span style="color: #fbbf24;">📷</span>
+                <span>${title}</span>
+              </h4>
+              <div class="evidence-detail-row">
+                <span class="evidence-detail-icon">🏷️</span>
+                <div>
+                  <strong style="color: #ffffff;">Judul Kegiatan:</strong>
+                  <div>${judul}</div>
+                </div>
+              </div>
+              <div class="evidence-detail-row">
+                <span class="evidence-detail-icon">🖼️</span>
+                <div>
+                  <strong style="color: #ffffff;">Koleksi Foto:</strong>
+                  <div>${photoCount} Foto tersimpan (${photoCount}/30)</div>
+                </div>
+              </div>
+              <div class="evidence-detail-row">
+                <span class="evidence-detail-icon">📐</span>
+                <div>
+                  <strong style="color: #ffffff;">Format Tata Letak:</strong>
+                  <div>${layout === 'grid-2' ? 'Grid 2 Kolom (Standar)' : (layout === 'grid-3' ? 'Grid 3 Kolom (Kompak)' : (layout === 'grid-1' ? '1 Kolom Penuh' : 'Free Drag Canvas'))}</div>
+                </div>
+              </div>
+              <div class="evidence-card-actions">
+                <button type="button" class="btn-evidence-apply" data-id="${t.id}" style="background: linear-gradient(135deg, rgba(251, 191, 36, 0.25) 0%, rgba(245, 158, 11, 0.35) 100%); color: #fbbf24; border-color: rgba(251, 191, 36, 0.5);">
+                  <span>📷 Terapkan Foto &amp; Layout</span>
+                </button>
+                <button type="button" class="btn-evidence-delete" data-id="${t.id}" title="Hapus Template Foto">
+                  <span>🗑️ Hapus</span>
+                </button>
+              </div>
+            </div>
+          `;
         }
-
-        html += `
-          <div class="evidence-card" data-id="${t.id}">
-            <!-- Header -->
-            <div class="evidence-card-header">
-              <span class="evidence-idx-badge">#${idx + 1} • BOK STANDAR</span>
-              <span class="evidence-time-text">🕒 ${dateFormatted}</span>
-            </div>
-
-            <!-- Title -->
-            <h4 class="evidence-card-title">
-              <span style="color: #fbbf24;">⚡</span>
-              <span>${title}</span>
-            </h4>
-
-            <!-- Route Pill -->
-            <div class="evidence-route-pill">
-              <span>🏛️ ${berangkat}</span>
-              <span class="evidence-route-arrow">➔</span>
-              <span style="font-weight: 700; color: #38bdf8;">📍 ${tujuan}</span>
-            </div>
-
-            <!-- Details -->
-            <div class="evidence-detail-row">
-              <span class="evidence-detail-icon">📋</span>
-              <div>
-                <strong style="color: #ffffff;">Kegiatan:</strong>
-                <div>${maksud}</div>
-              </div>
-            </div>
-
-            <div class="evidence-detail-row">
-              <span class="evidence-detail-icon">👤</span>
-              <div>
-                <strong style="color: #ffffff;">Pelaksana Utama:</strong>
-                <div>${pegawai} ${nip !== '-' ? `<span style="color: #94a3b8; font-size: 10.5px;">(${nip})</span>` : ''}</div>
-              </div>
-            </div>
-
-            <div class="evidence-detail-row">
-              <span class="evidence-detail-icon">👥</span>
-              <div>
-                <strong style="color: #ffffff;">Petugas Pengikut:</strong>
-                <div style="margin-top: 3px;">${pengikutHtml}</div>
-              </div>
-            </div>
-
-            <!-- Actions Footer -->
-            <div class="evidence-card-actions">
-              <button type="button" class="btn-evidence-delete" data-id="${t.id}" title="Hapus Template dari Cloud">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-                <span>Hapus</span>
-              </button>
-
-              <button type="button" class="btn-evidence-apply" data-id="${t.id}" title="Terapkan konfigurasi template ini ke form">
-                <span>⚡ Terapkan Template</span>
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
-              </button>
-            </div>
-          </div>
-        `;
       });
 
       this.evidenceGrid.innerHTML = html;
@@ -6561,62 +6834,53 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     },
 
-    async saveCurrentAsTemplate() {
-      // Check 30 Template Limit
-      if (this.templates.length >= MAX_SPPD_TEMPLATES) {
+    async saveCurrentAsTemplate(forcedType) {
+      const targetType = forcedType || this.activeTab || 'sppd';
+      const currentList = this.templates.filter(t => (t.template_type || 'sppd') === targetType);
+
+      // Check 30 Template Limit for this specific type
+      if (currentList.length >= MAX_TEMPLATES_PER_TYPE) {
+        const typeLabel = targetType === 'lpt' ? 'LPT' : (targetType === 'dok' ? 'Foto Kegiatan' : 'SPPD');
         if (typeof Swal !== 'undefined') {
           Swal.fire({
             icon: 'warning',
             title: 'Batas Kuota Tercapai',
-            text: `Anda telah mencapai batas maksimal ${MAX_SPPD_TEMPLATES} template SPPD per user. Harap hapus salah satu template lama terlebih dahulu sebelum menambah yang baru.`,
+            text: `Anda telah mencapai batas maksimal ${MAX_TEMPLATES_PER_TYPE} template untuk ${typeLabel}. Harap hapus salah satu template lama terlebih dahulu sebelum menambah yang baru.`,
             confirmButtonText: 'Mengerti',
             background: '#0f172a',
             color: '#ffffff'
           });
         } else {
-          alert(`Batas maksimal ${MAX_SPPD_TEMPLATES} template telah tercapai.`);
+          alert(`Batas maksimal ${MAX_TEMPLATES_PER_TYPE} template untuk ${typeLabel} telah tercapai.`);
         }
         return;
       }
 
-      const pegawai = sppdInputPegawai ? sppdInputPegawai.value : '';
-      const maksud = sppdInputMaksud ? sppdInputMaksud.value : '';
-      const tempatBerangkat = sppdInputTempatBerangkat ? sppdInputTempatBerangkat.value : '';
-      const tujuan = sppdInputTujuan ? sppdInputTujuan.value : '';
+      let defaultName = '';
+      let dialogTitle = '';
 
-      if (!maksud && !tujuan && !pegawai) {
-        if (typeof showToast === 'function') {
-          showToast('Isi minimal Petugas, Maksud Kegiatan, atau Tempat Tujuan untuk disimpan sebagai template.', 'warn');
-        }
-        return;
-      }
-
-      // Collect pengikut 1..4
-      const pengikutList = [];
-      for (let i = 1; i <= 4; i++) {
-        const select = document.getElementById(`sppdPengikutSelect${i}`);
-        const inNama = document.getElementById(`sppdPengikutInputNama${i}`);
-        const inNip = document.getElementById(`sppdPengikutInputNip${i}`);
-        const inKet = document.getElementById(`sppdPengikutInputKet${i}`);
-
-        if (select && select.value) {
-          pengikutList.push({
-            index: i,
-            selectVal: select.value,
-            customNama: inNama ? inNama.value : '',
-            customNip: inNip ? inNip.value : '',
-            customKet: inKet ? inKet.value : ''
-          });
-        }
+      if (targetType === 'sppd') {
+        const kegText = sppdInputMaksud ? sppdInputMaksud.value : (sppdInputTujuan ? sppdInputTujuan.value : 'SPPD');
+        const tglSurat = sppdInputTglSurat ? sppdInputTglSurat.value : '';
+        defaultName = formatTemplateNameHelper(kegText, tglSurat);
+        dialogTitle = 'Simpan Template SPPD';
+      } else if (targetType === 'lpt') {
+        const tujuanLpt = document.getElementById('lptInputTujuanPerjalanan')?.value || document.getElementById('lptInputDasar')?.value || 'Laporan LPT';
+        const tglLpt = document.getElementById('lptInputTanggalLaporan')?.value || '';
+        defaultName = formatTemplateNameHelper(tujuanLpt, tglLpt);
+        dialogTitle = 'Simpan Template LPT';
+      } else if (targetType === 'dok') {
+        const judulDok = document.getElementById('dokInputJudulKegiatan')?.value || 'Dokumentasi Kegiatan';
+        defaultName = formatTemplateNameHelper(judulDok, null);
+        dialogTitle = 'Simpan Template Foto Kegiatan';
       }
 
       // Prompt for Template Name
       let templateName = '';
       if (typeof Swal !== 'undefined') {
-        const defaultName = maksud ? maksud.slice(0, 30) : (tujuan ? `SPPD ke ${tujuan}` : 'Template SPPD Baru');
         const { value: nameInput } = await Swal.fire({
-          title: 'Simpan Template SPPD',
-          html: `<div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Template akan disimpan ke Cloud D1 (${this.templates.length + 1}/${MAX_SPPD_TEMPLATES}):</div>`,
+          title: dialogTitle,
+          html: `<div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Format otomatis <strong>(Kegiatan-dd-mm-yyyy)</strong>:</div>`,
           input: 'text',
           inputValue: defaultName,
           showCancelButton: true,
@@ -6631,49 +6895,77 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!nameInput) return;
         templateName = nameInput.trim();
       } else {
-        templateName = prompt('Nama template SPPD:', maksud || tujuan || 'Template SPPD') || '';
+        templateName = prompt(`${dialogTitle} (Kegiatan-dd-mm-yyyy):`, defaultName) || '';
         if (!templateName.trim()) return;
       }
 
+      // Gather Data according to targetType
       const optUser = (sppdInputPegawai && sppdInputPegawai.selectedIndex >= 0)
         ? sppdInputPegawai.options[sppdInputPegawai.selectedIndex] : null;
 
-      // Collect LPT details if present
-      const lptDasar = document.getElementById('lptInputDasar')?.value || '';
-      const lptTujuan = document.getElementById('lptInputTujuanPerjalanan')?.value || '';
-      const lptProses = document.getElementById('lptInputProses')?.value || '';
-      const lptMasalah = document.getElementById('lptInputMasalah')?.value || '';
-      const lptKesimpulan = document.getElementById('lptInputKesimpulan')?.value || '';
-      const lptPet1 = document.getElementById('lptSelectPetugas1')?.value || '';
-      const lptPet2 = document.getElementById('lptSelectPetugas2')?.value || '';
-      const lptPet3 = document.getElementById('lptSelectPetugas3')?.value || '';
-      const lptTog2 = document.getElementById('lptTogglePetugas2')?.checked || false;
-      const lptTog3 = document.getElementById('lptTogglePetugas3')?.checked || false;
+      // SPPD Details
+      const pegawai = sppdInputPegawai ? sppdInputPegawai.value : '';
+      const nip = optUser ? (optUser.getAttribute('data-nip') || '') : '';
+      const maksud = sppdInputMaksud ? sppdInputMaksud.value : '';
+      const tempatBerangkat = sppdInputTempatBerangkat ? sppdInputTempatBerangkat.value : '';
+      const tujuan = sppdInputTujuan ? sppdInputTujuan.value : '';
 
+      const pengikutList = [];
+      for (let i = 1; i <= 4; i++) {
+        const select = document.getElementById(`sppdPengikutSelect${i}`);
+        const inNama = document.getElementById(`sppdPengikutInputNama${i}`);
+        const inNip = document.getElementById(`sppdPengikutInputNip${i}`);
+        const inKet = document.getElementById(`sppdPengikutInputKet${i}`);
+        if (select && select.value) {
+          pengikutList.push({
+            index: i,
+            selectVal: select.value,
+            customNama: inNama ? inNama.value : '',
+            customNip: inNip ? inNip.value : '',
+            customKet: inKet ? inKet.value : ''
+          });
+        }
+      }
+
+      // LPT Details
       const lptData = {
-        dasar: lptDasar,
-        tujuan: lptTujuan,
-        proses: lptProses,
-        masalah: lptMasalah,
-        kesimpulan: lptKesimpulan,
-        petugas1: lptPet1,
-        petugas2: lptPet2,
-        petugas3: lptPet3,
-        toggle2: lptTog2,
-        toggle3: lptTog3
+        dasar: document.getElementById('lptInputDasar')?.value || '',
+        tujuan: document.getElementById('lptInputTujuanPerjalanan')?.value || '',
+        proses: document.getElementById('lptInputProses')?.value || '',
+        masalah: document.getElementById('lptInputMasalah')?.value || '',
+        kesimpulan: document.getElementById('lptInputKesimpulan')?.value || '',
+        petugas1: document.getElementById('lptSelectPetugas1')?.value || '',
+        petugas2: document.getElementById('lptSelectPetugas2')?.value || '',
+        petugas3: document.getElementById('lptSelectPetugas3')?.value || '',
+        toggle2: document.getElementById('lptTogglePetugas2')?.checked || false,
+        toggle3: document.getElementById('lptTogglePetugas3')?.checked || false
+      };
+
+      // Dokumentasi Details
+      const dokData = {
+        judul: document.getElementById('dokInputJudulKegiatan')?.value || '',
+        layout: document.getElementById('dokSelectLayout')?.value || 'grid-2',
+        photos: (Array.isArray(dokPhotoItems) ? dokPhotoItems : []).slice(0, 30).map(p => ({
+          id: p.id,
+          url: p.url,
+          caption: p.caption || '',
+          size: p.size || 'M'
+        }))
       };
 
       const payload = {
         id: `tmpl-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        template_type: targetType,
         nama_template: templateName,
         username: CURRENT_USER?.username || 'ozie',
         pegawai_nama: pegawai,
-        pegawai_nip: optUser ? (optUser.getAttribute('data-nip') || '') : '',
+        pegawai_nip: nip,
         maksud_kegiatan: maksud,
         tempat_berangkat: tempatBerangkat || 'Puskesmas Banjaran Kota',
         tempat_tujuan: tujuan,
         pengikut_data: pengikutList,
         lpt_data: lptData,
+        dok_data: dokData,
         is_favorite: 0,
         created_at: new Date().toISOString()
       };
@@ -6684,8 +6976,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       await CloudflareDB.saveSppdTemplate(payload);
 
+      const typeLabel = targetType === 'lpt' ? 'LPT' : (targetType === 'dok' ? 'Foto Kegiatan' : 'SPPD');
+      const countNow = this.templates.filter(t => (t.template_type || 'sppd') === targetType).length;
+
       if (typeof showToast === 'function') {
-        showToast(`✓ Template "${templateName}" berhasil disimpan ke Cloud D1 (${this.templates.length}/${MAX_SPPD_TEMPLATES})!`, 'success');
+        showToast(`✓ Template ${typeLabel} "${templateName}" berhasil disimpan (${countNow}/${MAX_TEMPLATES_PER_TYPE})!`, 'success');
       }
     },
 
@@ -6693,116 +6988,164 @@ document.addEventListener('DOMContentLoaded', () => {
       const tmpl = this.templates.find(t => t.id === templateId);
       if (!tmpl) return;
 
-      if (sppdInputPegawai && tmpl.pegawai_nama) {
-        sppdInputPegawai.value = tmpl.pegawai_nama;
-      }
-      if (sppdInputMaksud && tmpl.maksud_kegiatan) {
-        sppdInputMaksud.value = tmpl.maksud_kegiatan;
-      }
-      if (sppdInputTempatBerangkat && tmpl.tempat_berangkat) {
-        sppdInputTempatBerangkat.value = tmpl.tempat_berangkat;
-      }
-      if (sppdInputTujuan && tmpl.tempat_tujuan) {
-        sppdInputTujuan.value = tmpl.tempat_tujuan;
-      }
+      const type = tmpl.template_type || 'sppd';
 
-      // Reset pengikut first
-      for (let i = 1; i <= 4; i++) {
-        const select = document.getElementById(`sppdPengikutSelect${i}`);
-        const customDiv = document.getElementById(`sppdPengikutCustomWrap${i}`);
-        const inNama = document.getElementById(`sppdPengikutInputNama${i}`);
-        const inNip = document.getElementById(`sppdPengikutInputNip${i}`);
-        const inKet = document.getElementById(`sppdPengikutInputKet${i}`);
-        if (select) select.value = '';
-        if (customDiv) customDiv.style.display = 'none';
-        if (inNama) inNama.value = '';
-        if (inNip) inNip.value = '';
-        if (inKet) inKet.value = '';
-      }
+      if (type === 'sppd') {
+        // Auto-switch to SPPD if on other form
+        if (sppdLptSelectForm && sppdLptSelectForm.value !== 'sppd') {
+          sppdLptSelectForm.value = 'sppd';
+          updateFormDisplay();
+        }
 
-      // Restore saved pengikut
-      if (Array.isArray(tmpl.pengikut_data)) {
-        tmpl.pengikut_data.forEach(p => {
-          const idx = p.index;
-          const select = document.getElementById(`sppdPengikutSelect${idx}`);
-          const customDiv = document.getElementById(`sppdPengikutCustomWrap${idx}`);
-          const inNama = document.getElementById(`sppdPengikutInputNama${idx}`);
-          const inNip = document.getElementById(`sppdPengikutInputNip${idx}`);
-          const inKet = document.getElementById(`sppdPengikutInputKet${idx}`);
+        if (sppdInputPegawai && tmpl.pegawai_nama) {
+          sppdInputPegawai.value = tmpl.pegawai_nama;
+        }
+        if (sppdInputMaksud && tmpl.maksud_kegiatan) {
+          sppdInputMaksud.value = tmpl.maksud_kegiatan;
+        }
+        if (sppdInputTempatBerangkat && tmpl.tempat_berangkat) {
+          sppdInputTempatBerangkat.value = tmpl.tempat_berangkat;
+        }
+        if (sppdInputTujuan && tmpl.tempat_tujuan) {
+          sppdInputTujuan.value = tmpl.tempat_tujuan;
+        }
 
-          if (select && p.selectVal) {
-            select.value = p.selectVal;
-            if (p.selectVal === 'CUSTOM' && customDiv) {
-              customDiv.style.display = 'flex';
-              if (inNama) inNama.value = p.customNama || '';
-              if (inNip) inNip.value = p.customNip || '';
-              if (inKet) inKet.value = p.customKet || '';
+        // Reset pengikut first
+        for (let i = 1; i <= 4; i++) {
+          const select = document.getElementById(`sppdPengikutSelect${i}`);
+          const customDiv = document.getElementById(`sppdPengikutCustomWrap${i}`);
+          const inNama = document.getElementById(`sppdPengikutInputNama${i}`);
+          const inNip = document.getElementById(`sppdPengikutInputNip${i}`);
+          const inKet = document.getElementById(`sppdPengikutInputKet${i}`);
+          if (select) select.value = '';
+          if (customDiv) customDiv.style.display = 'none';
+          if (inNama) inNama.value = '';
+          if (inNip) inNip.value = '';
+          if (inKet) inKet.value = '';
+        }
+
+        // Restore saved pengikut
+        if (Array.isArray(tmpl.pengikut_data)) {
+          tmpl.pengikut_data.forEach(p => {
+            const idx = p.index;
+            const select = document.getElementById(`sppdPengikutSelect${idx}`);
+            const customDiv = document.getElementById(`sppdPengikutCustomWrap${idx}`);
+            const inNama = document.getElementById(`sppdPengikutInputNama${idx}`);
+            const inNip = document.getElementById(`sppdPengikutInputNip${idx}`);
+            const inKet = document.getElementById(`sppdPengikutInputKet${idx}`);
+
+            if (select && p.selectVal) {
+              select.value = p.selectVal;
+              if (p.selectVal === 'CUSTOM' && customDiv) {
+                customDiv.style.display = 'flex';
+                if (inNama) inNama.value = p.customNama || '';
+                if (inNip) inNip.value = p.customNip || '';
+                if (inKet) inKet.value = p.customKet || '';
+              }
             }
+          });
+        }
+
+        // Realtime sync document preview & LPT
+        syncSppdLptData();
+
+      } else if (type === 'lpt') {
+        // Auto-switch to LPT form
+        if (sppdLptSelectForm && sppdLptSelectForm.value !== 'lpt') {
+          sppdLptSelectForm.value = 'lpt';
+          updateFormDisplay();
+        }
+
+        if (tmpl.lpt_data) {
+          const lpt = typeof tmpl.lpt_data === 'string' ? JSON.parse(tmpl.lpt_data) : tmpl.lpt_data;
+          if (lpt.dasar) {
+            const el = document.getElementById('lptInputDasar');
+            if (el) { el.value = lpt.dasar; el.dataset.userEdited = 'true'; }
+            const docEl = document.getElementById('lptValDasar');
+            if (docEl) docEl.textContent = lpt.dasar;
           }
-        });
-      }
+          if (lpt.tujuan) {
+            const el = document.getElementById('lptInputTujuanPerjalanan');
+            if (el) { el.value = lpt.tujuan; el.dataset.userEdited = 'true'; }
+            const docEl = document.getElementById('lptValTujuanPerjalanan');
+            if (docEl) docEl.textContent = lpt.tujuan;
+          }
+          if (lpt.proses) {
+            const el = document.getElementById('lptInputProses');
+            if (el) el.value = lpt.proses;
+            const docEl = document.getElementById('lptValProses');
+            if (docEl) docEl.innerHTML = textToHtml(lpt.proses);
+          }
+          if (lpt.masalah) {
+            const el = document.getElementById('lptInputMasalah');
+            if (el) el.value = lpt.masalah;
+            const docEl = document.getElementById('lptValMasalah');
+            if (docEl) docEl.innerHTML = textToHtml(lpt.masalah);
+          }
+          if (lpt.kesimpulan) {
+            const el = document.getElementById('lptInputKesimpulan');
+            if (el) el.value = lpt.kesimpulan;
+            const docEl = document.getElementById('lptValKesimpulan');
+            if (docEl) docEl.innerHTML = textToHtml(lpt.kesimpulan);
+          }
+          if (lpt.petugas1) {
+            const el = document.getElementById('lptSelectPetugas1');
+            if (el) { el.value = lpt.petugas1; el.dataset.userEdited = 'true'; }
+            syncLptOfficer(1);
+          }
+          if (lpt.petugas2) {
+            const el = document.getElementById('lptSelectPetugas2');
+            if (el) { el.value = lpt.petugas2; el.dataset.userEdited = 'true'; }
+            syncLptOfficer(2);
+          }
+          if (lpt.petugas3) {
+            const el = document.getElementById('lptSelectPetugas3');
+            if (el) { el.value = lpt.petugas3; el.dataset.userEdited = 'true'; }
+            syncLptOfficer(3);
+          }
+          if (typeof lpt.toggle2 !== 'undefined') {
+            const el = document.getElementById('lptTogglePetugas2');
+            if (el) el.checked = !!lpt.toggle2;
+          }
+          if (typeof lpt.toggle3 !== 'undefined') {
+            const el = document.getElementById('lptTogglePetugas3');
+            if (el) el.checked = !!lpt.toggle3;
+          }
+          updateLptPetugasVisibility();
+        }
 
-      // Restore LPT fields if present
-      if (tmpl.lpt_data) {
-        const lpt = typeof tmpl.lpt_data === 'string' ? JSON.parse(tmpl.lpt_data) : tmpl.lpt_data;
-        if (lpt.dasar) {
-          const el = document.getElementById('lptInputDasar');
-          if (el) { el.value = lpt.dasar; el.dataset.userEdited = 'true'; }
-          const docEl = document.getElementById('lptValDasar');
-          if (docEl) docEl.textContent = lpt.dasar;
+      } else if (type === 'dok') {
+        // Auto-switch to Dokumentasi form
+        if (sppdLptSelectForm && sppdLptSelectForm.value !== 'dok') {
+          sppdLptSelectForm.value = 'dok';
+          updateFormDisplay();
         }
-        if (lpt.tujuan) {
-          const el = document.getElementById('lptInputTujuanPerjalanan');
-          if (el) { el.value = lpt.tujuan; el.dataset.userEdited = 'true'; }
-          const docEl = document.getElementById('lptValTujuanPerjalanan');
-          if (docEl) docEl.textContent = lpt.tujuan;
-        }
-        if (lpt.proses) {
-          const el = document.getElementById('lptInputProses');
-          if (el) el.value = lpt.proses;
-          const docEl = document.getElementById('lptValProses');
-          if (docEl) docEl.innerHTML = textToHtml(lpt.proses);
-        }
-        if (lpt.masalah) {
-          const el = document.getElementById('lptInputMasalah');
-          if (el) el.value = lpt.masalah;
-          const docEl = document.getElementById('lptValMasalah');
-          if (docEl) docEl.innerHTML = textToHtml(lpt.masalah);
-        }
-        if (lpt.kesimpulan) {
-          const el = document.getElementById('lptInputKesimpulan');
-          if (el) el.value = lpt.kesimpulan;
-          const docEl = document.getElementById('lptValKesimpulan');
-          if (docEl) docEl.innerHTML = textToHtml(lpt.kesimpulan);
-        }
-        if (lpt.petugas1) {
-          const el = document.getElementById('lptSelectPetugas1');
-          if (el) { el.value = lpt.petugas1; el.dataset.userEdited = 'true'; }
-          syncLptOfficer(1);
-        }
-        if (lpt.petugas2) {
-          const el = document.getElementById('lptSelectPetugas2');
-          if (el) { el.value = lpt.petugas2; el.dataset.userEdited = 'true'; }
-          syncLptOfficer(2);
-        }
-        if (lpt.petugas3) {
-          const el = document.getElementById('lptSelectPetugas3');
-          if (el) { el.value = lpt.petugas3; el.dataset.userEdited = 'true'; }
-          syncLptOfficer(3);
-        }
-        if (typeof lpt.toggle2 !== 'undefined') {
-          const el = document.getElementById('lptTogglePetugas2');
-          if (el) el.checked = !!lpt.toggle2;
-        }
-        if (typeof lpt.toggle3 !== 'undefined') {
-          const el = document.getElementById('lptTogglePetugas3');
-          if (el) el.checked = !!lpt.toggle3;
-        }
-        updateLptPetugasVisibility();
-      }
 
-      // Realtime sync document preview & LPT
-      syncSppdLptData();
+        if (tmpl.dok_data) {
+          const dok = typeof tmpl.dok_data === 'string' ? JSON.parse(tmpl.dok_data) : tmpl.dok_data;
+          if (dok.judul) {
+            const el = document.getElementById('dokInputJudulKegiatan');
+            if (el) el.value = dok.judul;
+            const docEl = document.getElementById('dokValJudulKegiatan');
+            if (docEl) docEl.textContent = dok.judul;
+          }
+          if (dok.layout) {
+            const el = document.getElementById('dokSelectLayout');
+            if (el) el.value = dok.layout;
+            if (typeof updateDokLayoutClass === 'function') updateDokLayoutClass();
+          }
+          if (Array.isArray(dok.photos) && dok.photos.length > 0) {
+            dokPhotoItems = dok.photos.slice(0, 30).map(p => ({
+              id: p.id || `photo-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+              url: p.url,
+              caption: p.caption || '',
+              size: p.size || 'M',
+              isR2: true
+            }));
+            if (typeof renderDokPhotos === 'function') renderDokPhotos();
+          }
+        }
+      }
 
       if (typeof showToast === 'function') {
         showToast(`✓ Template "${tmpl.nama_template}" berhasil diterapkan!`, 'success');
