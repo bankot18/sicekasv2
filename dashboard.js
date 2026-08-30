@@ -7639,6 +7639,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         fPetugas.innerHTML = staffOpts;
       }
+
+      // 3. Auto-detect and set Current Month and Year for Beranda and BOK module
+      const now = new Date();
+      const currentRealMonth = now.getMonth() + 1;
+      const currentRealYear = now.getFullYear();
+
+      this.currentMonth = currentRealMonth;
+      this.currentYear = currentRealYear;
+      this.berandaMonth = currentRealMonth;
+      this.berandaYear = currentRealYear;
+
+      const selBerBulan = document.getElementById('selectBerandaBulan');
+      const selBerTahun = document.getElementById('selectBerandaTahun');
+      const fBulan = document.getElementById('fBulanBOK');
+      const fTahun = document.getElementById('fTahunBOK');
+
+      if (selBerBulan) selBerBulan.value = String(currentRealMonth);
+      if (selBerTahun) selBerTahun.value = String(currentRealYear);
+      if (fBulan) fBulan.value = String(currentRealMonth);
+      if (fTahun) fTahun.value = String(currentRealYear);
     },
 
     populateStaffPickers() {
@@ -8380,12 +8400,23 @@ document.addEventListener('DOMContentLoaded', () => {
       // Fetch all activities for this month & year
       const all = await this.getData(this.berandaMonth, this.berandaYear);
 
+      // Filter activities specifically matching this.berandaMonth and this.berandaYear
+      const monthStr = String(this.berandaMonth).padStart(2, '0');
+      const yearMonthPrefix = `${this.berandaYear}-${monthStr}`;
+
+      const monthActivities = (all || []).filter(item => {
+        if (!item) return false;
+        if (item.tanggal && item.tanggal.startsWith(yearMonthPrefix)) return true;
+        if (item.bulan && item.tahun && parseInt(item.bulan, 10) === this.berandaMonth && parseInt(item.tahun, 10) === this.berandaYear) return true;
+        return false;
+      });
+
       // Update Beranda KPI Counters
       const totalEl = document.getElementById('berandaStatBokCount');
       const myEl = document.getElementById('berandaStatMyBokCount');
-      if (totalEl) totalEl.textContent = `${all.length} Kegiatan`;
+      if (totalEl) totalEl.textContent = `${monthActivities.length} Kegiatan`;
       if (myEl) {
-        const myCount = all.filter(item => item.namaUser === CURRENT_USER.nama || (item.petugas_nip && item.petugas_nip === CURRENT_USER.nip)).length;
+        const myCount = monthActivities.filter(item => item.namaUser === CURRENT_USER.nama || (item.petugas_nip && item.petugas_nip === CURRENT_USER.nip)).length;
         myEl.textContent = `${myCount} Kegiatan`;
       }
 
@@ -8394,7 +8425,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Extract all assigned employees across all activities in this month
       const employeeEntries = [];
 
-      all.forEach(item => {
+      monthActivities.forEach(item => {
         const isCollab = (item.keterangan && item.keterangan.toLowerCase().includes('kolaborasi')) ||
                          (Array.isArray(item.rekan_kolaborasi) && item.rekan_kolaborasi.length > 0) ||
                          (item.namaKegiatan && item.namaKegiatan.toLowerCase().includes('kolaborasi'));
