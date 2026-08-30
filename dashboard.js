@@ -9701,31 +9701,109 @@ document.addEventListener('DOMContentLoaded', () => {
                        (Array.isArray(item.rekan_kolaborasi) && item.rekan_kolaborasi.length > 0) ||
                        (item.namaKegiatan && item.namaKegiatan.toLowerCase().includes('kolaborasi'));
 
-      let allTeamMembers = [];
-      if (item.namaUser) allTeamMembers.push(`${item.namaUser} (${item.jabatan || 'Pegawai'})`);
+      const collabs = await this.getCollabData();
 
-      if (Array.isArray(item.rekan_kolaborasi) && item.rekan_kolaborasi.length > 0) {
+      // Build List of Partners with Statuses
+      const partnerStatusMap = new Map();
+
+      // 1. Inisiator / Petugas Pengirim
+      const initiatorName = item.namaUser || item.petugas_nama || 'Petugas';
+      const initiatorJab = item.jabatan || item.petugas_jabatan || 'Pegawai';
+      partnerStatusMap.set(initiatorName, {
+        nama: initiatorName,
+        jabatan: initiatorJab,
+        status: 'initiator',
+        statusLabel: '👑 Pengirim (Inisiator)'
+      });
+
+      // 2. Rekan dari field rekan_kolaborasi
+      if (Array.isArray(item.rekan_kolaborasi)) {
         item.rekan_kolaborasi.forEach(r => {
-          const str = typeof r === 'string' ? r : `${r.nama} (${r.jabatan || 'Petugas'})`;
-          if (!allTeamMembers.includes(str)) allTeamMembers.push(str);
-        });
-      }
-
-      if (isCollab) {
-        const sameDayCollabs = data.filter(d => d.tanggal === item.tanggal && d.noKegiatan === item.noKegiatan);
-        sameDayCollabs.forEach(sc => {
-          const scUser = `${sc.namaUser} (${sc.jabatan || 'Pegawai'})`;
-          if (!allTeamMembers.includes(scUser)) allTeamMembers.push(scUser);
-          if (Array.isArray(sc.rekan_kolaborasi)) {
-            sc.rekan_kolaborasi.forEach(r => {
-              const str = typeof r === 'string' ? r : `${r.nama} (${r.jabatan || 'Petugas'})`;
-              if (!allTeamMembers.includes(str)) allTeamMembers.push(str);
+          const rNama = typeof r === 'string' ? r : (r.nama || '');
+          const rJab = typeof r === 'object' ? (r.jabatan || 'Petugas') : 'Petugas';
+          if (rNama && !partnerStatusMap.has(rNama)) {
+            partnerStatusMap.set(rNama, {
+              nama: rNama,
+              jabatan: rJab,
+              status: 'pending',
+              statusLabel: '⏳ Belum Disetujui'
             });
           }
         });
       }
 
-      const collabPartnersText = allTeamMembers.join(', ');
+      // 3. Scan matching collab requests in Cloudflare D1
+      const matchingReqs = (collabs || []).filter(c => {
+        const cDate = c.tanggal || '';
+        const cNo = c.no_kegiatan || c.noKegiatan;
+        const cName = c.nama_kegiatan || c.namaKegiatan;
+        const isDateMatch = cDate === item.tanggal;
+        const isKegMatch = (cNo && cNo === item.noKegiatan) || (cName && item.namaKegiatan && cName.trim().toLowerCase() === item.namaKegiatan.trim().toLowerCase());
+        return isDateMatch && isKegMatch;
+      });
+
+      matchingReqs.forEach(req => {
+        const toNama = req.to_nama || req.toNama;
+        const toJab = req.to_jabatan || req.toJabatan || 'Petugas';
+        const reqStatus = req.status || 'pending';
+
+        if (toNama) {
+          let label = '⏳ Belum Disetujui';
+          if (reqStatus === 'accepted') label = '✅ Disetujui';
+          else if (reqStatus === 'rejected') label = '❌ Ditolak';
+
+          partnerStatusMap.set(toNama, {
+            nama: toNama,
+            jabatan: toJab,
+            status: reqStatus,
+            statusLabel: label
+          });
+        }
+      });
+
+      // 4. Also check if any partner already has an accepted schedule in jadwal_kegiatan
+      const sameDayActivities = data.filter(d => d.tanggal === item.tanggal && d.noKegiatan === item.noKegiatan);
+      sameDayActivities.forEach(sda => {
+        const sdaNama = sda.namaUser || sda.petugas_nama;
+        const sdaJab = sda.jabatan || sda.petugas_jabatan || 'Pegawai';
+        if (sdaNama && partnerStatusMap.has(sdaNama)) {
+          const existing = partnerStatusMap.get(sdaNama);
+          if (existing && existing.status !== 'initiator') {
+            existing.status = 'accepted';
+            existing.statusLabel = '✅ Disetujui';
+          }
+        } else if (sdaNama && !partnerStatusMap.has(sdaNama)) {
+          partnerStatusMap.set(sdaNama, {
+            nama: sdaNama,
+            jabatan: sdaJab,
+            status: 'accepted',
+            statusLabel: '✅ Disetujui'
+          });
+        }
+      });
+
+      // Generate HTML for partner status list
+      let partnersListHtml = '';
+      if (partnerStatusMap.size > 0) {
+        partnerStatusMap.forEach(p => {
+          let pillClass = 'pending';
+          if (p.status === 'accepted') pillClass = 'accepted';
+          else if (p.status === 'rejected') pillClass = 'rejected';
+          else if (p.status === 'initiator') pillClass = 'initiator';
+
+          partnersListHtml += `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); padding: 8px 12px; border-radius: 8px; margin-bottom: 6px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 13px; font-weight: 700; color: #f8fafc;">${p.nama}</span>
+                <span style="font-size: 11.5px; color: #94a3b8;">(${p.jabatan})</span>
+              </div>
+              <div>
+                <span class="bok-status-pill ${pillClass}">${p.statusLabel}</span>
+              </div>
+            </div>
+          `;
+        });
+      }
 
       if (btnEdit) {
         if (isMine) {
@@ -9760,24 +9838,23 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
 
           <div class="detail-bok-row">
-            <span class="detail-bok-label">Petugas Pelaksana</span>
-            <span class="detail-bok-val">👤 ${item.namaUser} (${item.jabatan})</span>
-          </div>
-
-          <div class="detail-bok-row">
-            <span class="detail-bok-label">Status Jadwal</span>
+            <span class="detail-bok-label">Status Kegiatan</span>
             <span class="detail-bok-val">
               ${isCollab ? '<span class="kegiatan-badge-collab">👥 Kegiatan Kolaborasi</span>' : '<span class="kegiatan-badge-sendiri">🟢 Kegiatan Mandiri / Sendiri</span>'}
             </span>
           </div>
 
           ${isCollab ? `
+          <div class="detail-bok-row" style="flex-direction: column; align-items: flex-start;">
+            <span class="detail-bok-label" style="margin-bottom: 8px;">Daftar Rekan Kolaborasi & Status Persetujuan</span>
+            <div style="width: 100%;">
+              ${partnersListHtml}
+            </div>
+          </div>` : `
           <div class="detail-bok-row">
-            <span class="detail-bok-label">Tim Kolaborasi Terkonfirmasi</span>
-            <span class="detail-bok-val" style="color: #38bdf8; font-weight: 600;">
-              👥 ${collabPartnersText}
-            </span>
-          </div>` : ''}
+            <span class="detail-bok-label">Petugas Pelaksana</span>
+            <span class="detail-bok-val">👤 ${item.namaUser} (${item.jabatan})</span>
+          </div>`}
 
           <div class="detail-bok-row">
             <span class="detail-bok-label">Keterangan / Lokasi / Sasaran</span>
