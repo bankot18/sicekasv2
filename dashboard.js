@@ -7719,6 +7719,23 @@ document.addEventListener('DOMContentLoaded', () => {
       return false;
     },
 
+    isPrivilegedScheduleViewer() {
+      const role = (CURRENT_USER.role || '').toLowerCase();
+      const jab = (CURRENT_USER.jabatan || '').toLowerCase();
+      const u = (CURRENT_USER.username || '').toLowerCase();
+
+      // Admin & Super Admin
+      if (role.includes('admin') || u === 'ozie' || u === 'satrianita' || u === 'dilla' || u === 'fahri') return true;
+
+      // Kepala Puskesmas
+      if (role.includes('kepala') || jab.includes('kepala puskesmas') || u === 'rina') return true;
+
+      // PJ (PJ Klaster, Satker, Penanggung Jawab)
+      if (role.includes('pj') || jab.includes('pj') || jab.includes('satker') || jab.includes('penanggung jawab')) return true;
+
+      return false;
+    },
+
     async init() {
       this.populateSelects();
       this.populateStaffPickers();
@@ -7740,14 +7757,34 @@ document.addEventListener('DOMContentLoaded', () => {
       if (inputKegiatan) inputKegiatan.innerHTML = kegOptions;
       if (collabKegiatan) collabKegiatan.innerHTML = kegOptions;
 
-      // 2. Populate Staff Filter in header
+      // 2. Populate Staff Filter in header (Only for Admin, Kepala Puskesmas, & PJ)
       const fPetugas = document.getElementById('fPetugasBOK');
+      const fPetugasGroup = fPetugas ? fPetugas.closest('.bok-filter-group') : null;
+      const tabAllBtn = document.querySelector('.bok-tab-btn[data-filter="all"]');
+      const tabMineBtn = document.querySelector('.bok-tab-btn[data-filter="mine"]');
+
+      const isPrivileged = this.isPrivilegedScheduleViewer();
+
       if (fPetugas && DAFTAR_PEGAWAI) {
-        let staffOpts = '<option value="">— Semua Petugas Puskesmas (39 Pegawai) —</option>';
-        DAFTAR_PEGAWAI.forEach(p => {
-          staffOpts += `<option value="${p.nama}">${p.nama} (${p.jabatan})</option>`;
-        });
-        fPetugas.innerHTML = staffOpts;
+        if (isPrivileged) {
+          let staffOpts = '<option value="">— Semua Petugas Puskesmas (39 Pegawai) —</option>';
+          DAFTAR_PEGAWAI.forEach(p => {
+            staffOpts += `<option value="${p.nama}">${p.nama} (${p.jabatan})</option>`;
+          });
+          fPetugas.innerHTML = staffOpts;
+          if (fPetugasGroup) fPetugasGroup.style.display = 'flex';
+          if (tabAllBtn) tabAllBtn.style.display = 'inline-flex';
+        } else {
+          // Regular staff: Hide staff filter dropdown and 'Semua Jadwal' tab
+          fPetugas.innerHTML = `<option value="${CURRENT_USER.nama}" selected>${CURRENT_USER.nama} (${CURRENT_USER.jabatan})</option>`;
+          if (fPetugasGroup) fPetugasGroup.style.display = 'none';
+          if (tabAllBtn) tabAllBtn.style.display = 'none';
+          
+          // Switch default active tab to 'mine'
+          this.activeTab = 'mine';
+          if (tabAllBtn) tabAllBtn.classList.remove('active');
+          if (tabMineBtn) tabMineBtn.classList.add('active');
+        }
       }
 
       // 3. Auto-detect and set Current Month and Year for Beranda and BOK module
@@ -8145,6 +8182,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const all = await this.getData();
       const monthStr = String(this.currentMonth).padStart(2, '0');
       const yearMonthPrefix = `${this.currentYear}-${monthStr}`;
+      const isPrivileged = this.isPrivilegedScheduleViewer();
+
+      const userNamaClean = (CURRENT_USER.nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+      const userNipClean = (CURRENT_USER.nip || '').trim();
 
       return (all || []).filter(item => {
         if (!item || !item.tanggal) return false;
@@ -8154,8 +8195,33 @@ document.addEventListener('DOMContentLoaded', () => {
                              (parseInt(item.bulan, 10) === this.currentMonth && parseInt(item.tahun, 10) === this.currentYear);
         if (!isMonthMatch) return false;
 
-        // Staff filter
-        if (this.selectedStaff) {
+        // PRIVACY ENFORCEMENT FOR JADWAL KEGIATAN:
+        // Regular staff (NOT Admin, NOT Kepala Puskesmas, NOT PJ) can ONLY view their own schedule
+        if (!isPrivileged) {
+          const itemNamaClean = (item.namaUser || item.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+          const itemNipClean = (item.petugas_nip || '').trim();
+
+          const isDirectMine = (itemNipClean && userNipClean && itemNipClean === userNipClean) ||
+                               (itemNamaClean && userNamaClean && (itemNamaClean === userNamaClean || itemNamaClean.includes(userNamaClean) || userNamaClean.includes(itemNamaClean)));
+
+          let isCollabPartner = false;
+          if (Array.isArray(item.rekan_kolaborasi) && item.rekan_kolaborasi.length > 0) {
+            isCollabPartner = item.rekan_kolaborasi.some(r => {
+              const rNama = (typeof r === 'string' ? r : (r.nama || '')).toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+              const rNip = typeof r === 'object' && r.nip ? r.nip.trim() : '';
+              if (rNip && userNipClean && rNip === userNipClean) return true;
+              if (rNama && userNamaClean && (rNama === userNamaClean || rNama.includes(userNamaClean) || userNamaClean.includes(rNama))) return true;
+              return false;
+            });
+          }
+
+          if (!isDirectMine && !isCollabPartner) {
+            return false; // Hide other employees' schedules
+          }
+        }
+
+        // Staff filter (for Admin / Kepala Puskesmas / PJ)
+        if (isPrivileged && this.selectedStaff) {
           const sNorm = this.selectedStaff.toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
           const uNorm = (item.namaUser || item.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
           if (!uNorm.includes(sNorm) && !sNorm.includes(uNorm)) return false;
@@ -8163,19 +8229,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Tab filter
         if (this.activeTab === 'mine') {
-          const myNorm = (CURRENT_USER.nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
           const uNorm = (item.namaUser || item.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
-          if (!uNorm.includes(myNorm) && !myNorm.includes(uNorm)) return false;
+          if (!uNorm.includes(userNamaClean) && !userNamaClean.includes(uNorm)) return false;
         } else if (this.activeTab === 'collab') {
-          if (!item.keterangan || !item.keterangan.toLowerCase().includes('kolaborasi')) return false;
+          const hasCollabNote = item.keterangan && item.keterangan.toLowerCase().includes('kolaborasi');
+          const hasCollabArray = Array.isArray(item.rekan_kolaborasi) && item.rekan_kolaborasi.length > 0;
+          if (!hasCollabNote && !hasCollabArray) return false;
         }
 
         // Search keyword
         if (this.searchKeyword) {
-          const matchKeg = (item.namaKegiatan || '').toLowerCase().includes(this.searchKeyword);
+          const matchKeg = (item.namaKegiatan || item.nama_kegiatan || '').toLowerCase().includes(this.searchKeyword);
           const matchKet = (item.keterangan || '').toLowerCase().includes(this.searchKeyword);
           const matchUser = (item.namaUser || item.petugas_nama || '').toLowerCase().includes(this.searchKeyword);
-          if (!matchKeg && !matchKet && !matchUser) return false;
+          const matchLok = (item.lokasi || '').toLowerCase().includes(this.searchKeyword);
+          if (!matchKeg && !matchKet && !matchUser && !matchLok) return false;
         }
 
         return true;
@@ -8205,8 +8273,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (elUserLabel) elUserLabel.textContent = CURRENT_USER.nama;
 
-      const myCount = items.filter(i => i.namaUser === CURRENT_USER.nama).length;
-      const collabCount = items.filter(i => i.keterangan && i.keterangan.toLowerCase().includes('kolaborasi')).length;
+      const userNamaClean = (CURRENT_USER.nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+
+      const myCount = items.filter(i => {
+        const uNorm = (i.namaUser || i.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+        return uNorm === userNamaClean || uNorm.includes(userNamaClean) || userNamaClean.includes(uNorm);
+      }).length;
+
+      const collabCount = items.filter(i => {
+        const hasCollabNote = i.keterangan && i.keterangan.toLowerCase().includes('kolaborasi');
+        const hasCollabArray = Array.isArray(i.rekan_kolaborasi) && i.rekan_kolaborasi.length > 0;
+        return hasCollabNote || hasCollabArray;
+      }).length;
       
       const uniqueDays = new Set(items.map(i => i.tanggal)).size;
 
