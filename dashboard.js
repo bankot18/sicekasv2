@@ -340,32 +340,26 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     },
 
-    // 2. Jadwal Kegiatan
+    // 2. Jadwal Kegiatan (Cloudflare D1 Primary Source)
     async fetchJadwal(bulan, tahun) {
       try {
-        const url = `/api/jadwal?bulan=${bulan || ''}&tahun=${tahun || ''}`;
-        const res = await fetch(url);
+        const url = `/api/jadwal?bulan=${bulan || ''}&tahun=${tahun || ''}&_t=${Date.now()}`;
+        const res = await fetch(url, { cache: 'no-store' });
         if (res.ok) {
           const json = await res.json();
-          if (json.success && json.data) {
-            let local = JSON.parse(localStorage.getItem('SICEKAS_BOK_DATA_V2')) || [];
-            json.data.forEach(item => {
-              const idx = local.findIndex(i => i.id === item.id);
-              if (idx >= 0) local[idx] = item;
-              else local.push(item);
-            });
-            localStorage.setItem('SICEKAS_BOK_DATA_V2', JSON.stringify(local));
+          if (json.success && Array.isArray(json.data)) {
+            localStorage.setItem('SICEKAS_BOK_DATA_V2', JSON.stringify(json.data));
             return json.data;
           }
         }
       } catch (e) {
-        console.warn('Fallback to local Jadwal data', e);
+        console.warn('Network error fetching Jadwal from Cloudflare D1, using offline backup:', e);
       }
       return JSON.parse(localStorage.getItem('SICEKAS_BOK_DATA_V2')) || [];
     },
 
     async saveJadwal(item) {
-      // Direct cloud mutation
+      // Direct cloud mutation to Cloudflare D1
       try {
         const res = await fetch('/api/jadwal/save', {
           method: 'POST',
@@ -375,23 +369,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res.ok) {
           const json = await res.json();
           if (json.success) {
-            let local = JSON.parse(localStorage.getItem('SICEKAS_BOK_DATA_V2')) || [];
-            const idx = local.findIndex(i => i.id === item.id);
-            if (idx >= 0) local[idx] = item;
-            else local.push(item);
-            localStorage.setItem('SICEKAS_BOK_DATA_V2', JSON.stringify(local));
             return json;
           }
         }
       } catch (e) {
-        console.warn('Fallback saving Jadwal locally', e);
+        console.warn('Network error saving Jadwal to Cloudflare D1:', e);
       }
-      // Local fallback
-      let local = JSON.parse(localStorage.getItem('SICEKAS_BOK_DATA_V2')) || [];
-      const idx = local.findIndex(i => i.id === item.id);
-      if (idx >= 0) local[idx] = item;
-      else local.push(item);
-      localStorage.setItem('SICEKAS_BOK_DATA_V2', JSON.stringify(local));
       return { success: true, id: item.id };
     },
 
@@ -404,36 +387,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (res.ok) {
           const json = await res.json();
-          if (json.success) {
-            let local = JSON.parse(localStorage.getItem('SICEKAS_BOK_DATA_V2')) || [];
-            local = local.filter(i => i.id !== id);
-            localStorage.setItem('SICEKAS_BOK_DATA_V2', JSON.stringify(local));
-            return json;
-          }
+          return json;
         }
       } catch (e) {
-        console.warn('Fallback deleting Jadwal locally', e);
+        console.warn('Network error deleting Jadwal from Cloudflare D1:', e);
       }
-      let local = JSON.parse(localStorage.getItem('SICEKAS_BOK_DATA_V2')) || [];
-      local = local.filter(i => i.id !== id);
-      localStorage.setItem('SICEKAS_BOK_DATA_V2', JSON.stringify(local));
       return { success: true };
     },
 
-    // 2b. Kolaborasi Kegiatan
+    // 2b. Kolaborasi Kegiatan (Cloudflare D1 Primary Source)
     async fetchCollab(nip = '', nama = '', username = '') {
       try {
-        const url = `/api/collab?nip=${encodeURIComponent(nip || '')}&nama=${encodeURIComponent(nama || '')}&username=${encodeURIComponent(username || '')}`;
-        const res = await fetch(url);
+        const url = `/api/collab?all=1&_t=${Date.now()}`;
+        const res = await fetch(url, { cache: 'no-store' });
         if (res.ok) {
           const json = await res.json();
-          if (json.success && json.data) {
+          if (json.success && Array.isArray(json.data)) {
             localStorage.setItem('SICEKAS_BOK_COLLAB_V2', JSON.stringify(json.data));
             return json.data;
           }
         }
       } catch (e) {
-        console.warn('Fallback fetch Collab from local cache', e);
+        console.warn('Network error fetching Collab from Cloudflare D1, using offline backup:', e);
       }
       return JSON.parse(localStorage.getItem('SICEKAS_BOK_COLLAB_V2')) || [];
     },
@@ -450,9 +425,9 @@ document.addEventListener('DOMContentLoaded', () => {
           return json;
         }
       } catch (e) {
-        console.warn('Fallback saving Collab request locally', e);
+        console.warn('Network error sending Collab request to Cloudflare D1:', e);
       }
-      return { success: true, message: 'Request kolaborasi disimpan lokal.' };
+      return { success: true, message: 'Request kolaborasi dikirim.' };
     },
 
     async respondCollab(id, status, responderNip, responderNama) {
@@ -467,7 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return json;
         }
       } catch (e) {
-        console.warn('Fallback respond collab locally', e);
+        console.warn('Network error responding to Collab in Cloudflare D1:', e);
       }
       return { success: true };
     },
@@ -481,7 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (res.ok) return await res.json();
       } catch (e) {
-        console.warn('Fallback delete collab', e);
+        console.warn('Network error deleting Collab from Cloudflare D1:', e);
       }
       return { success: true };
     },
@@ -7613,37 +7588,6 @@ document.addEventListener('DOMContentLoaded', () => {
             createdAt: item.created_at || item.createdAt || ''
           };
         });
-        // Safety net: merge localStorage items yang belum ter-sync ke cloud
-        // Ini menangkap data yang tersimpan lokal saat cloud save gagal
-        try {
-          const localData = JSON.parse(localStorage.getItem(STORAGE_BOK_DATA)) || [];
-          localData.forEach(localItem => {
-            if (!localItem || !localItem.id) return;
-            const existsInCloud = normalized.some(c => c.id === localItem.id);
-            if (!existsInCloud) {
-              normalized.push({
-                id: localItem.id,
-                tanggal: localItem.tanggal || '',
-                bulan: localItem.bulan,
-                tahun: localItem.tahun,
-                noKegiatan: localItem.noKegiatan || localItem.no_kegiatan || 0,
-                namaKegiatan: localItem.namaKegiatan || localItem.nama_kegiatan || '',
-                keterangan: localItem.keterangan || '',
-                lokasi: localItem.lokasi || '',
-                username: localItem.username || '',
-                namaUser: localItem.namaUser || localItem.petugas_nama || '',
-                jabatan: localItem.jabatan || localItem.petugas_jabatan || '',
-                petugas_nip: localItem.petugas_nip || '',
-                rekan_kolaborasi: localItem.rekan_kolaborasi || [],
-                status: localItem.status || 'Disetujui',
-                createdAt: localItem.created_at || localItem.createdAt || ''
-              });
-            }
-          });
-        } catch (mergeErr) {
-          console.warn('[SICEKAS] localStorage merge skipped', mergeErr);
-        }
-
         this._cachedData = normalized;
         this._lastFetchKey = fetchKey;
         return normalized;
@@ -9280,38 +9224,8 @@ document.addEventListener('DOMContentLoaded', () => {
         recipients: recipients
       };
 
-      // 1. Send to Cloudflare D1
+      // 1. Send strictly to Cloudflare D1
       await CloudflareDB.sendCollabRequest(payload);
-
-      // 2. Also save to local storage cache for immediate offline responsiveness
-      const collabs = await this.getCollabData();
-      const tParts = (tanggal || '').split('-');
-      const cYear = parseInt(tParts[0], 10) || new Date().getFullYear();
-      const cMonth = parseInt(tParts[1], 10) || (new Date().getMonth() + 1);
-
-      recipients.forEach(r => {
-        collabs.unshift({
-          id: 'collab-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-          from_nip: CURRENT_USER.nip,
-          from_nama: CURRENT_USER.nama,
-          from_jabatan: CURRENT_USER.jabatan,
-          from_username: CURRENT_USER.username,
-          to_nip: r.nip,
-          to_nama: r.nama,
-          to_jabatan: r.jabatan,
-          to_username: r.username,
-          tanggal: tanggal,
-          bulan: cMonth,
-          tahun: cYear,
-          no_kegiatan: noKeg,
-          nama_kegiatan: namaKegiatan,
-          keterangan: catatan,
-          lokasi: 'Puskesmas / Wilayah Kerja',
-          status: 'pending',
-          created_at: new Date().toISOString()
-        });
-      });
-      this.saveCollabData(collabs);
 
       const modal = document.getElementById('modalRequestKolaborasi');
       if (modal) modal.classList.remove('active');
@@ -9321,6 +9235,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       this.invalidateCache();
+      await this.getCollabData();
       await this.render();
       await this.updateCollabBadges();
     },
@@ -9478,19 +9393,15 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     async terimaCollab(collabId) {
-      const collabs = await this.getCollabData();
-      const req = collabs.find(c => c.id === collabId);
-      if (!req) return;
-
-      req.status = 'accepted';
-      this.saveCollabData(collabs);
-
-      // Cloud mutation
+      // 1. Direct mutation to Cloudflare D1
       await CloudflareDB.respondCollab(collabId, 'accepted', CURRENT_USER.nip, CURRENT_USER.nama);
 
       if (window.showToast) {
         window.showToast(`✓ Kolaborasi diterima! Jadwal berhasil ditambahkan ke kalender Anda.`, 'success');
       }
+
+      this.invalidateCache();
+      await this.getCollabData();
 
       // Refresh modal
       const modal = document.getElementById('modalNotifikasiKolaborasi');
@@ -9498,25 +9409,20 @@ document.addEventListener('DOMContentLoaded', () => {
         await this.renderNotifList();
       }
 
-      this.invalidateCache();
       await this.render();
       await this.updateCollabBadges();
     },
 
     async tolakCollab(collabId) {
-      const collabs = await this.getCollabData();
-      const req = collabs.find(c => c.id === collabId);
-      if (!req) return;
-
-      req.status = 'rejected';
-      this.saveCollabData(collabs);
-
-      // Cloud mutation
+      // 1. Direct mutation to Cloudflare D1
       await CloudflareDB.respondCollab(collabId, 'rejected', CURRENT_USER.nip, CURRENT_USER.nama);
 
       if (window.showToast) {
         window.showToast('Permintaan kolaborasi telah ditolak.', 'info');
       }
+
+      this.invalidateCache();
+      await this.getCollabData();
 
       const modal = document.getElementById('modalNotifikasiKolaborasi');
       if (modal && modal.classList.contains('active')) {
@@ -9528,15 +9434,15 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     async batalCollab(collabId) {
-      const collabs = await this.getCollabData();
-      const filtered = collabs.filter(c => c.id !== collabId);
-      this.saveCollabData(filtered);
-
+      // 1. Direct deletion from Cloudflare D1
       await CloudflareDB.deleteCollab(collabId);
 
       if (window.showToast) {
         window.showToast('Permintaan kolaborasi berhasil dibatalkan.', 'info');
       }
+
+      this.invalidateCache();
+      await this.getCollabData();
 
       const modal = document.getElementById('modalNotifikasiKolaborasi');
       if (modal && modal.classList.contains('active')) {

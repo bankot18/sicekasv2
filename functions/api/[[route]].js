@@ -542,9 +542,10 @@ async function handleApiRequest(request, env, ctx) {
     // 4b. KOLABORASI KEGIATAN (/api/collab, /api/collab/request, /api/collab/respond, /api/collab/delete)
     // ------------------------------------------------------------------------
     if (pathname === '/api/collab' && method === 'GET') {
-      const nip = url.searchParams.get('nip') || '';
-      const nama = url.searchParams.get('nama') || '';
-      const username = url.searchParams.get('username') || '';
+      const nip = (url.searchParams.get('nip') || '').trim();
+      const nama = (url.searchParams.get('nama') || '').trim();
+      const username = (url.searchParams.get('username') || '').trim();
+      const allFlag = url.searchParams.get('all');
 
       // Auto-migration: Ensure table exists
       try {
@@ -576,9 +577,23 @@ async function handleApiRequest(request, env, ctx) {
       let query = 'SELECT * FROM kolaborasi_request WHERE 1=1';
       const params = [];
 
-      if (nip || nama || username) {
-        query += ' AND (to_nip = ? OR to_nama = ? OR to_username = ? OR from_nip = ? OR from_nama = ? OR from_username = ?)';
-        params.push(nip, nama, username, nip, nama, username);
+      if (!allFlag && (nip || nama || username)) {
+        const conditions = [];
+        if (nip) {
+          conditions.push('to_nip = ? OR from_nip = ?');
+          params.push(nip, nip);
+        }
+        if (username) {
+          conditions.push('to_username = ? OR from_username = ?');
+          params.push(username, username);
+        }
+        if (nama) {
+          conditions.push('to_nama LIKE ? OR from_nama LIKE ?');
+          params.push(`%${nama}%`, `%${nama}%`);
+        }
+        if (conditions.length > 0) {
+          query += ' AND (' + conditions.join(' OR ') + ')';
+        }
       }
 
       query += ' ORDER BY created_at DESC';
@@ -710,12 +725,12 @@ async function handleApiRequest(request, env, ctx) {
         .bind(status, id).run();
 
       if (status === 'accepted') {
-        // Auto-create accepted schedule for the responding officer in jadwal_kegiatan
-        const acceptedScheduleId = `bok-collab-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
         const tParts = (reqRow.tanggal || '').split('-');
         const tahunVal = parseInt(tParts[0], 10) || reqRow.tahun;
         const bulanVal = parseInt(tParts[1], 10) || reqRow.bulan;
 
+        // 1. Auto-create accepted schedule for the RESPONDING officer (Penerima) in jadwal_kegiatan
+        const acceptedScheduleId = `bok-collab-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
         await db.prepare(`
           INSERT INTO jadwal_kegiatan (
             id, tanggal, bulan, tahun, nama_kegiatan, keterangan, lokasi,
@@ -727,13 +742,52 @@ async function handleApiRequest(request, env, ctx) {
           bulanVal,
           tahunVal,
           reqRow.nama_kegiatan,
-          `[Kolaborasi dari: ${reqRow.from_nama}] ${reqRow.keterangan || ''}`.trim(),
+          `[Kolaborasi dengan: ${reqRow.from_nama}] ${reqRow.keterangan || ''}`.trim(),
           reqRow.lokasi || 'Puskesmas / Wilayah Kerja',
           reqRow.to_nip || responder_nip || '',
           reqRow.to_nama || responder_nama || '',
           reqRow.to_jabatan || '',
           JSON.stringify([{ nama: reqRow.from_nama, jabatan: reqRow.from_jabatan }])
         ).run();
+
+        // 2. Auto-create or ensure schedule for the INITIATING officer (Pengirim) in jadwal_kegiatan
+        const senderScheduleCheck = await db.prepare(`
+          SELECT id, rekan_kolaborasi FROM jadwal_kegiatan
+          WHERE tanggal = ? AND (petugas_nama = ? OR (petugas_nip != '' AND petugas_nip = ?)) AND nama_kegiatan = ?
+        `).bind(reqRow.tanggal, reqRow.from_nama, reqRow.from_nip || '', reqRow.nama_kegiatan).first();
+
+        if (senderScheduleCheck) {
+          let currentPartners = [];
+          try {
+            currentPartners = JSON.parse(senderScheduleCheck.rekan_kolaborasi || '[]');
+          } catch(e) {}
+          if (!currentPartners.some(p => p.nama === reqRow.to_nama)) {
+            currentPartners.push({ nama: reqRow.to_nama, jabatan: reqRow.to_jabatan });
+            await db.prepare(`
+              UPDATE jadwal_kegiatan SET rekan_kolaborasi = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+            `).bind(JSON.stringify(currentPartners), senderScheduleCheck.id).run();
+          }
+        } else {
+          const senderScheduleId = `bok-${reqRow.tanggal}-${Date.now()}`;
+          await db.prepare(`
+            INSERT INTO jadwal_kegiatan (
+              id, tanggal, bulan, tahun, nama_kegiatan, keterangan, lokasi,
+              petugas_nip, petugas_nama, petugas_jabatan, rekan_kolaborasi, status, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Disetujui', CURRENT_TIMESTAMP)
+          `).bind(
+            senderScheduleId,
+            reqRow.tanggal,
+            bulanVal,
+            tahunVal,
+            reqRow.nama_kegiatan,
+            `[Kolaborasi dengan: ${reqRow.to_nama}] ${reqRow.keterangan || ''}`.trim(),
+            reqRow.lokasi || 'Puskesmas / Wilayah Kerja',
+            reqRow.from_nip || '',
+            reqRow.from_nama,
+            reqRow.from_jabatan || '',
+            JSON.stringify([{ nama: reqRow.to_nama, jabatan: reqRow.to_jabatan }])
+          ).run();
+        }
       }
 
       return jsonResponse({
