@@ -7482,6 +7482,7 @@ document.addEventListener('DOMContentLoaded', () => {
     berandaYear: new Date().getFullYear(),
     berandaFilterTab: 'all', // 'all' | 'sendiri' | 'collab'
     berandaSearchKeyword: '',
+    berandaViewMode: 'calendar', // 'calendar' | 'table'
     selectedStaff: '',
     searchKeyword: '',
     activeTab: 'all', // 'all' | 'mine' | 'collab'
@@ -7906,6 +7907,30 @@ document.addEventListener('DOMContentLoaded', () => {
           });
         }
       });
+
+      // Beranda View Mode Switcher (Kalender / Tabel)
+      const btnBerandaViewCal = document.getElementById('btnBerandaViewCal');
+      const btnBerandaViewTable = document.getElementById('btnBerandaViewTable');
+      const berandaCalWrapper = document.getElementById('berandaCalWrapper');
+      const berandaTableContainer = document.getElementById('berandaTableContainer');
+
+      if (btnBerandaViewCal && btnBerandaViewTable) {
+        btnBerandaViewCal.addEventListener('click', () => {
+          btnBerandaViewCal.classList.add('active');
+          btnBerandaViewTable.classList.remove('active');
+          this.berandaViewMode = 'calendar';
+          if (berandaCalWrapper) berandaCalWrapper.style.display = 'block';
+          if (berandaTableContainer) berandaTableContainer.style.display = 'none';
+        });
+
+        btnBerandaViewTable.addEventListener('click', () => {
+          btnBerandaViewTable.classList.add('active');
+          btnBerandaViewCal.classList.remove('active');
+          this.berandaViewMode = 'table';
+          if (berandaCalWrapper) berandaCalWrapper.style.display = 'none';
+          if (berandaTableContainer) berandaTableContainer.style.display = 'block';
+        });
+      }
 
       // Modal Close Handlers
       const modalTambah = document.getElementById('modalTambahJadwalBOK');
@@ -8530,103 +8555,286 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      let tableHtml = `
-        <table class="beranda-schedule-table">
-          <thead>
-            <tr>
-              <th style="width: 40px;" class="center">No</th>
-              <th style="width: 140px;">Tanggal</th>
-              <th>Nama Pegawai (Klik untuk Detail)</th>
-              <th>Jabatan</th>
-              <th>Kegiatan BOK</th>
-              <th style="width: 140px;">Tipe Kegiatan</th>
-              <th style="width: 175px; text-align: right;">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-      `;
+      // 1. Render Calendar Grid View into #berandaCalGrid
+      const calGrid = document.getElementById('berandaCalGrid');
+      if (calGrid) {
+        const daysInMonth = new Date(this.berandaYear, this.berandaMonth, 0).getDate();
+        const daysInPrevMonth = new Date(this.berandaYear, this.berandaMonth - 1, 0).getDate();
+        const firstDayIndex = new Date(this.berandaYear, this.berandaMonth - 1, 1).getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+        const startOffset = (firstDayIndex + 6) % 7; // Convert to Mon=0, ..., Sun=6
+        const todayStr = new Date().toISOString().split('T')[0];
 
-      displayedEntries.forEach((entry, idx) => {
-        const initials = entry.nama.split(' ').map(w => w[0]).filter(c => /[A-Za-z]/.test(c)).slice(0, 2).join('').toUpperCase() || 'PG';
-        const typeClass = entry.isCollab ? 'collab' : 'sendiri';
-        const rowClass = entry.isCollab ? 'row-collab' : 'row-sendiri';
+        // Map events by date
+        const eventMap = {};
+        monthActivities.forEach(ev => {
+          if (!ev || !ev.tanggal) return;
+          if (!eventMap[ev.tanggal]) eventMap[ev.tanggal] = [];
+          eventMap[ev.tanggal].push(ev);
+        });
 
-        // Format Date Badge
-        let dateBadgeHtml = '';
-        if (entry.tanggal) {
-          const parts = entry.tanggal.split('-');
-          const d = parts[2] ? parseInt(parts[2], 10) : '';
-          const m = parts[1] ? (monthNames[parseInt(parts[1], 10)] || '').slice(0, 3) : '';
-          const y = parts[0] || '';
+        let calHtml = '';
+
+        // 1.1 Leading cells from previous month
+        for (let i = 0; i < startOffset; i++) {
+          const prevDayNum = daysInPrevMonth - startOffset + 1 + i;
+          const prevMonthNum = this.berandaMonth === 1 ? 12 : this.berandaMonth - 1;
+          const prevYearNum = this.berandaMonth === 1 ? this.berandaYear - 1 : this.berandaYear;
+          const prevDateStr = `${prevYearNum}-${String(prevMonthNum).padStart(2, '0')}-${String(prevDayNum).padStart(2, '0')}`;
           
-          let holidayMiniBadge = '';
-          if (entry.holidayInfo) {
-            if (entry.holidayInfo.type === 'national') {
-              holidayMiniBadge = `<span class="beranda-holiday-tag-mini national" title="${entry.holidayInfo.name}">🔴 Libur</span>`;
-            } else if (entry.holidayInfo.type === 'cuti') {
-              holidayMiniBadge = `<span class="beranda-holiday-tag-mini cuti" title="${entry.holidayInfo.name}">🟠 Cuti</span>`;
-            }
-          }
-
-          dateBadgeHtml = `
-            <div class="beranda-tgl-badge">
-              <span class="beranda-tgl-num">${d} ${m} ${y}</span>
-              <span class="beranda-tgl-day">${entry.dayName ? entry.dayName + ',' : ''} ${entry.tanggal}</span>
-              ${holidayMiniBadge}
+          calHtml += `
+            <div class="beranda-cal-cell is-other-month" onclick="window.JadwalBOKController.bukaModalTambah('${prevDateStr}')" title="Tambah Jadwal ${prevDayNum}/${prevMonthNum}">
+              <div class="beranda-cal-cell-top">
+                <span class="beranda-cal-date-num">${prevDayNum}</span>
+              </div>
+              <div class="beranda-cal-staff-wrap"></div>
             </div>
           `;
-        } else {
-          dateBadgeHtml = `<span style="color: #64748b;">-</span>`;
         }
 
-        tableHtml += `
-          <tr class="${rowClass}">
-            <td class="center" style="font-weight: 700; color: #64748b;">${idx + 1}</td>
-            <td>
-              ${dateBadgeHtml}
-            </td>
-            <td>
-              <a href="javascript:void(0)" class="staff-name-clickable" onclick="window.JadwalBOKController.bukaModalDetail('${entry.id}')" title="Klik untuk melihat rincian kegiatan lengkap">
-                <div class="staff-avatar-mini ${typeClass}">${initials}</div>
-                <div class="staff-name-text">
-                  <span class="name">${entry.nama} ${entry.isMine ? '<span style="color: #ffd166; font-size: 11px;">(Anda)</span>' : ''}</span>
-                  <span class="hint">👆 Klik untuk detail</span>
-                </div>
-              </a>
-            </td>
-            <td style="color: #cbd5e1; font-weight: 600;">
-              ${entry.jabatan}
-            </td>
-            <td>
-              <div style="font-weight: 700; color: #ffffff;">No.${entry.noKegiatan} ${entry.namaKegiatan}</div>
-              ${entry.keterangan ? `<div style="font-size: 11px; color: #94a3b8; margin-top: 2px; font-style: italic;">• ${entry.keterangan}</div>` : ''}
-            </td>
-            <td>
-              ${entry.isCollab 
-                ? `<span class="kegiatan-badge-collab" title="Kegiatan Bersama / Kolaborasi Tim">👥 Kolaborasi</span>` 
-                : `<span class="kegiatan-badge-sendiri" title="Kegiatan Mandiri / Sendiri">🟢 Kegiatan Sendiri</span>`
-              }
-            </td>
-            <td>
-              <div class="table-actions-cell">
-                <button type="button" class="btn-table-act" title="Lihat Rincian Detail" onclick="window.JadwalBOKController.bukaModalDetail('${entry.id}')">
-                  👁 Detail
-                </button>
-                <button type="button" class="btn-table-act btn-sppd" title="Buat SPPD dari Jadwal Ini" onclick="window.JadwalBOKController.buatSppdDariJadwal('${entry.id}')">
-                  📄 Buat SPPD
-                </button>
+        // 1.2 Days of current month
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dateStr = `${this.berandaYear}-${String(this.berandaMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+          const isToday = dateStr === todayStr;
+          const dateObj = new Date(this.berandaYear, this.berandaMonth - 1, d);
+          const isSunday = dateObj.getDay() === 0;
+
+          // Indonesian Holiday Info
+          const holidayInfo = (typeof INDONESIAN_HOLIDAYS !== 'undefined') ? INDONESIAN_HOLIDAYS[dateStr] : null;
+          const isNationalHoliday = (holidayInfo && holidayInfo.type === 'national');
+          const isCutiBersama = (holidayInfo && holidayInfo.type === 'cuti');
+
+          // Filter day events according to active tab and search
+          let dayEvents = eventMap[dateStr] || [];
+          if (this.berandaFilterTab === 'sendiri') {
+            dayEvents = dayEvents.filter(ev => {
+              const isCollab = (ev.keterangan && ev.keterangan.toLowerCase().includes('kolaborasi')) ||
+                               (Array.isArray(ev.rekan_kolaborasi) && ev.rekan_kolaborasi.length > 0) ||
+                               (ev.namaKegiatan && ev.namaKegiatan.toLowerCase().includes('kolaborasi'));
+              return !isCollab;
+            });
+          } else if (this.berandaFilterTab === 'collab') {
+            dayEvents = dayEvents.filter(ev => {
+              const isCollab = (ev.keterangan && ev.keterangan.toLowerCase().includes('kolaborasi')) ||
+                               (Array.isArray(ev.rekan_kolaborasi) && ev.rekan_kolaborasi.length > 0) ||
+                               (ev.namaKegiatan && ev.namaKegiatan.toLowerCase().includes('kolaborasi'));
+              return isCollab;
+            });
+          }
+
+          if (this.berandaSearchKeyword) {
+            const q = this.berandaSearchKeyword;
+            dayEvents = dayEvents.filter(ev => 
+              (ev.namaUser && ev.namaUser.toLowerCase().includes(q)) ||
+              (ev.petugas_nama && ev.petugas_nama.toLowerCase().includes(q)) ||
+              (ev.jabatan && ev.jabatan.toLowerCase().includes(q)) ||
+              (ev.namaKegiatan && ev.namaKegiatan.toLowerCase().includes(q)) ||
+              (ev.keterangan && ev.keterangan.toLowerCase().includes(q))
+            );
+          }
+
+          let cellClasses = ['beranda-cal-cell'];
+          if (isToday) cellClasses.push('is-today');
+          if (isSunday) cellClasses.push('is-sunday');
+          if (isNationalHoliday) cellClasses.push('is-holiday');
+          if (isCutiBersama) cellClasses.push('is-cuti');
+
+          let holidayTagHtml = '';
+          if (isToday) {
+            holidayTagHtml = '<span class="beranda-cal-today-badge">Hari Ini</span>';
+          } else if (isNationalHoliday) {
+            holidayTagHtml = `<span class="beranda-cal-holiday-tag national" title="${holidayInfo.name}">🔴 ${holidayInfo.name}</span>`;
+          } else if (isCutiBersama) {
+            holidayTagHtml = `<span class="beranda-cal-holiday-tag cuti" title="${holidayInfo.name}">🟠 ${holidayInfo.name}</span>`;
+          }
+
+          calHtml += `
+            <div class="${cellClasses.join(' ')}" onclick="window.JadwalBOKController.bukaModalTambah('${dateStr}')" title="Klik tanggal untuk tambah kegiatan baru">
+              <div class="beranda-cal-cell-top">
+                <span class="beranda-cal-date-num">${d}</span>
+                ${holidayTagHtml}
               </div>
-            </td>
-          </tr>
+
+              <div class="beranda-cal-staff-wrap">
+          `;
+
+          dayEvents.forEach(ev => {
+            const staffName = ev.namaUser || ev.petugas_nama || 'Pegawai';
+            const isCollab = (ev.keterangan && ev.keterangan.toLowerCase().includes('kolaborasi')) ||
+                             (Array.isArray(ev.rekan_kolaborasi) && ev.rekan_kolaborasi.length > 0) ||
+                             (ev.namaKegiatan && ev.namaKegiatan.toLowerCase().includes('kolaborasi'));
+            
+            const pillType = isCollab ? 'collab' : 'sendiri';
+            const typeIcon = isCollab ? '👥' : '🟢';
+            const initials = staffName.split(' ').map(w => w[0]).filter(c => /[A-Za-z]/.test(c)).slice(0, 2).join('').toUpperCase() || 'PG';
+            const noPrefix = (ev.noKegiatan && ev.noKegiatan > 0) ? `No.${ev.noKegiatan} ` : '';
+
+            calHtml += `
+              <div class="beranda-staff-pill ${pillType}" title="${typeIcon} ${staffName} (${ev.jabatan || 'Pegawai'})&#10;Kegiatan: ${noPrefix}${ev.namaKegiatan}&#10;• Klik nama untuk melihat detail kegiatan" onclick="event.stopPropagation(); window.JadwalBOKController.bukaModalDetail('${ev.id}')">
+                <span class="beranda-staff-avatar-dot">${initials}</span>
+                <span class="beranda-staff-name-text">${staffName}</span>
+              </div>
+            `;
+          });
+
+          calHtml += `
+              </div>
+            </div>
+          `;
+        }
+
+        // 1.3 Trailing cells for next month
+        const totalCells = startOffset + daysInMonth;
+        const remaining = (totalCells % 7 === 0) ? 0 : (7 - (totalCells % 7));
+        for (let i = 1; i <= remaining; i++) {
+          const nextMonthNum = this.berandaMonth === 12 ? 1 : this.berandaMonth + 1;
+          const nextYearNum = this.berandaMonth === 12 ? this.berandaYear + 1 : this.berandaYear;
+          const nextDateStr = `${nextYearNum}-${String(nextMonthNum).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+
+          calHtml += `
+            <div class="beranda-cal-cell is-other-month" onclick="window.JadwalBOKController.bukaModalTambah('${nextDateStr}')" title="Tambah Jadwal ${i}/${nextMonthNum}">
+              <div class="beranda-cal-cell-top">
+                <span class="beranda-cal-date-num">${i}</span>
+              </div>
+              <div class="beranda-cal-staff-wrap"></div>
+            </div>
+          `;
+        }
+
+        calGrid.innerHTML = calHtml;
+      }
+
+      // 2. Render Table View into #berandaTableContainer
+      if (displayedEntries.length === 0) {
+        const selMonthName = monthNames[this.berandaMonth] || 'Bulan Ini';
+        container.innerHTML = `
+          <div style="text-align: center; padding: 45px 20px; color: #94a3b8;">
+            <div style="font-size: 40px; margin-bottom: 12px; opacity: 0.6;">📅</div>
+            <h4 style="color: #ffffff; font-size: 16px; font-weight: 700; margin-bottom: 6px;">
+              Tidak Ada Jadwal Kegiatan di Bulan ${selMonthName} ${this.berandaYear}
+            </h4>
+            <p style="font-size: 13px; margin: 0 0 18px 0; color: #94a3b8; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.5;">
+              ${this.berandaSearchKeyword 
+                ? `Tidak ditemukan kegiatan dengan kata kunci "${this.berandaSearchKeyword}".`
+                : (this.berandaFilterTab === 'all' 
+                  ? `Belum ada pegawai yang memiliki jadwal kegiatan BOK pada bulan ${selMonthName} ${this.berandaYear}.` 
+                  : `Tidak ada kegiatan bertipe ${this.berandaFilterTab === 'sendiri' ? 'Mandiri/Sendiri' : 'Kolaborasi'} pada bulan ${selMonthName} ${this.berandaYear}.`)}
+            </p>
+            <button type="button" class="btn-hero-action btn-gold-pulse" style="display: inline-flex; margin: 0 auto; padding: 9px 18px;" onclick="window.JadwalBOKController.bukaModalTambah('${this.berandaYear}-${String(this.berandaMonth).padStart(2, '0')}-01')">
+              <span>+ Tambah Jadwal Bulan Ini</span>
+            </button>
+          </div>
         `;
-      });
+      } else {
+        let tableHtml = `
+          <table class="beranda-schedule-table">
+            <thead>
+              <tr>
+                <th style="width: 40px;" class="center">No</th>
+                <th style="width: 140px;">Tanggal</th>
+                <th>Nama Pegawai (Klik untuk Detail)</th>
+                <th>Jabatan</th>
+                <th>Kegiatan BOK</th>
+                <th style="width: 140px;">Tipe Kegiatan</th>
+                <th style="width: 175px; text-align: right;">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
 
-      tableHtml += `
-          </tbody>
-        </table>
-      `;
+        displayedEntries.forEach((entry, idx) => {
+          const initials = entry.nama.split(' ').map(w => w[0]).filter(c => /[A-Za-z]/.test(c)).slice(0, 2).join('').toUpperCase() || 'PG';
+          const typeClass = entry.isCollab ? 'collab' : 'sendiri';
+          const rowClass = entry.isCollab ? 'row-collab' : 'row-sendiri';
 
-      container.innerHTML = tableHtml;
+          // Format Date Badge
+          let dateBadgeHtml = '';
+          if (entry.tanggal) {
+            const parts = entry.tanggal.split('-');
+            const d = parts[2] ? parseInt(parts[2], 10) : '';
+            const m = parts[1] ? (monthNames[parseInt(parts[1], 10)] || '').slice(0, 3) : '';
+            const y = parts[0] || '';
+            
+            let holidayMiniBadge = '';
+            if (entry.holidayInfo) {
+              if (entry.holidayInfo.type === 'national') {
+                holidayMiniBadge = `<span class="beranda-holiday-tag-mini national" title="${entry.holidayInfo.name}">🔴 Libur</span>`;
+              } else if (entry.holidayInfo.type === 'cuti') {
+                holidayMiniBadge = `<span class="beranda-holiday-tag-mini cuti" title="${entry.holidayInfo.name}">🟠 Cuti</span>`;
+              }
+            }
+
+            dateBadgeHtml = `
+              <div class="beranda-tgl-badge">
+                <span class="beranda-tgl-num">${d} ${m} ${y}</span>
+                <span class="beranda-tgl-day">${entry.dayName ? entry.dayName + ',' : ''} ${entry.tanggal}</span>
+                ${holidayMiniBadge}
+              </div>
+            `;
+          } else {
+            dateBadgeHtml = `<span style="color: #64748b;">-</span>`;
+          }
+
+          tableHtml += `
+            <tr class="${rowClass}">
+              <td class="center" style="font-weight: 700; color: #64748b;">${idx + 1}</td>
+              <td>
+                ${dateBadgeHtml}
+              </td>
+              <td>
+                <a href="javascript:void(0)" class="staff-name-clickable" onclick="window.JadwalBOKController.bukaModalDetail('${entry.id}')" title="Klik untuk melihat rincian kegiatan lengkap">
+                  <div class="staff-avatar-mini ${typeClass}">${initials}</div>
+                  <div class="staff-name-text">
+                    <span class="name">${entry.nama} ${entry.isMine ? '<span style="color: #ffd166; font-size: 11px;">(Anda)</span>' : ''}</span>
+                    <span class="hint">👆 Klik untuk detail</span>
+                  </div>
+                </a>
+              </td>
+              <td style="color: #cbd5e1; font-weight: 600;">
+                ${entry.jabatan}
+              </td>
+              <td>
+                <div style="font-weight: 700; color: #ffffff;">No.${entry.noKegiatan} ${entry.namaKegiatan}</div>
+                ${entry.keterangan ? `<div style="font-size: 11px; color: #94a3b8; margin-top: 2px; font-style: italic;">• ${entry.keterangan}</div>` : ''}
+              </td>
+              <td>
+                ${entry.isCollab 
+                  ? `<span class="kegiatan-badge-collab" title="Kegiatan Bersama / Kolaborasi Tim">👥 Kolaborasi</span>` 
+                  : `<span class="kegiatan-badge-sendiri" title="Kegiatan Mandiri / Sendiri">🟢 Kegiatan Sendiri</span>`
+                }
+              </td>
+              <td>
+                <div class="table-actions-cell">
+                  <button type="button" class="btn-table-act" title="Lihat Rincian Detail" onclick="window.JadwalBOKController.bukaModalDetail('${entry.id}')">
+                    👁 Detail
+                  </button>
+                  <button type="button" class="btn-table-act btn-sppd" title="Buat SPPD dari Jadwal Ini" onclick="window.JadwalBOKController.buatSppdDariJadwal('${entry.id}')">
+                    📄 Buat SPPD
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+
+        tableHtml += `
+            </tbody>
+          </table>
+        `;
+
+        container.innerHTML = tableHtml;
+      }
+
+      // 3. Set Active View Visibility
+      const calWrapper = document.getElementById('berandaCalWrapper');
+      if (calWrapper && container) {
+        if (this.berandaViewMode === 'calendar') {
+          calWrapper.style.display = 'block';
+          container.style.display = 'none';
+        } else {
+          calWrapper.style.display = 'none';
+          container.style.display = 'block';
+        }
+      }
     },
 
     bukaModalTambah(defaultDate = null) {
