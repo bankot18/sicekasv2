@@ -35,7 +35,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- SweetAlert2 CDN for Luxury Notifications & Interactive Modals -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <link rel="stylesheet" href="dashboard.css?v=74">
+  <link rel="stylesheet" href="dashboard.css?v=75">
 </head>
 <body>
   <!-- Ambient Atmospheric Light Glows -->
@@ -275,6 +275,22 @@
                   <circle cx="12" cy="12" r="3"></circle>
                 </svg>
                 <span>Pengaturan Sistem</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" class="popover-item" id="btnToggleTheme" onclick="window.toggleSicekasTheme && window.toggleSicekasTheme(); return false;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="5"></circle>
+                  <line x1="12" y1="1" x2="12" y2="3"></line>
+                  <line x1="12" y1="21" x2="12" y2="23"></line>
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                  <line x1="1" y1="12" x2="3" y2="12"></line>
+                  <line x1="21" y1="12" x2="23" y2="12"></line>
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <span id="themeToggleLabel">Mode Terang</span>
               </a>
             </li>
             <div class="popover-divider"></div>
@@ -4406,6 +4422,6 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=78"></script>
+  <script src="dashboard.js?v=79"></script>
 </body>
 </html>

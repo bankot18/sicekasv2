@@ -1,3 +1,23 @@
+// Theme Toggle (Light/Dark)
+(function() {
+  const saved = localStorage.getItem('SICEKAS_THEME');
+  if (saved === 'light') document.body.classList.add('theme-light');
+})();
+
+window.toggleSicekasTheme = function() {
+  const isLight = document.body.classList.toggle('theme-light');
+  localStorage.setItem('SICEKAS_THEME', isLight ? 'light' : 'dark');
+  const label = document.getElementById('themeToggleLabel');
+  if (label) label.textContent = isLight ? 'Mode Gelap' : 'Mode Terang';
+  if (window.showToast) window.showToast(isLight ? '☀️ Mode Terang diaktifkan' : '🌙 Mode Gelap diaktifkan', 'info');
+};
+
+// Update label on load
+document.addEventListener('DOMContentLoaded', () => {
+  const label = document.getElementById('themeToggleLabel');
+  if (label) label.textContent = document.body.classList.contains('theme-light') ? 'Mode Gelap' : 'Mode Terang';
+});
+
 document.addEventListener('DOMContentLoaded', () => {
   // Elements
   const sidebar = document.getElementById('sidebar');
