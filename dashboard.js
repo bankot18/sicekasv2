@@ -9703,6 +9703,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const collabs = await this.getCollabData();
 
+      // Clean string helper for name comparisons
+      const cleanName = (n) => (n || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+
       // Build List of Partners with Statuses
       const partnerStatusMap = new Map();
 
@@ -9716,38 +9719,28 @@ document.addEventListener('DOMContentLoaded', () => {
         statusLabel: '👑 Pengirim (Inisiator)'
       });
 
-      // 2. Rekan dari field rekan_kolaborasi
-      if (Array.isArray(item.rekan_kolaborasi)) {
-        item.rekan_kolaborasi.forEach(r => {
-          const rNama = typeof r === 'string' ? r : (r.nama || '');
-          const rJab = typeof r === 'object' ? (r.jabatan || 'Petugas') : 'Petugas';
-          if (rNama && !partnerStatusMap.has(rNama)) {
-            partnerStatusMap.set(rNama, {
-              nama: rNama,
-              jabatan: rJab,
-              status: 'pending',
-              statusLabel: '⏳ Belum Disetujui'
-            });
-          }
-        });
-      }
+      // 2. Scan matching collab requests in Cloudflare D1 (Single Source of Truth)
+      const itemNoKeg = parseInt(item.noKegiatan || 0, 10);
+      const itemNamaKeg = (item.namaKegiatan || '').trim().toLowerCase();
 
-      // 3. Scan matching collab requests in Cloudflare D1
       const matchingReqs = (collabs || []).filter(c => {
         const cDate = c.tanggal || '';
-        const cNo = c.no_kegiatan || c.noKegiatan;
-        const cName = c.nama_kegiatan || c.namaKegiatan;
-        const isDateMatch = cDate === item.tanggal;
-        const isKegMatch = (cNo && cNo === item.noKegiatan) || (cName && item.namaKegiatan && cName.trim().toLowerCase() === item.namaKegiatan.trim().toLowerCase());
-        return isDateMatch && isKegMatch;
+        if (cDate !== item.tanggal) return false;
+
+        const cNo = parseInt(c.no_kegiatan || c.noKegiatan || 0, 10);
+        const cName = (c.nama_kegiatan || c.namaKegiatan || '').trim().toLowerCase();
+
+        if (itemNoKeg > 0 && cNo > 0 && itemNoKeg === cNo) return true;
+        if (itemNamaKeg && cName && (itemNamaKeg === cName || itemNamaKeg.includes(cName) || cName.includes(itemNamaKeg))) return true;
+        return false;
       });
 
       matchingReqs.forEach(req => {
         const toNama = req.to_nama || req.toNama;
         const toJab = req.to_jabatan || req.toJabatan || 'Petugas';
-        const reqStatus = req.status || 'pending';
+        const reqStatus = (req.status || 'pending').toLowerCase();
 
-        if (toNama) {
+        if (toNama && cleanName(toNama) !== cleanName(initiatorName)) {
           let label = '⏳ Belum Disetujui';
           if (reqStatus === 'accepted') label = '✅ Disetujui';
           else if (reqStatus === 'rejected') label = '❌ Ditolak';
@@ -9761,26 +9754,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
-      // 4. Also check if any partner already has an accepted schedule in jadwal_kegiatan
-      const sameDayActivities = data.filter(d => d.tanggal === item.tanggal && d.noKegiatan === item.noKegiatan);
-      sameDayActivities.forEach(sda => {
-        const sdaNama = sda.namaUser || sda.petugas_nama;
-        const sdaJab = sda.jabatan || sda.petugas_jabatan || 'Pegawai';
-        if (sdaNama && partnerStatusMap.has(sdaNama)) {
-          const existing = partnerStatusMap.get(sdaNama);
-          if (existing && existing.status !== 'initiator') {
-            existing.status = 'accepted';
-            existing.statusLabel = '✅ Disetujui';
+      // 3. Fallback for partners in item.rekan_kolaborasi if not in matchingReqs
+      if (Array.isArray(item.rekan_kolaborasi)) {
+        item.rekan_kolaborasi.forEach(r => {
+          const rNama = typeof r === 'string' ? r : (r.nama || '');
+          const rJab = typeof r === 'object' ? (r.jabatan || 'Petugas') : 'Petugas';
+          if (!rNama || cleanName(rNama) === cleanName(initiatorName)) return;
+
+          let foundKey = null;
+          for (const key of partnerStatusMap.keys()) {
+            if (cleanName(key) === cleanName(rNama) || key.includes(rNama) || rNama.includes(key)) {
+              foundKey = key;
+              break;
+            }
           }
-        } else if (sdaNama && !partnerStatusMap.has(sdaNama)) {
-          partnerStatusMap.set(sdaNama, {
-            nama: sdaNama,
-            jabatan: sdaJab,
-            status: 'accepted',
-            statusLabel: '✅ Disetujui'
-          });
-        }
-      });
+
+          if (!foundKey) {
+            partnerStatusMap.set(rNama, {
+              nama: rNama,
+              jabatan: rJab,
+              status: 'pending',
+              statusLabel: '⏳ Belum Disetujui'
+            });
+          }
+        });
+      }
 
       // Generate HTML for partner status list
       let partnersListHtml = '';
