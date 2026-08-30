@@ -805,6 +805,59 @@ async function handleApiRequest(request, env, ctx) {
       return jsonResponse({ success: true, message: 'Request kolaborasi berhasil dihapus.' });
     }
 
+    // Cleanup: Deduplicate collab requests - keep only the newest per (from_nama, to_nama, tanggal, no_kegiatan) and reset to pending
+    if (pathname === '/api/collab/cleanup' && method === 'POST') {
+      // 1. Get all collab requests
+      const { results: allReqs } = await db.prepare('SELECT * FROM kolaborasi_request ORDER BY created_at DESC').all();
+
+      // 2. Group by unique key
+      const seen = new Map();
+      const toDelete = [];
+
+      for (const req of (allReqs || [])) {
+        const key = `${req.from_nama}|${req.to_nama}|${req.tanggal}|${req.no_kegiatan}`;
+        if (seen.has(key)) {
+          toDelete.push(req.id);
+        } else {
+          seen.set(key, req.id);
+        }
+      }
+
+      // 3. Delete duplicates
+      for (const delId of toDelete) {
+        await db.prepare('DELETE FROM kolaborasi_request WHERE id = ?').bind(delId).run();
+      }
+
+      // 4. Reset all remaining to pending
+      await db.prepare("UPDATE kolaborasi_request SET status = 'pending', updated_at = CURRENT_TIMESTAMP").run();
+
+      // 5. Also clean duplicate jadwal_kegiatan entries for collab
+      const { results: allJadwal } = await db.prepare("SELECT * FROM jadwal_kegiatan WHERE keterangan LIKE '%Kolaborasi%' ORDER BY created_at DESC").all();
+      const seenJadwal = new Map();
+      const jadwalToDelete = [];
+
+      for (const j of (allJadwal || [])) {
+        const key = `${j.petugas_nama}|${j.tanggal}|${j.nama_kegiatan}`;
+        if (seenJadwal.has(key)) {
+          jadwalToDelete.push(j.id);
+        } else {
+          seenJadwal.set(key, j.id);
+        }
+      }
+
+      for (const delId of jadwalToDelete) {
+        await db.prepare('DELETE FROM jadwal_kegiatan WHERE id = ?').bind(delId).run();
+      }
+
+      return jsonResponse({
+        success: true,
+        message: `Cleanup selesai. ${toDelete.length} duplikat request dihapus, ${jadwalToDelete.length} duplikat jadwal dihapus. Semua status direset ke pending.`,
+        deletedCollabs: toDelete.length,
+        deletedJadwal: jadwalToDelete.length,
+        remaining: seen.size
+      });
+    }
+
     // ------------------------------------------------------------------------
     // 5. POA BULANAN (/api/poa, /api/poa/save, /api/poa/delete) - SEPARATE TABLE poa_bulanan
     // ------------------------------------------------------------------------
