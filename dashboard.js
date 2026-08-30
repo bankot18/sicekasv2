@@ -420,6 +420,72 @@ document.addEventListener('DOMContentLoaded', () => {
       return { success: true };
     },
 
+    // 2b. Kolaborasi Kegiatan
+    async fetchCollab(nip = '', nama = '', username = '') {
+      try {
+        const url = `/api/collab?nip=${encodeURIComponent(nip || '')}&nama=${encodeURIComponent(nama || '')}&username=${encodeURIComponent(username || '')}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            localStorage.setItem('SICEKAS_BOK_COLLAB_V2', JSON.stringify(json.data));
+            return json.data;
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback fetch Collab from local cache', e);
+      }
+      return JSON.parse(localStorage.getItem('SICEKAS_BOK_COLLAB_V2')) || [];
+    },
+
+    async sendCollabRequest(payload) {
+      try {
+        const res = await fetch('/api/collab/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const json = await res.json();
+          return json;
+        }
+      } catch (e) {
+        console.warn('Fallback saving Collab request locally', e);
+      }
+      return { success: true, message: 'Request kolaborasi disimpan lokal.' };
+    },
+
+    async respondCollab(id, status, responderNip, responderNama) {
+      try {
+        const res = await fetch('/api/collab/respond', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, status, responder_nip: responderNip, responder_nama: responderNama })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          return json;
+        }
+      } catch (e) {
+        console.warn('Fallback respond collab locally', e);
+      }
+      return { success: true };
+    },
+
+    async deleteCollab(id) {
+      try {
+        const res = await fetch('/api/collab/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+        if (res.ok) return await res.json();
+      } catch (e) {
+        console.warn('Fallback delete collab', e);
+      }
+      return { success: true };
+    },
+
     // 3. POA Bulanan
     async fetchPoa(bulan, tahun, nip) {
       try {
@@ -7598,7 +7664,16 @@ document.addEventListener('DOMContentLoaded', () => {
       this._lastFetchKey = '';
     },
 
-    getCollabData() {
+    async getCollabData() {
+      try {
+        const uNip = CURRENT_USER.nip || '';
+        const uNama = CURRENT_USER.nama || '';
+        const uUser = CURRENT_USER.username || '';
+        const cloudData = await CloudflareDB.fetchCollab(uNip, uNama, uUser);
+        if (Array.isArray(cloudData)) return cloudData;
+      } catch (e) {
+        console.warn('Fallback getting collab data', e);
+      }
       try {
         return JSON.parse(localStorage.getItem(STORAGE_BOK_COLLAB)) || [];
       } catch (e) {
@@ -7607,7 +7682,41 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     saveCollabData(data) {
-      localStorage.setItem(STORAGE_BOK_COLLAB, JSON.stringify(data));
+      try {
+        localStorage.setItem(STORAGE_BOK_COLLAB, JSON.stringify(data));
+      } catch (e) {}
+    },
+
+    isCollabForMe(req) {
+      if (!req) return false;
+      const uNip = (CURRENT_USER.nip || '').trim();
+      const uNama = (CURRENT_USER.nama || '').trim().toLowerCase();
+      const uUser = (CURRENT_USER.username || '').trim().toLowerCase();
+
+      const toNip = (req.to_nip || req.toNip || '').trim();
+      const toNama = (req.to_nama || req.toNama || '').trim().toLowerCase();
+      const toUser = (req.to_username || req.toUser || '').trim().toLowerCase();
+
+      if (toNip && uNip && toNip === uNip) return true;
+      if (toNama && uNama && (toNama === uNama || toNama.includes(uNama) || uNama.includes(toNama))) return true;
+      if (toUser && uUser && toUser === uUser) return true;
+      return false;
+    },
+
+    isCollabFromMe(req) {
+      if (!req) return false;
+      const uNip = (CURRENT_USER.nip || '').trim();
+      const uNama = (CURRENT_USER.nama || '').trim().toLowerCase();
+      const uUser = (CURRENT_USER.username || '').trim().toLowerCase();
+
+      const fromNip = (req.from_nip || req.fromNip || '').trim();
+      const fromNama = (req.from_nama || req.fromNama || '').trim().toLowerCase();
+      const fromUser = (req.from_username || req.fromUser || '').trim().toLowerCase();
+
+      if (fromNip && uNip && fromNip === uNip) return true;
+      if (fromNama && uNama && (fromNama === uNama || fromNama.includes(uNama) || uNama.includes(fromNama))) return true;
+      if (fromUser && uUser && fromUser === uUser) return true;
+      return false;
     },
 
     async init() {
@@ -7615,7 +7724,7 @@ document.addEventListener('DOMContentLoaded', () => {
       this.populateStaffPickers();
       this.bindEvents();
       await this.render();
-      this.updateCollabBadges();
+      await this.updateCollabBadges();
     },
 
     populateSelects() {
@@ -8344,9 +8453,9 @@ document.addEventListener('DOMContentLoaded', () => {
       grid.innerHTML = html;
     },
 
-    updateCollabBadges() {
-      const collabs = this.getCollabData();
-      const pending = collabs.filter(c => c.toUser === CURRENT_USER.username && c.status === 'pending');
+    async updateCollabBadges() {
+      const collabs = await this.getCollabData();
+      const pending = collabs.filter(c => this.isCollabForMe(c) && c.status === 'pending');
       const count = pending.length;
 
       const sidebarBadge = document.getElementById('sidebarBokBadge');
@@ -8381,14 +8490,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
           let bHtml = '';
           pending.forEach(req => {
-            const initials = req.fromNama.split(' ').map(w => w[0]).filter(c => /[A-Za-z]/.test(c)).slice(0, 2).join('').toUpperCase() || 'PG';
+            const fromName = req.from_nama || req.fromNama || 'Petugas';
+            const fromJab = req.from_jabatan || req.fromJabatan || 'Pegawai';
+            const noKeg = req.no_kegiatan || req.noKegiatan;
+            const namaKeg = req.nama_kegiatan || req.namaKegiatan;
+            const initials = fromName.split(' ').map(w => w[0]).filter(c => /[A-Za-z]/.test(c)).slice(0, 2).join('').toUpperCase() || 'PG';
             bHtml += `
               <div class="bok-inline-req-card">
                 <div class="bok-req-info">
                   <div class="bok-req-avatar">${initials}</div>
                   <div class="bok-req-text">
-                    <h5>${req.fromNama} mengajak kolaborasi</h5>
-                    <p><strong>${req.tanggal}</strong> • No.${req.noKegiatan} ${req.namaKegiatan} — <em>"${req.keterangan || 'Tidak ada catatan'}"</em></p>
+                    <h5>${fromName} (${fromJab}) mengajak kolaborasi</h5>
+                    <p><strong>${req.tanggal}</strong> • No.${noKeg} ${namaKeg} — <em>"${req.keterangan || 'Tidak ada catatan'}"</em></p>
                   </div>
                 </div>
                 <div class="bok-req-actions">
@@ -9047,7 +9160,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async kirimRequestCollab() {
       const checked = document.querySelectorAll('.collab-staff-cb:checked');
       const tanggal = document.getElementById('collabTanggal').value;
-      const noKeg = parseInt(document.getElementById('collabKegiatan').value);
+      const noKeg = parseInt(document.getElementById('collabKegiatan').value, 10);
       const catatan = document.getElementById('collabKeterangan').value.trim();
 
       if (checked.length === 0) {
@@ -9064,172 +9177,296 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const namaKegiatan = KEGIATAN_BOK_LIST[noKeg - 1];
-      const collabs = this.getCollabData();
-
-      checked.forEach(cb => {
+      
+      const recipients = Array.from(checked).map(cb => {
         const staffNama = cb.value;
-        const staffJabatan = cb.dataset.jabatan || 'Petugas';
-        const staffUsername = staffNama.toLowerCase().replace(/[^a-z0-9]/g, '_');
-
-        collabs.push({
-          id: 'collab-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-          fromUser: CURRENT_USER.username,
-          fromNama: CURRENT_USER.nama,
-          fromJabatan: CURRENT_USER.jabatan,
-          toUser: staffUsername,
-          toNama: staffNama,
-          toJabatan: staffJabatan,
-          tanggal: tanggal,
-          noKegiatan: noKeg,
-          namaKegiatan: namaKegiatan,
-          keterangan: catatan,
-          status: 'pending',
-          createdAt: new Date().toISOString()
-        });
+        const staffItem = (DAFTAR_PEGAWAI || []).find(p => p.nama === staffNama) || {};
+        return {
+          nip: staffItem.nip || cb.dataset.nip || '',
+          nama: staffNama,
+          jabatan: cb.dataset.jabatan || staffItem.jabatan || 'Petugas',
+          username: staffItem.username || staffNama.toLowerCase().replace(/[^a-z0-9]/g, '_')
+        };
       });
 
-      this.saveCollabData(collabs);
-
-      const cParts = (tanggal || '').split('-');
-      const cYear = parseInt(cParts[0], 10) || new Date().getFullYear();
-      const cMonth = parseInt(cParts[1], 10) || (new Date().getMonth() + 1);
-
-      // Also save current user's schedule to cloud database
-      const collabPayload = {
-        id: 'bok-' + Date.now(),
+      const payload = {
+        from_nip: CURRENT_USER.nip,
+        from_nama: CURRENT_USER.nama,
+        from_jabatan: CURRENT_USER.jabatan,
+        from_username: CURRENT_USER.username,
         tanggal: tanggal,
-        bulan: cMonth,
-        tahun: cYear,
+        no_kegiatan: noKeg,
         nama_kegiatan: namaKegiatan,
-        namaKegiatan: namaKegiatan,
-        noKegiatan: noKeg,
-        keterangan: (catatan ? catatan + ' ' : '') + `[Kolaborasi dengan ${checked.length} petugas]`,
+        keterangan: catatan,
         lokasi: 'Puskesmas / Wilayah Kerja',
-        petugas_nip: CURRENT_USER.nip,
-        petugas_nama: CURRENT_USER.nama,
-        petugas_jabatan: CURRENT_USER.jabatan,
-        username: CURRENT_USER.username,
-        namaUser: CURRENT_USER.nama,
-        jabatan: CURRENT_USER.jabatan,
-        rekan_kolaborasi: Array.from(checked).map(cb => ({ nama: cb.value, jabatan: cb.dataset.jabatan || 'Petugas' })),
-        status: 'Disetujui'
+        recipients: recipients
       };
-      await CloudflareDB.saveJadwal(collabPayload);
+
+      // 1. Send to Cloudflare D1
+      await CloudflareDB.sendCollabRequest(payload);
+
+      // 2. Also save to local storage cache for immediate offline responsiveness
+      const collabs = await this.getCollabData();
+      const tParts = (tanggal || '').split('-');
+      const cYear = parseInt(tParts[0], 10) || new Date().getFullYear();
+      const cMonth = parseInt(tParts[1], 10) || (new Date().getMonth() + 1);
+
+      recipients.forEach(r => {
+        collabs.unshift({
+          id: 'collab-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+          from_nip: CURRENT_USER.nip,
+          from_nama: CURRENT_USER.nama,
+          from_jabatan: CURRENT_USER.jabatan,
+          from_username: CURRENT_USER.username,
+          to_nip: r.nip,
+          to_nama: r.nama,
+          to_jabatan: r.jabatan,
+          to_username: r.username,
+          tanggal: tanggal,
+          bulan: cMonth,
+          tahun: cYear,
+          no_kegiatan: noKeg,
+          nama_kegiatan: namaKegiatan,
+          keterangan: catatan,
+          lokasi: 'Puskesmas / Wilayah Kerja',
+          status: 'pending',
+          created_at: new Date().toISOString()
+        });
+      });
+      this.saveCollabData(collabs);
 
       const modal = document.getElementById('modalRequestKolaborasi');
       if (modal) modal.classList.remove('active');
 
-      if (window.showToast) window.showToast(`Request kolaborasi berhasil dikirim ke ${checked.length} petugas!`, 'success');
-      this.invalidateCache();
-      await this.render();
-    },
-
-    bukaModalNotif() {
-      const modal = document.getElementById('modalNotifikasiKolaborasi');
-      const list = document.getElementById('collabNotifModalList');
-      if (!modal || !list) return;
-
-      const collabs = this.getCollabData();
-      const pending = collabs.filter(c => c.toUser === CURRENT_USER.username && c.status === 'pending');
-
-      if (pending.length === 0) {
-        list.innerHTML = `
-          <div style="text-align: center; padding: 40px 20px; color: #94a3b8;">
-            <div style="font-size: 36px; margin-bottom: 10px; opacity: 0.5;">📭</div>
-            <h4 style="color: #ffffff; font-size: 15px; font-weight: 700; margin-bottom: 4px;">Tidak Ada Request Masuk</h4>
-            <p style="font-size: 12.5px; margin: 0;">Semua permintaan kolaborasi telah ditanggapi.</p>
-          </div>
-        `;
-      } else {
-        let html = '';
-        pending.forEach(req => {
-          const initials = req.fromNama.split(' ').map(w => w[0]).filter(c => /[A-Za-z]/.test(c)).slice(0, 2).join('').toUpperCase() || 'PG';
-          html += `
-            <div class="bok-inline-req-card" style="margin-bottom: 12px;">
-              <div class="bok-req-info">
-                <div class="bok-req-avatar">${initials}</div>
-                <div class="bok-req-text">
-                  <h5>${req.fromNama} (${req.fromJabatan})</h5>
-                  <p><strong>${req.tanggal}</strong> • No.${req.noKegiatan} ${req.namaKegiatan}</p>
-                  <p style="margin-top: 4px; color: #cbd5e1; font-style: italic;">"${req.keterangan || 'Tidak ada catatan khusus.'}"</p>
-                </div>
-              </div>
-              <div class="bok-req-actions">
-                <button type="button" class="btn-req-accept" onclick="window.JadwalBOKController.terimaCollab('${req.id}')">✓ Terima (ACC)</button>
-                <button type="button" class="btn-req-reject" onclick="window.JadwalBOKController.tolakCollab('${req.id}')">✕ Tolak</button>
-              </div>
-            </div>
-          `;
-        });
-        list.innerHTML = html;
+      if (window.showToast) {
+        window.showToast(`✓ Request kolaborasi berhasil dikirim ke ${recipients.length} rekan petugas!`, 'success');
       }
 
+      this.invalidateCache();
+      await this.render();
+      await this.updateCollabBadges();
+    },
+
+    switchNotifTab(tab) {
+      this.activeNotifTab = tab;
+      const btnInbox = document.getElementById('btnNotifTabInbox');
+      const btnOutbox = document.getElementById('btnNotifTabOutbox');
+      const btnAll = document.getElementById('btnNotifTabAll');
+
+      if (btnInbox) btnInbox.classList.toggle('active', tab === 'inbox');
+      if (btnOutbox) btnOutbox.classList.toggle('active', tab === 'outbox');
+      if (btnAll) btnAll.classList.toggle('active', tab === 'all');
+
+      this.renderNotifList();
+    },
+
+    async bukaModalNotif(defaultTab = null) {
+      const modal = document.getElementById('modalNotifikasiKolaborasi');
+      if (!modal) return;
+
+      if (defaultTab) this.activeNotifTab = defaultTab;
+      else if (!this.activeNotifTab) this.activeNotifTab = 'inbox';
+
+      // Hide 'Semua' tab if not Super Admin
+      const btnAll = document.getElementById('btnNotifTabAll');
+      if (btnAll) {
+        const isSuper = CURRENT_USER.role === 'Super Admin' || CURRENT_USER.username === 'ozie';
+        btnAll.style.display = isSuper ? 'inline-flex' : 'none';
+      }
+
+      this.switchNotifTab(this.activeNotifTab);
       modal.classList.add('active');
     },
 
+    async renderNotifList() {
+      const list = document.getElementById('collabNotifModalList');
+      if (!list) return;
+
+      const collabs = await this.getCollabData();
+
+      const inboxItems = collabs.filter(c => this.isCollabForMe(c));
+      const outboxItems = collabs.filter(c => this.isCollabFromMe(c));
+      const allItems = collabs;
+
+      // Update Tab Badges
+      const bInbox = document.getElementById('notifTabInboxCount');
+      const bOutbox = document.getElementById('notifTabOutboxCount');
+      const bAll = document.getElementById('notifTabAllCount');
+      if (bInbox) bInbox.textContent = inboxItems.filter(c => c.status === 'pending').length;
+      if (bOutbox) bOutbox.textContent = outboxItems.length;
+      if (bAll) bAll.textContent = allItems.length;
+
+      let displayed = [];
+      if (this.activeNotifTab === 'inbox') displayed = inboxItems;
+      else if (this.activeNotifTab === 'outbox') displayed = outboxItems;
+      else displayed = allItems;
+
+      if (displayed.length === 0) {
+        const emptyTitle = this.activeNotifTab === 'inbox' 
+          ? 'Tidak Ada Request Masuk' 
+          : (this.activeNotifTab === 'outbox' ? 'Tidak Ada Request Terkirim' : 'Tidak Ada Data Kolaborasi');
+
+        const emptyText = this.activeNotifTab === 'inbox' 
+          ? 'Belum ada rekan petugas yang mengajak Anda berkolaborasi saat ini.'
+          : (this.activeNotifTab === 'outbox' 
+            ? 'Anda belum mengirimkan ajakan kolaborasi. Klik tombol "+ Kolaborasi Tim" di jadwal untuk mengajak rekan.' 
+            : 'Belum ada riwayat aktivitas kolaborasi di dalam sistem.');
+
+        list.innerHTML = `
+          <div style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+            <div style="font-size: 38px; margin-bottom: 12px; opacity: 0.6;">📭</div>
+            <h4 style="color: #ffffff; font-size: 15px; font-weight: 700; margin-bottom: 6px;">${emptyTitle}</h4>
+            <p style="font-size: 13px; margin: 0; color: #94a3b8; max-width: 420px; margin-left: auto; margin-right: auto; line-height: 1.5;">${emptyText}</p>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      displayed.forEach(req => {
+        const fromName = req.from_nama || req.fromNama || 'Petugas';
+        const fromJab = req.from_jabatan || req.fromJabatan || 'Pegawai';
+        const toName = req.to_nama || req.toNama || 'Petugas';
+        const toJab = req.to_jabatan || req.toJabatan || 'Pegawai';
+        const noKeg = req.no_kegiatan || req.noKegiatan;
+        const namaKeg = req.nama_kegiatan || req.namaKegiatan;
+        const status = req.status || 'pending';
+
+        const initials = fromName.split(' ').map(w => w[0]).filter(c => /[A-Za-z]/.test(c)).slice(0, 2).join('').toUpperCase() || 'PG';
+
+        let statusBadge = '';
+        if (status === 'pending') {
+          statusBadge = '<span class="bok-status-pill pending">⏳ Menunggu Respon</span>';
+        } else if (status === 'accepted') {
+          statusBadge = '<span class="bok-status-pill accepted">✅ Diterima (ACC)</span>';
+        } else {
+          statusBadge = '<span class="bok-status-pill rejected">❌ Ditolak</span>';
+        }
+
+        // Actions depending on tab / recipient
+        let actionsHtml = '';
+        const isRecipient = this.isCollabForMe(req);
+        const isSender = this.isCollabFromMe(req);
+
+        if (isRecipient && status === 'pending') {
+          actionsHtml = `
+            <div class="bok-req-actions" style="margin-top: 10px; display: flex; gap: 8px;">
+              <button type="button" class="btn-req-accept" onclick="window.JadwalBOKController.terimaCollab('${req.id}')">✓ Terima (ACC)</button>
+              <button type="button" class="btn-req-reject" onclick="window.JadwalBOKController.tolakCollab('${req.id}')">✕ Tolak</button>
+            </div>
+          `;
+        } else if (isSender && status === 'pending') {
+          actionsHtml = `
+            <div class="bok-req-actions" style="margin-top: 10px; display: flex; gap: 8px;">
+              <button type="button" class="btn-req-reject" style="font-size: 11.5px; padding: 5px 12px;" onclick="window.JadwalBOKController.batalCollab('${req.id}')">✕ Batalkan Permintaan</button>
+            </div>
+          `;
+        } else if (CURRENT_USER.role === 'Super Admin' && status === 'pending') {
+          actionsHtml = `
+            <div class="bok-req-actions" style="margin-top: 10px; display: flex; gap: 8px;">
+              <button type="button" class="btn-req-accept" style="font-size: 11.5px; padding: 5px 12px;" onclick="window.JadwalBOKController.terimaCollab('${req.id}')">✓ ACC Admin</button>
+              <button type="button" class="btn-req-reject" style="font-size: 11.5px; padding: 5px 12px;" onclick="window.JadwalBOKController.tolakCollab('${req.id}')">✕ Tolak</button>
+            </div>
+          `;
+        }
+
+        html += `
+          <div class="bok-inline-req-card" style="margin-bottom: 12px; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px 16px;">
+            <div class="bok-req-info" style="display: flex; gap: 12px; align-items: flex-start;">
+              <div class="bok-req-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: var(--teal-gradient); color: #06080d; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0;">${initials}</div>
+              <div class="bok-req-text" style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-wrap: wrap; gap: 6px;">
+                  <h5 style="margin: 0; color: #ffffff; font-size: 13.5px; font-weight: 700;">
+                    ${fromName} <span style="color: #94a3b8; font-weight: 400; font-size: 12px;">(${fromJab})</span>
+                    ${isSender ? '<span style="color: #2dd4bf; font-size: 11px; margin-left: 6px;">(Anda Pengirim)</span>' : ''}
+                  </h5>
+                  ${statusBadge}
+                </div>
+                <p style="margin: 0 0 4px 0; color: #cbd5e1; font-size: 12.5px;">
+                  <strong>Kepada:</strong> <span style="color: #ffd166;">${toName}</span> (${toJab})
+                </p>
+                <p style="margin: 0 0 4px 0; color: #e2e8f0; font-size: 12.5px;">
+                  📅 <strong>${req.tanggal}</strong> • No.${noKeg} ${namaKeg}
+                </p>
+                ${req.keterangan ? `<p style="margin: 0; color: #94a3b8; font-size: 12px; font-style: italic;">• "${req.keterangan}"</p>` : ''}
+              </div>
+            </div>
+            ${actionsHtml}
+          </div>
+        `;
+      });
+
+      list.innerHTML = html;
+    },
+
     async terimaCollab(collabId) {
-      const collabs = this.getCollabData();
+      const collabs = await this.getCollabData();
       const req = collabs.find(c => c.id === collabId);
       if (!req) return;
 
       req.status = 'accepted';
       this.saveCollabData(collabs);
 
-      const aParts = (req.tanggal || '').split('-');
-      const aYear = parseInt(aParts[0], 10) || new Date().getFullYear();
-      const aMonth = parseInt(aParts[1], 10) || (new Date().getMonth() + 1);
+      // Cloud mutation
+      await CloudflareDB.respondCollab(collabId, 'accepted', CURRENT_USER.nip, CURRENT_USER.nama);
 
-      // Auto-insert to user's schedule via cloud database
-      const acceptPayload = {
-        id: 'bok-' + Date.now(),
-        tanggal: req.tanggal,
-        bulan: aMonth,
-        tahun: aYear,
-        nama_kegiatan: req.namaKegiatan,
-        namaKegiatan: req.namaKegiatan,
-        noKegiatan: req.noKegiatan,
-        keterangan: `[Kolaborasi dari: ${req.fromNama}] ${req.keterangan || ''}`.trim(),
-        lokasi: 'Puskesmas / Wilayah Kerja',
-        petugas_nip: CURRENT_USER.nip,
-        petugas_nama: CURRENT_USER.nama,
-        petugas_jabatan: CURRENT_USER.jabatan,
-        username: CURRENT_USER.username,
-        namaUser: CURRENT_USER.nama,
-        jabatan: CURRENT_USER.jabatan,
-        rekan_kolaborasi: [],
-        status: 'Disetujui',
-        updatedAt: new Date().toISOString()
-      };
-      await CloudflareDB.saveJadwal(acceptPayload);
+      if (window.showToast) {
+        window.showToast(`✓ Kolaborasi diterima! Jadwal berhasil ditambahkan ke kalender Anda.`, 'success');
+      }
 
-      if (window.showToast) window.showToast('Kolaborasi diterima! Kegiatan otomatis masuk ke jadwal Anda.', 'success');
-
-      // Refresh notif modal if open
+      // Refresh modal
       const modal = document.getElementById('modalNotifikasiKolaborasi');
       if (modal && modal.classList.contains('active')) {
-        this.bukaModalNotif();
+        await this.renderNotifList();
       }
 
       this.invalidateCache();
       await this.render();
+      await this.updateCollabBadges();
     },
 
     async tolakCollab(collabId) {
-      const collabs = this.getCollabData();
+      const collabs = await this.getCollabData();
       const req = collabs.find(c => c.id === collabId);
       if (!req) return;
 
       req.status = 'rejected';
       this.saveCollabData(collabs);
 
-      if (window.showToast) window.showToast('Permintaan kolaborasi ditolak.', 'info');
+      // Cloud mutation
+      await CloudflareDB.respondCollab(collabId, 'rejected', CURRENT_USER.nip, CURRENT_USER.nama);
+
+      if (window.showToast) {
+        window.showToast('Permintaan kolaborasi telah ditolak.', 'info');
+      }
 
       const modal = document.getElementById('modalNotifikasiKolaborasi');
       if (modal && modal.classList.contains('active')) {
-        this.bukaModalNotif();
+        await this.renderNotifList();
       }
 
       await this.render();
+      await this.updateCollabBadges();
+    },
+
+    async batalCollab(collabId) {
+      const collabs = await this.getCollabData();
+      const filtered = collabs.filter(c => c.id !== collabId);
+      this.saveCollabData(filtered);
+
+      await CloudflareDB.deleteCollab(collabId);
+
+      if (window.showToast) {
+        window.showToast('Permintaan kolaborasi berhasil dibatalkan.', 'info');
+      }
+
+      const modal = document.getElementById('modalNotifikasiKolaborasi');
+      if (modal && modal.classList.contains('active')) {
+        await this.renderNotifList();
+      }
+
+      await this.render();
+      await this.updateCollabBadges();
     },
 
     async bukaModalDetail(id) {

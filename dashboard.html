@@ -251,6 +251,15 @@
               </a>
             </li>
             <li>
+              <a href="#" class="popover-item" id="btnPopoverCollabNotif" onclick="window.JadwalBOKController && window.JadwalBOKController.bukaModalNotif();">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <span>Permintaan Kolaborasi</span>
+              </a>
+            </li>
+            <li>
               <a href="#" class="popover-item" id="btnChangePasswordPopover">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 2l-2 2m-1.5 1.5L14 9m-2 2l-2 2m0 0l-2-2 2-2 2 2zm-4 4l-4 4v2h2l4-4"></path>
@@ -3923,7 +3932,7 @@
        MODAL 7: DAFTAR NOTIFIKASI & REQUEST MASUK
        ========================================================================== -->
   <div class="modal-backdrop" id="modalNotifikasiKolaborasi">
-    <div class="modal-card modal-card-lg">
+    <div class="modal-card modal-card-lg" style="max-width: 680px;">
       <div class="modal-header">
         <div class="modal-title-group">
           <div class="modal-icon-box amber">
@@ -3933,16 +3942,29 @@
             </svg>
           </div>
           <div>
-            <h3>Permintaan Kolaborasi Masuk</h3>
-            <p>Daftar ajakan kegiatan dari rekan petugas Puskesmas</p>
+            <h3>Permintaan Kolaborasi Jadwal BOK</h3>
+            <p>Kelola ajakan kegiatan bersama rekan petugas Puskesmas</p>
           </div>
         </div>
         <button class="modal-close-btn" id="closeNotifModal">&times;</button>
       </div>
 
-      <div class="modal-body-scrollable">
+      <!-- Tab Switcher inside Notif Modal -->
+      <div class="collab-notif-modal-tabs">
+        <button type="button" class="notif-tab-btn active" id="btnNotifTabInbox" onclick="window.JadwalBOKController.switchNotifTab('inbox')">
+          📥 Permintaan Masuk <span class="notif-tab-badge" id="notifTabInboxCount">0</span>
+        </button>
+        <button type="button" class="notif-tab-btn" id="btnNotifTabOutbox" onclick="window.JadwalBOKController.switchNotifTab('outbox')">
+          📤 Permintaan Terkirim <span class="notif-tab-badge" id="notifTabOutboxCount">0</span>
+        </button>
+        <button type="button" class="notif-tab-btn" id="btnNotifTabAll" onclick="window.JadwalBOKController.switchNotifTab('all')">
+          👑 Semua Request <span class="notif-tab-badge" id="notifTabAllCount">0</span>
+        </button>
+      </div>
+
+      <div class="modal-body-scrollable" style="max-height: 440px; padding: 20px 24px;">
         <div class="collab-notif-list-container" id="collabNotifModalList">
-          <!-- Dynamically populated incoming requests with ACC / Reject buttons -->
+          <!-- Dynamically populated requests -->
         </div>
       </div>
 

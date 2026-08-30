@@ -539,6 +539,219 @@ async function handleApiRequest(request, env, ctx) {
     }
 
     // ------------------------------------------------------------------------
+    // 4b. KOLABORASI KEGIATAN (/api/collab, /api/collab/request, /api/collab/respond, /api/collab/delete)
+    // ------------------------------------------------------------------------
+    if (pathname === '/api/collab' && method === 'GET') {
+      const nip = url.searchParams.get('nip') || '';
+      const nama = url.searchParams.get('nama') || '';
+      const username = url.searchParams.get('username') || '';
+
+      // Auto-migration: Ensure table exists
+      try {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS kolaborasi_request (
+            id TEXT PRIMARY KEY,
+            from_nip TEXT NOT NULL,
+            from_nama TEXT NOT NULL,
+            from_jabatan TEXT,
+            from_username TEXT,
+            to_nip TEXT,
+            to_nama TEXT NOT NULL,
+            to_jabatan TEXT,
+            to_username TEXT,
+            tanggal DATE NOT NULL,
+            bulan INTEGER NOT NULL,
+            tahun INTEGER NOT NULL,
+            no_kegiatan INTEGER NOT NULL,
+            nama_kegiatan TEXT NOT NULL,
+            keterangan TEXT,
+            lokasi TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+        `).run();
+      } catch (tblErr) {}
+
+      let query = 'SELECT * FROM kolaborasi_request WHERE 1=1';
+      const params = [];
+
+      if (nip || nama || username) {
+        query += ' AND (to_nip = ? OR to_nama = ? OR to_username = ? OR from_nip = ? OR from_nama = ? OR from_username = ?)';
+        params.push(nip, nama, username, nip, nama, username);
+      }
+
+      query += ' ORDER BY created_at DESC';
+      const stmt = db.prepare(query);
+      const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
+
+      return jsonResponse({ success: true, total: (results || []).length, data: results || [] });
+    }
+
+    if (pathname === '/api/collab/request' && method === 'POST') {
+      const body = await request.json();
+      const { from_nip, from_nama, from_jabatan, from_username, tanggal, no_kegiatan, nama_kegiatan, keterangan, lokasi, recipients } = body;
+
+      if (!from_nama || !tanggal || !no_kegiatan || !recipients || !Array.isArray(recipients) || recipients.length === 0) {
+        return jsonResponse({ success: false, error: 'Data request kolaborasi tidak lengkap.' }, 400);
+      }
+
+      // Auto-migration
+      try {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS kolaborasi_request (
+            id TEXT PRIMARY KEY,
+            from_nip TEXT NOT NULL,
+            from_nama TEXT NOT NULL,
+            from_jabatan TEXT,
+            from_username TEXT,
+            to_nip TEXT,
+            to_nama TEXT NOT NULL,
+            to_jabatan TEXT,
+            to_username TEXT,
+            tanggal DATE NOT NULL,
+            bulan INTEGER NOT NULL,
+            tahun INTEGER NOT NULL,
+            no_kegiatan INTEGER NOT NULL,
+            nama_kegiatan TEXT NOT NULL,
+            keterangan TEXT,
+            lokasi TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+        `).run();
+      } catch (tblErr) {}
+
+      const tParts = (tanggal || '').split('-');
+      const tahunVal = parseInt(tParts[0], 10) || new Date().getFullYear();
+      const bulanVal = parseInt(tParts[1], 10) || (new Date().getMonth() + 1);
+
+      const createdIds = [];
+
+      for (const rec of recipients) {
+        const collabId = `collab-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+        await db.prepare(`
+          INSERT INTO kolaborasi_request (
+            id, from_nip, from_nama, from_jabatan, from_username,
+            to_nip, to_nama, to_jabatan, to_username,
+            tanggal, bulan, tahun, no_kegiatan, nama_kegiatan, keterangan, lokasi, status, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)
+        `).bind(
+          collabId,
+          from_nip || '',
+          from_nama,
+          from_jabatan || '',
+          from_username || '',
+          rec.nip || '',
+          rec.nama,
+          rec.jabatan || '',
+          rec.username || '',
+          tanggal,
+          bulanVal,
+          tahunVal,
+          parseInt(no_kegiatan, 10),
+          nama_kegiatan,
+          keterangan || '',
+          lokasi || 'Puskesmas / Wilayah Kerja'
+        ).run();
+        createdIds.push(collabId);
+      }
+
+      // Also ensure sender has activity in jadwal_kegiatan
+      const senderScheduleId = `bok-${tanggal}-${Date.now()}`;
+      const collabPartnerList = recipients.map(r => ({ nama: r.nama, jabatan: r.jabatan || 'Petugas' }));
+
+      await db.prepare(`
+        INSERT INTO jadwal_kegiatan (
+          id, tanggal, bulan, tahun, nama_kegiatan, keterangan, lokasi,
+          petugas_nip, petugas_nama, petugas_jabatan, rekan_kolaborasi, status, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Disetujui', CURRENT_TIMESTAMP)
+        ON CONFLICT(id) DO UPDATE SET
+          nama_kegiatan = excluded.nama_kegiatan,
+          keterangan = excluded.keterangan,
+          rekan_kolaborasi = excluded.rekan_kolaborasi,
+          updated_at = CURRENT_TIMESTAMP
+      `).bind(
+        senderScheduleId,
+        tanggal,
+        bulanVal,
+        tahunVal,
+        nama_kegiatan,
+        (keterangan ? keterangan + ' ' : '') + `[Kolaborasi dengan ${recipients.length} petugas]`,
+        lokasi || 'Puskesmas / Wilayah Kerja',
+        from_nip || '',
+        from_nama,
+        from_jabatan || '',
+        JSON.stringify(collabPartnerList)
+      ).run();
+
+      return jsonResponse({
+        success: true,
+        message: `Request kolaborasi berhasil dikirim ke ${recipients.length} petugas!`,
+        ids: createdIds
+      });
+    }
+
+    if (pathname === '/api/collab/respond' && method === 'POST') {
+      const body = await request.json();
+      const { id, status, responder_nip, responder_nama } = body;
+
+      if (!id || !status) {
+        return jsonResponse({ success: false, error: 'ID request dan status respon wajib diisi.' }, 400);
+      }
+
+      const reqRow = await db.prepare('SELECT * FROM kolaborasi_request WHERE id = ?').bind(id).first();
+      if (!reqRow) {
+        return jsonResponse({ success: false, error: 'Request kolaborasi tidak ditemukan.' }, 404);
+      }
+
+      await db.prepare('UPDATE kolaborasi_request SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .bind(status, id).run();
+
+      if (status === 'accepted') {
+        // Auto-create accepted schedule for the responding officer in jadwal_kegiatan
+        const acceptedScheduleId = `bok-collab-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+        const tParts = (reqRow.tanggal || '').split('-');
+        const tahunVal = parseInt(tParts[0], 10) || reqRow.tahun;
+        const bulanVal = parseInt(tParts[1], 10) || reqRow.bulan;
+
+        await db.prepare(`
+          INSERT INTO jadwal_kegiatan (
+            id, tanggal, bulan, tahun, nama_kegiatan, keterangan, lokasi,
+            petugas_nip, petugas_nama, petugas_jabatan, rekan_kolaborasi, status, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Disetujui', CURRENT_TIMESTAMP)
+        `).bind(
+          acceptedScheduleId,
+          reqRow.tanggal,
+          bulanVal,
+          tahunVal,
+          reqRow.nama_kegiatan,
+          `[Kolaborasi dari: ${reqRow.from_nama}] ${reqRow.keterangan || ''}`.trim(),
+          reqRow.lokasi || 'Puskesmas / Wilayah Kerja',
+          reqRow.to_nip || responder_nip || '',
+          reqRow.to_nama || responder_nama || '',
+          reqRow.to_jabatan || '',
+          JSON.stringify([{ nama: reqRow.from_nama, jabatan: reqRow.from_jabatan }])
+        ).run();
+      }
+
+      return jsonResponse({
+        success: true,
+        message: status === 'accepted' ? `✓ Kolaborasi dari ${reqRow.from_nama} berhasil disetujui!` : `Request kolaborasi dari ${reqRow.from_nama} telah ditolak.`
+      });
+    }
+
+    if (pathname === '/api/collab/delete' && (method === 'DELETE' || method === 'POST')) {
+      const body = await request.json();
+      const { id } = body;
+      if (!id) return jsonResponse({ success: false, error: 'ID request wajib diisi.' }, 400);
+
+      await db.prepare('DELETE FROM kolaborasi_request WHERE id = ?').bind(id).run();
+      return jsonResponse({ success: true, message: 'Request kolaborasi berhasil dihapus.' });
+    }
+
+    // ------------------------------------------------------------------------
     // 5. POA BULANAN (/api/poa, /api/poa/save, /api/poa/delete) - SEPARATE TABLE poa_bulanan
     // ------------------------------------------------------------------------
     if (pathname === '/api/poa' && method === 'GET') {
