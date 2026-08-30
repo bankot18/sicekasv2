@@ -9815,13 +9815,15 @@ document.addEventListener('DOMContentLoaded', () => {
           else if (p.status === 'initiator') pillClass = 'initiator';
 
           partnersListHtml += `
-            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); padding: 8px 12px; border-radius: 8px; margin-bottom: 6px;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 13px; font-weight: 700; color: #f8fafc;">${p.nama}</span>
-                <span style="font-size: 11.5px; color: #94a3b8;">(${p.jabatan})</span>
-              </div>
-              <div>
-                <span class="bok-status-pill ${pillClass}">${p.statusLabel}</span>
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); padding: 10px 14px; border-radius: 10px; margin-bottom: 6px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 13px; font-weight: 700; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.nama}</div>
+                  <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">${p.jabatan}</div>
+                </div>
+                <div style="flex-shrink: 0;">
+                  <span class="bok-status-pill ${pillClass}" style="white-space: nowrap; font-size: 11px;">${p.statusLabel}</span>
+                </div>
               </div>
             </div>
           `;
