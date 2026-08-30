@@ -3869,6 +3869,30 @@
       </div>
 
       <form id="formRequestKolaborasi" class="modal-form">
+        <!-- Sender Conflict Warning Alert -->
+        <div id="collabSenderConflictAlert" class="bok-conflict-alert" style="display: none;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <div>
+            <strong>Peringatan Jadwal:</strong> Anda sudah memiliki agenda pada tanggal ini: <span id="collabSenderConflictDetail" style="font-weight: 700;"></span>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="collabTanggal">Tanggal Kegiatan <span class="text-danger">*</span></label>
+          <div class="input-wrapper">
+            <input type="date" id="collabTanggal" class="bok-form-date" required>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="collabKegiatan">Pilih Kegiatan BOK <span class="text-danger">*</span></label>
+          <div class="input-wrapper">
+            <select id="collabKegiatan" class="poa-select" required>
+              <option value="">-- Pilih Jenis Kegiatan --</option>
+            </select>
+          </div>
+        </div>
+
         <!-- Target Staff Multi-Select Container -->
         <div class="input-group">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -3886,22 +3910,6 @@
             <div class="collab-staff-list" id="collabStaffListContainer">
               <!-- Dynamically populated 39 staff members with avatar checkboxes -->
             </div>
-          </div>
-        </div>
-
-        <div class="input-group">
-          <label for="collabTanggal">Tanggal Kegiatan <span class="text-danger">*</span></label>
-          <div class="input-wrapper">
-            <input type="date" id="collabTanggal" class="bok-form-date" required>
-          </div>
-        </div>
-
-        <div class="input-group">
-          <label for="collabKegiatan">Pilih Kegiatan <span class="text-danger">*</span></label>
-          <div class="input-wrapper">
-            <select id="collabKegiatan" class="poa-select" required>
-              <option value="">-- Pilih Jenis Kegiatan --</option>
-            </select>
           </div>
         </div>
 

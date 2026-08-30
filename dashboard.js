@@ -7761,12 +7761,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (p.nama !== CURRENT_USER.nama) {
           const initials = p.nama.split(' ').map(w => w[0]).filter(c => /[A-Za-z]/.test(c)).slice(0, 2).join('').toUpperCase() || 'PG';
           html += `
-            <label class="collab-staff-item" data-nama="${p.nama.toLowerCase()}" data-jab="${p.jabatan.toLowerCase()}">
-              <input type="checkbox" class="collab-staff-cb" value="${p.nama}" data-jabatan="${p.jabatan}">
+            <label class="collab-staff-item" id="collabStaff_${(p.username || p.nama).replace(/[^a-zA-Z0-9]/g, '_')}" data-nama="${p.nama.toLowerCase()}" data-jab="${p.jabatan.toLowerCase()}" data-nip="${(p.nip || '').toLowerCase()}">
+              <input type="checkbox" class="collab-staff-cb" value="${p.nama}" data-jabatan="${p.jabatan}" data-nip="${p.nip || ''}">
               <div class="collab-staff-avatar">${initials}</div>
-              <div class="collab-staff-text">
+              <div class="collab-staff-text" style="flex: 1;">
                 <h6>${p.nama}</h6>
                 <p>${p.jabatan} • ${p.nipFull || p.nip}</p>
+                <div class="collab-staff-conflict-box" style="display: none;"></div>
               </div>
             </label>
           `;
@@ -8064,13 +8065,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
+      const collabTanggalInput = document.getElementById('collabTanggal');
+      if (collabTanggalInput) {
+        const onDateChange = async () => {
+          const tgl = collabTanggalInput.value;
+          if (tgl) await this.updateCollabConflictUI(tgl);
+        };
+        collabTanggalInput.addEventListener('change', onDateChange);
+        collabTanggalInput.addEventListener('input', onDateChange);
+      }
+
       if (collabStaffSearch) {
         collabStaffSearch.addEventListener('input', (e) => {
-          const q = e.target.value.toLowerCase().trim();
+          const q = (e.target.value || '').toLowerCase().trim();
           document.querySelectorAll('.collab-staff-item').forEach(item => {
-            const nama = item.dataset.nama || '';
-            const jab = item.dataset.jab || '';
-            if (nama.includes(q) || jab.includes(q) || q === '') {
+            const nama = (item.dataset.nama || '').toLowerCase();
+            const jab = (item.dataset.jab || '').toLowerCase();
+            const nip = (item.dataset.nip || '').toLowerCase();
+            if (!q || nama.includes(q) || jab.includes(q) || nip.includes(q)) {
               item.style.display = 'flex';
             } else {
               item.style.display = 'none';
@@ -8086,7 +8098,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (listContainer) {
         listContainer.addEventListener('change', () => {
           const checked = listContainer.querySelectorAll('.collab-staff-cb:checked');
-          const all = listContainer.querySelectorAll('.collab-staff-cb');
+          const all = listContainer.querySelectorAll('.collab-staff-cb:not(:disabled)');
           if (counterEl) counterEl.textContent = `${checked.length} / 5 dipilih`;
 
           if (checked.length >= 5) {
@@ -8094,7 +8106,13 @@ document.addEventListener('DOMContentLoaded', () => {
               if (!cb.checked) cb.disabled = true;
             });
           } else {
-            all.forEach(cb => cb.disabled = false);
+            // Re-enable non-conflicted checkboxes
+            document.querySelectorAll('.collab-staff-item').forEach(item => {
+              const cb = item.querySelector('.collab-staff-cb');
+              if (cb && !item.classList.contains('is-conflict')) {
+                cb.disabled = false;
+              }
+            });
           }
         });
       }
@@ -8792,21 +8810,80 @@ document.addEventListener('DOMContentLoaded', () => {
               <div class="beranda-cal-staff-wrap">
           `;
 
+          // Deduplicate & group collaboration activities on the same date
+          const soloEvents = [];
+          const collabGroups = {};
+
           dayEvents.forEach(ev => {
-            const staffName = ev.namaUser || ev.petugas_nama || 'Pegawai';
             const isCollab = (ev.keterangan && ev.keterangan.toLowerCase().includes('kolaborasi')) ||
                              (Array.isArray(ev.rekan_kolaborasi) && ev.rekan_kolaborasi.length > 0) ||
                              (ev.namaKegiatan && ev.namaKegiatan.toLowerCase().includes('kolaborasi'));
             
-            const pillType = isCollab ? 'collab' : 'sendiri';
-            const typeIcon = isCollab ? '👥' : '🟢';
+            if (isCollab) {
+              const kegKey = `${ev.noKegiatan || 0}_${(ev.namaKegiatan || '').trim().toLowerCase()}`;
+              if (!collabGroups[kegKey]) {
+                collabGroups[kegKey] = {
+                  primaryId: ev.id,
+                  noKegiatan: ev.noKegiatan,
+                  namaKegiatan: ev.namaKegiatan,
+                  lokasi: ev.lokasi,
+                  keterangan: ev.keterangan,
+                  petugasList: []
+                };
+              }
+              const pNama = ev.namaUser || ev.petugas_nama || 'Petugas';
+              const pJab = ev.jabatan || ev.petugas_jabatan || 'Pegawai';
+              if (!collabGroups[kegKey].petugasList.some(p => p.nama === pNama)) {
+                collabGroups[kegKey].petugasList.push({ nama: pNama, jabatan: pJab });
+              }
+              if (Array.isArray(ev.rekan_kolaborasi)) {
+                ev.rekan_kolaborasi.forEach(r => {
+                  const rName = typeof r === 'string' ? r : (r.nama || '');
+                  const rJab = typeof r === 'object' ? (r.jabatan || 'Pegawai') : 'Pegawai';
+                  if (rName && !collabGroups[kegKey].petugasList.some(p => p.nama === rName)) {
+                    collabGroups[kegKey].petugasList.push({ nama: rName, jabatan: rJab });
+                  }
+                });
+              }
+            } else {
+              soloEvents.push(ev);
+            }
+          });
+
+          // 1. Render Solo Events (🟢 Kegiatan Mandiri)
+          soloEvents.forEach(ev => {
+            const staffName = ev.namaUser || ev.petugas_nama || 'Pegawai';
             const initials = staffName.split(' ').map(w => w[0]).filter(c => /[A-Za-z]/.test(c)).slice(0, 2).join('').toUpperCase() || 'PG';
             const noPrefix = (ev.noKegiatan && ev.noKegiatan > 0) ? `No.${ev.noKegiatan} ` : '';
 
             calHtml += `
-              <div class="beranda-staff-pill ${pillType}" title="${typeIcon} ${staffName} (${ev.jabatan || 'Pegawai'})&#10;Kegiatan: ${noPrefix}${ev.namaKegiatan}&#10;• Klik nama untuk melihat detail kegiatan" onclick="event.stopPropagation(); window.JadwalBOKController.bukaModalDetail('${ev.id}')">
+              <div class="beranda-staff-pill sendiri" title="🟢 Kegiatan Mandiri: ${staffName} (${ev.jabatan || 'Pegawai'})&#10;Kegiatan: ${noPrefix}${ev.namaKegiatan}&#10;• Klik nama untuk melihat detail kegiatan" onclick="event.stopPropagation(); window.JadwalBOKController.bukaModalDetail('${ev.id}')">
                 <span class="beranda-staff-avatar-dot">${initials}</span>
                 <span class="beranda-staff-name-text">${staffName}</span>
+              </div>
+            `;
+          });
+
+          // 2. Render Unified Collaboration Events (👥 1 pill per joint collaboration activity)
+          Object.values(collabGroups).forEach(cg => {
+            const noPrefix = (cg.noKegiatan && cg.noKegiatan > 0) ? `No.${cg.noKegiatan} ` : '';
+            let badgeLabel = '';
+            if (cg.petugasList.length === 1) {
+              badgeLabel = `${cg.petugasList[0].nama}`;
+            } else if (cg.petugasList.length === 2) {
+              const n1 = cg.petugasList[0].nama.split(' ')[0];
+              const n2 = cg.petugasList[1].nama.split(' ')[0];
+              badgeLabel = `👥 ${n1} & ${n2}`;
+            } else {
+              badgeLabel = `👥 Tim Kolaborasi (${cg.petugasList.length} Petugas)`;
+            }
+
+            const membersTooltip = cg.petugasList.map(p => `• ${p.nama} (${p.jabatan})`).join('\n');
+
+            calHtml += `
+              <div class="beranda-staff-pill collab" title="👥 Kegiatan Kolaborasi (${cg.petugasList.length} Petugas):\n${membersTooltip}\nKegiatan: ${noPrefix}${cg.namaKegiatan}\n• Klik untuk melihat detail kegiatan" onclick="event.stopPropagation(); window.JadwalBOKController.bukaModalDetail('${cg.primaryId}')">
+                <span class="beranda-staff-avatar-dot">👥</span>
+                <span class="beranda-staff-name-text">${badgeLabel}</span>
               </div>
             `;
           });
@@ -9158,25 +9235,124 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 2000);
     },
 
-    bukaModalCollab() {
+    async updateCollabConflictUI(tanggal) {
+      if (!tanggal) return;
+      const tParts = tanggal.split('-');
+      const y = parseInt(tParts[0], 10);
+      const m = parseInt(tParts[1], 10);
+
+      const allData = await this.getData(m, y);
+      const dayActivities = (allData || []).filter(item => item && item.tanggal === tanggal);
+
+      // 1. Check current user (sender)
+      const userNama = (CURRENT_USER.nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+      const userNip = (CURRENT_USER.nip || '').trim();
+      const senderConflict = dayActivities.find(item => {
+        const itemNama = (item.namaUser || item.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+        const itemNip = (item.petugas_nip || '').trim();
+        return (itemNip && userNip && itemNip === userNip) || (itemNama && userNama && (itemNama === userNama || itemNama.includes(userNama) || userNama.includes(itemNama)));
+      });
+
+      const senderAlert = document.getElementById('collabSenderConflictAlert');
+      const senderDetail = document.getElementById('collabSenderConflictDetail');
+      if (senderAlert && senderDetail) {
+        if (senderConflict) {
+          const noPrefix = (senderConflict.noKegiatan && senderConflict.noKegiatan > 0) ? `No.${senderConflict.noKegiatan} ` : '';
+          senderDetail.textContent = `${noPrefix}${senderConflict.namaKegiatan}`;
+          senderAlert.style.display = 'flex';
+        } else {
+          senderAlert.style.display = 'none';
+        }
+      }
+
+      // 2. Check each target staff in the picker
+      document.querySelectorAll('.collab-staff-item').forEach(item => {
+        const cb = item.querySelector('.collab-staff-cb');
+        const conflictBox = item.querySelector('.collab-staff-conflict-box');
+        if (!cb) return;
+
+        const staffNama = cb.value;
+        const staffNip = (cb.dataset.nip || '').trim();
+
+        const sNamaNorm = staffNama.toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+        const sNipNorm = staffNip.toLowerCase();
+
+        const conflict = dayActivities.find(act => {
+          const actNama = (act.namaUser || act.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+          const actNip = (act.petugas_nip || '').toLowerCase().trim();
+
+          const isDirect = (actNip && sNipNorm && actNip === sNipNorm) || (actNama && sNamaNorm && (actNama === sNamaNorm || actNama.includes(sNamaNorm) || sNamaNorm.includes(actNama)));
+          if (isDirect) return true;
+
+          // Check if registered as partner in another activity
+          if (Array.isArray(act.rekan_kolaborasi)) {
+            return act.rekan_kolaborasi.some(r => {
+              const rNama = (typeof r === 'string' ? r : (r.nama || '')).toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+              return rNama && sNamaNorm && (rNama === sNamaNorm || rNama.includes(sNamaNorm) || sNamaNorm.includes(rNama));
+            });
+          }
+          return false;
+        });
+
+        if (conflict) {
+          item.classList.add('is-conflict');
+          cb.disabled = true;
+          cb.checked = false;
+          if (conflictBox) {
+            const noPrefix = (conflict.noKegiatan && conflict.noKegiatan > 0) ? `No.${conflict.noKegiatan} ` : '';
+            conflictBox.innerHTML = `<span class="collab-conflict-tag">⛔ Sudah Ada Agenda: ${noPrefix}${conflict.namaKegiatan}</span>`;
+            conflictBox.style.display = 'block';
+          }
+        } else {
+          item.classList.remove('is-conflict');
+          cb.disabled = false;
+          if (conflictBox) {
+            conflictBox.innerHTML = '';
+            conflictBox.style.display = 'none';
+          }
+        }
+      });
+
+      // Update counter
+      const counterEl = document.getElementById('collabSelectedCounter');
+      const checked = document.querySelectorAll('.collab-staff-cb:checked');
+      if (counterEl) counterEl.textContent = `${checked.length} / 5 dipilih`;
+    },
+
+    async bukaModalCollab(datePrefill = null) {
       const modal = document.getElementById('modalRequestKolaborasi');
       const form = document.getElementById('formRequestKolaborasi');
       const tglInput = document.getElementById('collabTanggal');
       const counterEl = document.getElementById('collabSelectedCounter');
+      const searchInput = document.getElementById('collabStaffSearch');
 
       if (form) form.reset();
       if (counterEl) counterEl.textContent = '0 / 5 dipilih';
+      if (searchInput) searchInput.value = '';
 
-      const defaultDate = `${this.currentYear}-${String(this.currentMonth).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
-      if (tglInput) tglInput.value = defaultDate;
-
-      // Reset checkboxes
-      document.querySelectorAll('.collab-staff-cb').forEach(cb => {
-        cb.checked = false;
-        cb.disabled = false;
+      // Reset visibility and classes of all staff items
+      document.querySelectorAll('.collab-staff-item').forEach(item => {
+        item.style.display = 'flex';
+        item.classList.remove('is-conflict');
+        const cb = item.querySelector('.collab-staff-cb');
+        if (cb) {
+          cb.checked = false;
+          cb.disabled = false;
+        }
+        const conflictBox = item.querySelector('.collab-staff-conflict-box');
+        if (conflictBox) {
+          conflictBox.innerHTML = '';
+          conflictBox.style.display = 'none';
+        }
       });
 
+      const defaultDate = datePrefill || `${this.currentYear}-${String(this.currentMonth).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
+      if (tglInput) tglInput.value = defaultDate;
+
       if (modal) modal.classList.add('active');
+
+      // Live conflict scan for the date
+      await this.updateCollabConflictUI(defaultDate);
     },
 
     async kirimRequestCollab() {
@@ -9185,10 +9361,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const noKeg = parseInt(document.getElementById('collabKegiatan').value, 10);
       const catatan = document.getElementById('collabKeterangan').value.trim();
 
-      if (checked.length === 0) {
-        if (window.showToast) window.showToast('Pilih minimal 1 rekan petugas untuk diajak.', 'error');
-        return;
-      }
       if (!tanggal) {
         if (window.showToast) window.showToast('Harap tentukan tanggal kegiatan.', 'error');
         return;
@@ -9197,8 +9369,70 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.showToast) window.showToast('Harap pilih kegiatan BOK.', 'error');
         return;
       }
+      if (checked.length === 0) {
+        if (window.showToast) window.showToast('Pilih minimal 1 rekan petugas untuk diajak.', 'error');
+        return;
+      }
 
       const namaKegiatan = KEGIATAN_BOK_LIST[noKeg - 1];
+
+      // STRICT CONFLICT VALIDATION BEFORE DISPATCHING REQUEST
+      const tParts = tanggal.split('-');
+      const y = parseInt(tParts[0], 10);
+      const m = parseInt(tParts[1], 10);
+      const allData = await this.getData(m, y);
+      const dayActivities = (allData || []).filter(item => item && item.tanggal === tanggal);
+
+      // 1. Cek bentrok pengirim
+      const userNama = (CURRENT_USER.nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+      const userNip = (CURRENT_USER.nip || '').trim();
+      const senderConflict = dayActivities.find(item => {
+        const itemNama = (item.namaUser || item.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+        const itemNip = (item.petugas_nip || '').trim();
+        return (itemNip && userNip && itemNip === userNip) || (itemNama && userNama && (itemNama === userNama || itemNama.includes(userNama) || userNama.includes(itemNama)));
+      });
+
+      if (senderConflict) {
+        const noPrefix = (senderConflict.noKegiatan && senderConflict.noKegiatan > 0) ? `No.${senderConflict.noKegiatan} ` : '';
+        if (window.SicekasAlert && typeof window.SicekasAlert.alert === 'function') {
+          await window.SicekasAlert.alert(
+            'Jadwal Anda Bentrok!',
+            `Anda sudah memiliki jadwal kegiatan pada tanggal ${tanggal} (${noPrefix}${senderConflict.namaKegiatan}). Tidak dapat mengajukan kolaborasi baru pada tanggal yang sama.`,
+            'warning'
+          );
+        } else if (window.showToast) {
+          window.showToast(`Jadwal Bentrok: Anda sudah memiliki kegiatan di tanggal ${tanggal}!`, 'error');
+        }
+        return;
+      }
+
+      // 2. Cek bentrok setiap penerima yang dipilih
+      for (const cb of checked) {
+        const staffNama = cb.value;
+        const staffNip = (cb.dataset.nip || '').trim();
+        const sNamaNorm = staffNama.toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+        const sNipNorm = staffNip.toLowerCase();
+
+        const recipConflict = dayActivities.find(act => {
+          const actNama = (act.namaUser || act.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+          const actNip = (act.petugas_nip || '').toLowerCase().trim();
+          return (actNip && sNipNorm && actNip === sNipNorm) || (actNama && sNamaNorm && (actNama === sNamaNorm || actNama.includes(sNamaNorm) || sNamaNorm.includes(actNama)));
+        });
+
+        if (recipConflict) {
+          const noPrefix = (recipConflict.noKegiatan && recipConflict.noKegiatan > 0) ? `No.${recipConflict.noKegiatan} ` : '';
+          if (window.SicekasAlert && typeof window.SicekasAlert.alert === 'function') {
+            await window.SicekasAlert.alert(
+              'Jadwal Petugas Sudah Terisi!',
+              `Petugas "${staffNama}" sudah memiliki kegiatan pada tanggal ${tanggal} (${noPrefix}${recipConflict.namaKegiatan}). Silakan pilih tanggal lain atau petugas lain yang sedang luang.`,
+              'warning'
+            );
+          } else if (window.showToast) {
+            window.showToast(`Petugas ${staffNama} sudah memiliki kegiatan di tanggal ${tanggal}!`, 'error');
+          }
+          return;
+        }
+      }
       
       const recipients = Array.from(checked).map(cb => {
         const staffNama = cb.value;
@@ -9467,10 +9701,31 @@ document.addEventListener('DOMContentLoaded', () => {
                        (Array.isArray(item.rekan_kolaborasi) && item.rekan_kolaborasi.length > 0) ||
                        (item.namaKegiatan && item.namaKegiatan.toLowerCase().includes('kolaborasi'));
 
-      let collabPartnersText = '';
+      let allTeamMembers = [];
+      if (item.namaUser) allTeamMembers.push(`${item.namaUser} (${item.jabatan || 'Pegawai'})`);
+
       if (Array.isArray(item.rekan_kolaborasi) && item.rekan_kolaborasi.length > 0) {
-        collabPartnersText = item.rekan_kolaborasi.map(r => typeof r === 'string' ? r : `${r.nama} (${r.jabatan || 'Petugas'})`).join(', ');
+        item.rekan_kolaborasi.forEach(r => {
+          const str = typeof r === 'string' ? r : `${r.nama} (${r.jabatan || 'Petugas'})`;
+          if (!allTeamMembers.includes(str)) allTeamMembers.push(str);
+        });
       }
+
+      if (isCollab) {
+        const sameDayCollabs = data.filter(d => d.tanggal === item.tanggal && d.noKegiatan === item.noKegiatan);
+        sameDayCollabs.forEach(sc => {
+          const scUser = `${sc.namaUser} (${sc.jabatan || 'Pegawai'})`;
+          if (!allTeamMembers.includes(scUser)) allTeamMembers.push(scUser);
+          if (Array.isArray(sc.rekan_kolaborasi)) {
+            sc.rekan_kolaborasi.forEach(r => {
+              const str = typeof r === 'string' ? r : `${r.nama} (${r.jabatan || 'Petugas'})`;
+              if (!allTeamMembers.includes(str)) allTeamMembers.push(str);
+            });
+          }
+        });
+      }
+
+      const collabPartnersText = allTeamMembers.join(', ');
 
       if (btnEdit) {
         if (isMine) {
@@ -9516,9 +9771,9 @@ document.addEventListener('DOMContentLoaded', () => {
             </span>
           </div>
 
-          ${collabPartnersText ? `
+          ${isCollab ? `
           <div class="detail-bok-row">
-            <span class="detail-bok-label">Rekan Kolaborasi</span>
+            <span class="detail-bok-label">Tim Kolaborasi Terkonfirmasi</span>
             <span class="detail-bok-val" style="color: #38bdf8; font-weight: 600;">
               👥 ${collabPartnersText}
             </span>
