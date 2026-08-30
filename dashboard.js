@@ -7478,8 +7478,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const JadwalBOKController = {
     currentYear: new Date().getFullYear(),
     currentMonth: new Date().getMonth() + 1,
-    berandaSelectedDate: new Date().toISOString().split('T')[0],
+    berandaMonth: new Date().getMonth() + 1,
+    berandaYear: new Date().getFullYear(),
     berandaFilterTab: 'all', // 'all' | 'sendiri' | 'collab'
+    berandaSearchKeyword: '',
     selectedStaff: '',
     searchKeyword: '',
     activeTab: 'all', // 'all' | 'mine' | 'collab'
@@ -7804,55 +7806,71 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
-      // Beranda Date Toolbar & Filter Events
-      const inputBerandaDate = document.getElementById('inputBerandaDate');
-      const btnBerandaPrevDate = document.getElementById('btnBerandaPrevDate');
-      const btnBerandaNextDate = document.getElementById('btnBerandaNextDate');
-      const btnBerandaToday = document.getElementById('btnBerandaToday');
+      // Beranda Month Toolbar & Filter Events
+      const selectBerandaBulan = document.getElementById('selectBerandaBulan');
+      const selectBerandaTahun = document.getElementById('selectBerandaTahun');
+      const btnBerandaPrevMonth = document.getElementById('btnBerandaPrevMonth');
+      const btnBerandaNextMonth = document.getElementById('btnBerandaNextMonth');
+      const btnBerandaBulanIni = document.getElementById('btnBerandaBulanIni');
+      const inputBerandaSearch = document.getElementById('inputBerandaSearch');
       const berandaTabAll = document.getElementById('berandaTabAll');
       const berandaTabSendiri = document.getElementById('berandaTabSendiri');
       const berandaTabCollab = document.getElementById('berandaTabCollab');
 
-      if (inputBerandaDate) {
-        inputBerandaDate.addEventListener('change', async (e) => {
-          if (e.target.value) {
-            this.berandaSelectedDate = e.target.value;
-            await this.renderBerandaWidget();
+      if (selectBerandaBulan) {
+        selectBerandaBulan.addEventListener('change', async (e) => {
+          this.berandaMonth = parseInt(e.target.value, 10);
+          await this.renderBerandaWidget();
+        });
+      }
+
+      if (selectBerandaTahun) {
+        selectBerandaTahun.addEventListener('change', async (e) => {
+          this.berandaYear = parseInt(e.target.value, 10);
+          await this.renderBerandaWidget();
+        });
+      }
+
+      if (btnBerandaPrevMonth) {
+        btnBerandaPrevMonth.addEventListener('click', async () => {
+          if (this.berandaMonth === 1) {
+            this.berandaMonth = 12;
+            this.berandaYear -= 1;
+          } else {
+            this.berandaMonth -= 1;
           }
-        });
-      }
-
-      if (btnBerandaPrevDate) {
-        btnBerandaPrevDate.addEventListener('click', async () => {
-          const current = new Date(this.berandaSelectedDate + 'T00:00:00');
-          current.setDate(current.getDate() - 1);
-          const y = current.getFullYear();
-          const m = String(current.getMonth() + 1).padStart(2, '0');
-          const d = String(current.getDate()).padStart(2, '0');
-          this.berandaSelectedDate = `${y}-${m}-${d}`;
           await this.renderBerandaWidget();
         });
       }
 
-      if (btnBerandaNextDate) {
-        btnBerandaNextDate.addEventListener('click', async () => {
-          const current = new Date(this.berandaSelectedDate + 'T00:00:00');
-          current.setDate(current.getDate() + 1);
-          const y = current.getFullYear();
-          const m = String(current.getMonth() + 1).padStart(2, '0');
-          const d = String(current.getDate()).padStart(2, '0');
-          this.berandaSelectedDate = `${y}-${m}-${d}`;
+      if (btnBerandaNextMonth) {
+        btnBerandaNextMonth.addEventListener('click', async () => {
+          if (this.berandaMonth === 12) {
+            this.berandaMonth = 1;
+            this.berandaYear += 1;
+          } else {
+            this.berandaMonth += 1;
+          }
           await this.renderBerandaWidget();
         });
       }
 
-      if (btnBerandaToday) {
-        btnBerandaToday.addEventListener('click', async () => {
+      if (btnBerandaBulanIni) {
+        btnBerandaBulanIni.addEventListener('click', async () => {
           const now = new Date();
-          const y = now.getFullYear();
-          const m = String(now.getMonth() + 1).padStart(2, '0');
-          const d = String(now.getDate()).padStart(2, '0');
-          this.berandaSelectedDate = `${y}-${m}-${d}`;
+          this.berandaMonth = now.getMonth() + 1;
+          this.berandaYear = now.getFullYear();
+          if (inputBerandaSearch) {
+            inputBerandaSearch.value = '';
+            this.berandaSearchKeyword = '';
+          }
+          await this.renderBerandaWidget();
+        });
+      }
+
+      if (inputBerandaSearch) {
+        inputBerandaSearch.addEventListener('input', async (e) => {
+          this.berandaSearchKeyword = (e.target.value || '').toLowerCase().trim();
           await this.renderBerandaWidget();
         });
       }
@@ -8344,61 +8362,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async renderBerandaWidget() {
       const container = document.getElementById('berandaTableContainer');
-      const dateDisplay = document.getElementById('berandaDateDisplayBadge');
-      const inputDateEl = document.getElementById('inputBerandaDate');
-      const holidayAlert = document.getElementById('berandaHolidayAlert');
+      const selectBulan = document.getElementById('selectBerandaBulan');
+      const selectTahun = document.getElementById('selectBerandaTahun');
       const countAllEl = document.getElementById('berandaCountAll');
       const countSendiriEl = document.getElementById('berandaCountSendiri');
       const countCollabEl = document.getElementById('berandaCountCollab');
 
-      // Update target date string & datepicker input
-      if (!this.berandaSelectedDate) {
-        this.berandaSelectedDate = new Date().toISOString().split('T')[0];
-      }
-      if (inputDateEl) {
-        inputDateEl.value = this.berandaSelectedDate;
-      }
+      if (!this.berandaMonth) this.berandaMonth = new Date().getMonth() + 1;
+      if (!this.berandaYear) this.berandaYear = new Date().getFullYear();
 
-      const dateParts = this.berandaSelectedDate.split('-');
-      const selYear = parseInt(dateParts[0], 10) || new Date().getFullYear();
-      const selMonth = parseInt(dateParts[1], 10) || (new Date().getMonth() + 1);
-      const selDay = parseInt(dateParts[2], 10) || new Date().getDate();
+      if (selectBulan) selectBulan.value = this.berandaMonth;
+      if (selectTahun) selectTahun.value = this.berandaYear;
 
       const monthNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-      const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const dayNamesShort = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
-      const dateObj = new Date(selYear, selMonth - 1, selDay);
-      const dayName = dayNames[dateObj.getDay()];
-      const fullDateStr = `${dayName}, ${selDay} ${monthNames[selMonth]} ${selYear}`;
-
-      if (dateDisplay) {
-        dateDisplay.textContent = `📅 ${fullDateStr}`;
-      }
-
-      // Check National Holiday / Cuti Bersama for this date
-      const holidayInfo = (typeof INDONESIAN_HOLIDAYS !== 'undefined') ? INDONESIAN_HOLIDAYS[this.berandaSelectedDate] : null;
-      const isSunday = dateObj.getDay() === 0;
-
-      if (holidayAlert) {
-        if (holidayInfo && holidayInfo.type === 'national') {
-          holidayAlert.className = 'beranda-holiday-alert national';
-          holidayAlert.innerHTML = `<span>🎌</span> <span><strong>Hari Libur Nasional:</strong> ${holidayInfo.name}</span>`;
-          holidayAlert.style.display = 'flex';
-        } else if (holidayInfo && holidayInfo.type === 'cuti') {
-          holidayAlert.className = 'beranda-holiday-alert cuti';
-          holidayAlert.innerHTML = `<span>🟠</span> <span><strong>Cuti Bersama:</strong> ${holidayInfo.name}</span>`;
-          holidayAlert.style.display = 'flex';
-        } else if (isSunday) {
-          holidayAlert.className = 'beranda-holiday-alert sunday';
-          holidayAlert.innerHTML = `<span>🏖️</span> <span><strong>Hari Minggu:</strong> Libur Pelayanan Rutin Puskesmas</span>`;
-          holidayAlert.style.display = 'flex';
-        } else {
-          holidayAlert.style.display = 'none';
-        }
-      }
-
-      // Fetch all month activities
-      const all = await this.getData(selMonth, selYear);
+      // Fetch all activities for this month & year
+      const all = await this.getData(this.berandaMonth, this.berandaYear);
 
       // Update Beranda KPI Counters
       const totalEl = document.getElementById('berandaStatBokCount');
@@ -8411,13 +8391,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!container) return;
 
-      // Filter activities for this selected date
-      const dateActivities = (all || []).filter(item => item.tanggal === this.berandaSelectedDate);
-
-      // Extract all assigned employees
+      // Extract all assigned employees across all activities in this month
       const employeeEntries = [];
 
-      dateActivities.forEach(item => {
+      all.forEach(item => {
         const isCollab = (item.keterangan && item.keterangan.toLowerCase().includes('kolaborasi')) ||
                          (Array.isArray(item.rekan_kolaborasi) && item.rekan_kolaborasi.length > 0) ||
                          (item.namaKegiatan && item.namaKegiatan.toLowerCase().includes('kolaborasi'));
@@ -8432,8 +8409,29 @@ document.addEventListener('DOMContentLoaded', () => {
           collabPartners = item.rekan_kolaborasi.map(r => typeof r === 'string' ? r : (r.nama || ''));
         }
 
+        // Check holiday info for this date
+        const dateStr = item.tanggal || '';
+        const holidayInfo = (typeof INDONESIAN_HOLIDAYS !== 'undefined' && dateStr) ? INDONESIAN_HOLIDAYS[dateStr] : null;
+
+        // Day of week
+        let dayName = '';
+        let dayNum = '';
+        if (dateStr && dateStr.includes('-')) {
+          const p = dateStr.split('-');
+          const y = parseInt(p[0], 10);
+          const m = parseInt(p[1], 10);
+          const d = parseInt(p[2], 10);
+          const dObj = new Date(y, m - 1, d);
+          dayName = dayNamesShort[dObj.getDay()] || '';
+          dayNum = d;
+        }
+
         employeeEntries.push({
           id: item.id,
+          tanggal: item.tanggal,
+          dayName: dayName,
+          dayNum: dayNum,
+          holidayInfo: holidayInfo,
           nama: staffName,
           jabatan: staffJabatan,
           noKegiatan: item.noKegiatan,
@@ -8445,6 +8443,9 @@ document.addEventListener('DOMContentLoaded', () => {
           rekanKolaborasi: collabPartners
         });
       });
+
+      // Sort by tanggal ascending
+      employeeEntries.sort((a, b) => (a.tanggal || '').localeCompare(b.tanggal || ''));
 
       // Update Tab Badges Counts
       const countTotal = employeeEntries.length;
@@ -8463,18 +8464,35 @@ document.addEventListener('DOMContentLoaded', () => {
         displayedEntries = employeeEntries.filter(e => e.isCollab);
       }
 
+      // Filter items according to search keyword
+      if (this.berandaSearchKeyword) {
+        const q = this.berandaSearchKeyword;
+        displayedEntries = displayedEntries.filter(e => 
+          (e.nama && e.nama.toLowerCase().includes(q)) ||
+          (e.jabatan && e.jabatan.toLowerCase().includes(q)) ||
+          (e.namaKegiatan && e.namaKegiatan.toLowerCase().includes(q)) ||
+          (e.keterangan && e.keterangan.toLowerCase().includes(q)) ||
+          (e.tanggal && e.tanggal.includes(q))
+        );
+      }
+
       if (displayedEntries.length === 0) {
+        const selMonthName = monthNames[this.berandaMonth] || 'Bulan Ini';
         container.innerHTML = `
-          <div style="text-align: center; padding: 40px 20px; color: #94a3b8;">
-            <div style="font-size: 36px; margin-bottom: 10px; opacity: 0.6;">📋</div>
-            <h4 style="color: #ffffff; font-size: 15px; font-weight: 700; margin-bottom: 6px;">Tidak Ada Jadwal Pegawai</h4>
-            <p style="font-size: 12.5px; margin: 0 0 16px 0; color: #94a3b8;">
-              ${this.berandaFilterTab === 'all' 
-                ? `Tidak ada pegawai yang memiliki jadwal kegiatan pada ${fullDateStr}.` 
-                : `Tidak ada kegiatan bertipe ${this.berandaFilterTab === 'sendiri' ? 'Mandiri/Sendiri' : 'Kolaborasi'} pada ${fullDateStr}.`}
+          <div style="text-align: center; padding: 45px 20px; color: #94a3b8;">
+            <div style="font-size: 40px; margin-bottom: 12px; opacity: 0.6;">📅</div>
+            <h4 style="color: #ffffff; font-size: 16px; font-weight: 700; margin-bottom: 6px;">
+              Tidak Ada Jadwal Kegiatan di Bulan ${selMonthName} ${this.berandaYear}
+            </h4>
+            <p style="font-size: 13px; margin: 0 0 18px 0; color: #94a3b8; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.5;">
+              ${this.berandaSearchKeyword 
+                ? `Tidak ditemukan kegiatan dengan kata kunci "${this.berandaSearchKeyword}".`
+                : (this.berandaFilterTab === 'all' 
+                  ? `Belum ada pegawai yang memiliki jadwal kegiatan BOK pada bulan ${selMonthName} ${this.berandaYear}.` 
+                  : `Tidak ada kegiatan bertipe ${this.berandaFilterTab === 'sendiri' ? 'Mandiri/Sendiri' : 'Kolaborasi'} pada bulan ${selMonthName} ${this.berandaYear}.`)}
             </p>
-            <button type="button" class="btn-hero-action btn-gold-pulse" style="display: inline-flex; margin: 0 auto; padding: 8px 16px;" onclick="window.JadwalBOKController.bukaModalTambah('${this.berandaSelectedDate}')">
-              <span>+ Tambah Jadwal Tanggal Ini</span>
+            <button type="button" class="btn-hero-action btn-gold-pulse" style="display: inline-flex; margin: 0 auto; padding: 9px 18px;" onclick="window.JadwalBOKController.bukaModalTambah('${this.berandaYear}-${String(this.berandaMonth).padStart(2, '0')}-01')">
+              <span>+ Tambah Jadwal Bulan Ini</span>
             </button>
           </div>
         `;
@@ -8485,7 +8503,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <table class="beranda-schedule-table">
           <thead>
             <tr>
-              <th style="width: 45px;" class="center">No</th>
+              <th style="width: 40px;" class="center">No</th>
+              <th style="width: 140px;">Tanggal</th>
               <th>Nama Pegawai (Klik untuk Detail)</th>
               <th>Jabatan</th>
               <th>Kegiatan BOK</th>
@@ -8501,9 +8520,40 @@ document.addEventListener('DOMContentLoaded', () => {
         const typeClass = entry.isCollab ? 'collab' : 'sendiri';
         const rowClass = entry.isCollab ? 'row-collab' : 'row-sendiri';
 
+        // Format Date Badge
+        let dateBadgeHtml = '';
+        if (entry.tanggal) {
+          const parts = entry.tanggal.split('-');
+          const d = parts[2] ? parseInt(parts[2], 10) : '';
+          const m = parts[1] ? (monthNames[parseInt(parts[1], 10)] || '').slice(0, 3) : '';
+          const y = parts[0] || '';
+          
+          let holidayMiniBadge = '';
+          if (entry.holidayInfo) {
+            if (entry.holidayInfo.type === 'national') {
+              holidayMiniBadge = `<span class="beranda-holiday-tag-mini national" title="${entry.holidayInfo.name}">🔴 Libur</span>`;
+            } else if (entry.holidayInfo.type === 'cuti') {
+              holidayMiniBadge = `<span class="beranda-holiday-tag-mini cuti" title="${entry.holidayInfo.name}">🟠 Cuti</span>`;
+            }
+          }
+
+          dateBadgeHtml = `
+            <div class="beranda-tgl-badge">
+              <span class="beranda-tgl-num">${d} ${m} ${y}</span>
+              <span class="beranda-tgl-day">${entry.dayName ? entry.dayName + ',' : ''} ${entry.tanggal}</span>
+              ${holidayMiniBadge}
+            </div>
+          `;
+        } else {
+          dateBadgeHtml = `<span style="color: #64748b;">-</span>`;
+        }
+
         tableHtml += `
           <tr class="${rowClass}">
             <td class="center" style="font-weight: 700; color: #64748b;">${idx + 1}</td>
+            <td>
+              ${dateBadgeHtml}
+            </td>
             <td>
               <a href="javascript:void(0)" class="staff-name-clickable" onclick="window.JadwalBOKController.bukaModalDetail('${entry.id}')" title="Klik untuk melihat rincian kegiatan lengkap">
                 <div class="staff-avatar-mini ${typeClass}">${initials}</div>

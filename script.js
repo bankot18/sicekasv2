@@ -41,9 +41,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof gsap !== 'undefined') {
     const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
     tl.fromTo('.mac-window-frame', { opacity: 0, scale: 0.94, y: 25 }, { opacity: 1, scale: 1, y: 0, duration: 0.85 })
-      .fromTo('.auth-brand-header', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.6 }, '-=0.5')
+      .fromTo('.auth-heading-block', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.6 }, '-=0.5')
       .fromTo('.auth-split-form', { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.7 }, '-=0.4')
-      .fromTo('.auth-visual-column', { opacity: 0, x: 20 }, { opacity: 1, x: 0, duration: 0.8 }, '-=0.6')
+      .fromTo('.brand-hero-center', { opacity: 0, scale: 0.92, y: 15 }, { opacity: 1, scale: 1, y: 0, duration: 0.8 }, '-=0.6')
       .fromTo('.form-field-wrapper', { opacity: 0, y: 10 }, { opacity: 1, y: 0, stagger: 0.1, duration: 0.5 }, '-=0.5')
       .fromTo('.dock-track-container', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5 }, '-=0.3');
   }

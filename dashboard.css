@@ -6748,40 +6748,30 @@ input[type="date"].modal-input,
   transform: translateY(-1px);
 }
 
-.beranda-date-picker-wrap {
-  position: relative;
+.beranda-month-select-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
-.input-beranda-date {
+.select-beranda-month,
+.select-beranda-year {
   background: rgba(18, 24, 38, 0.95) !important;
   border: 1px solid rgba(45, 212, 191, 0.3) !important;
   color: #f8fafc !important;
   border-radius: 8px !important;
   padding: 6px 10px !important;
   font-size: 12.5px !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
   outline: none !important;
   cursor: pointer;
   color-scheme: dark;
 }
 
-.input-beranda-date:focus {
+.select-beranda-month:focus,
+.select-beranda-year:focus {
   border-color: #2dd4bf !important;
   box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.2) !important;
-}
-
-.beranda-date-text-badge {
-  font-size: 12px;
-  font-weight: 700;
-  color: #2dd4bf;
-  background: rgba(45, 212, 191, 0.1);
-  border: 1px solid rgba(45, 212, 191, 0.25);
-  padding: 5px 12px;
-  border-radius: 8px;
-  white-space: nowrap;
 }
 
 .btn-beranda-today {
@@ -6803,10 +6793,47 @@ input[type="date"].modal-input,
   box-shadow: 0 4px 12px rgba(255, 209, 102, 0.4);
 }
 
-.beranda-quick-filters {
+.beranda-search-and-tabs {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.beranda-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.beranda-search-box svg {
+  position: absolute;
+  left: 10px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.input-beranda-search {
+  background: rgba(10, 14, 22, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  padding: 6px 10px 6px 30px !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  outline: none !important;
+  width: 190px;
+  transition: all 0.2s ease;
+}
+
+.input-beranda-search:focus {
+  width: 230px;
+  border-color: #2dd4bf !important;
+  box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15) !important;
+}
+
+.input-beranda-search::placeholder {
+  color: #64748b;
 }
 
 .beranda-filter-tabs {
@@ -6852,6 +6879,53 @@ input[type="date"].modal-input,
   background: rgba(56, 189, 248, 0.2);
   color: #38bdf8;
   border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.beranda-tgl-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.beranda-tgl-num {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #ffffff;
+  font-family: var(--font-mono);
+}
+
+.beranda-tgl-day {
+  font-size: 10.5px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.beranda-holiday-tag-mini {
+  display: inline-block;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-top: 2px;
+  width: fit-content;
+}
+
+.beranda-holiday-tag-mini.national {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.beranda-holiday-tag-mini.cuti {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.beranda-holiday-tag-mini.sunday {
+  background: rgba(244, 63, 94, 0.15);
+  color: #fda4af;
+  border: 1px solid rgba(244, 63, 94, 0.35);
 }
 
 /* Holiday Banner on Beranda */
