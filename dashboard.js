@@ -1,21 +1,35 @@
-// Theme Toggle (Light/Dark)
+// Theme Toggle (Light/Dark) - Default: Light
 (function() {
   const saved = localStorage.getItem('SICEKAS_THEME');
-  if (saved === 'light') document.body.classList.add('theme-light');
+  // Default is light. Only apply dark if explicitly saved as 'dark'
+  if (saved !== 'dark') document.body.classList.add('theme-light');
 })();
 
 window.toggleSicekasTheme = function() {
   const isLight = document.body.classList.toggle('theme-light');
   localStorage.setItem('SICEKAS_THEME', isLight ? 'light' : 'dark');
-  const label = document.getElementById('themeToggleLabel');
-  if (label) label.textContent = isLight ? 'Mode Gelap' : 'Mode Terang';
+  // Update all labels
+  const labels = [document.getElementById('themeToggleLabel'), document.getElementById('sidebarThemeLabel')];
+  labels.forEach(l => { if (l) l.textContent = isLight ? 'Mode Gelap' : 'Mode Terang'; });
+  // Update sidebar icon
+  const icon = document.getElementById('sidebarThemeIcon');
+  if (icon) {
+    icon.innerHTML = isLight
+      ? '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>'
+      : '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+  }
   if (window.showToast) window.showToast(isLight ? '☀️ Mode Terang diaktifkan' : '🌙 Mode Gelap diaktifkan', 'info');
 };
 
-// Update label on load
+// Update labels and icon on load
 document.addEventListener('DOMContentLoaded', () => {
-  const label = document.getElementById('themeToggleLabel');
-  if (label) label.textContent = document.body.classList.contains('theme-light') ? 'Mode Gelap' : 'Mode Terang';
+  const isLight = document.body.classList.contains('theme-light');
+  const labels = [document.getElementById('themeToggleLabel'), document.getElementById('sidebarThemeLabel')];
+  labels.forEach(l => { if (l) l.textContent = isLight ? 'Mode Gelap' : 'Mode Terang'; });
+  const icon = document.getElementById('sidebarThemeIcon');
+  if (icon && isLight) {
+    icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+  }
 });
 
 document.addEventListener('DOMContentLoaded', () => {

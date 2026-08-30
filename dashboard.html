@@ -35,7 +35,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- SweetAlert2 CDN for Luxury Notifications & Interactive Modals -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <link rel="stylesheet" href="dashboard.css?v=75">
+  <link rel="stylesheet" href="dashboard.css?v=76">
 </head>
 <body>
   <!-- Ambient Atmospheric Light Glows -->
@@ -81,6 +81,39 @@
 
       <!-- Sidebar Navigation Menu -->
       <div class="sidebar-content">
+        <!-- Theme Toggle Button -->
+        <div style="padding: 4px 16px 8px 16px;">
+          <button type="button" id="sidebarThemeToggle" onclick="window.toggleSicekasTheme && window.toggleSicekasTheme();" style="
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            font-size: 12.5px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+          ">
+            <svg id="sidebarThemeIcon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <span id="sidebarThemeLabel">Mode Gelap</span>
+          </button>
+        </div>
+
         <nav class="sidebar-nav">
           <div class="nav-section-title">MENU UTAMA</div>
           <ul class="nav-list">
@@ -4422,6 +4455,6 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=79"></script>
+  <script src="dashboard.js?v=80"></script>
 </body>
 </html>
