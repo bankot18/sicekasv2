@@ -6029,6 +6029,12 @@ input[type="date"].modal-input,
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
+.bok-status-pill.initiator {
+  background: rgba(139, 92, 246, 0.15);
+  color: #c4b5fd;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
 .bok-status-pill.accepted {
   background: rgba(16, 185, 129, 0.15);
   color: #34d399;
