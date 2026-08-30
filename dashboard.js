@@ -9107,9 +9107,150 @@ document.addEventListener('DOMContentLoaded', () => {
         if (kegIdx >= 0) kegVal = kegIdx + 1;
       }
       if (kegInput) kegInput.value = kegVal || '';
-      if (ketInput) ketInput.value = item.keterangan || '';
+
+      // Clean keterangan: remove "[Kolaborasi dengan X petugas]" suffix for editing
+      let cleanKet = item.keterangan || '';
+      cleanKet = cleanKet.replace(/\s*\[Kolaborasi dengan.*?\]\s*/g, '').trim();
+      if (ketInput) ketInput.value = cleanKet;
+
+      // Collab partners section
+      const collabSection = document.getElementById('bokEditCollabSection');
+      const collabList = document.getElementById('bokEditCollabList');
+      const collabAddSelect = document.getElementById('bokEditCollabAddSelect');
+
+      const isCollab = (item.keterangan && item.keterangan.toLowerCase().includes('kolaborasi')) ||
+                       (Array.isArray(item.rekan_kolaborasi) && item.rekan_kolaborasi.length > 0);
+
+      // Store current collab partners for save
+      this._editCollabPartners = [];
+
+      if (isCollab && collabSection && collabList) {
+        collabSection.style.display = 'block';
+
+        // Get current partners from collab requests
+        const collabs = await this.getCollabData();
+        const itemNoKeg = parseInt(item.noKegiatan || 0, 10);
+        const itemNamaKeg = (item.namaKegiatan || '').trim().toLowerCase();
+
+        const matchingReqs = (collabs || []).filter(c => {
+          const cDate = c.tanggal || '';
+          if (cDate !== item.tanggal) return false;
+          const cNo = parseInt(c.no_kegiatan || c.noKegiatan || 0, 10);
+          const cName = (c.nama_kegiatan || c.namaKegiatan || '').trim().toLowerCase();
+          if (itemNoKeg > 0 && cNo > 0 && itemNoKeg === cNo) return true;
+          if (itemNamaKeg && cName && (itemNamaKeg === cName || itemNamaKeg.includes(cName) || cName.includes(itemNamaKeg))) return true;
+          return false;
+        });
+
+        // Deduplicate by to_nama
+        const cleanName = (n) => (n || '').toLowerCase().trim();
+        const uniquePartners = new Map();
+        matchingReqs.forEach(req => {
+          const toNama = req.to_nama || '';
+          const key = cleanName(toNama);
+          if (!key) return;
+          const existing = uniquePartners.get(key);
+          if (!existing || (req.created_at || '') > (existing.created_at || '')) {
+            uniquePartners.set(key, req);
+          }
+        });
+
+        // Also add from rekan_kolaborasi if no matching requests
+        if (uniquePartners.size === 0 && Array.isArray(item.rekan_kolaborasi)) {
+          item.rekan_kolaborasi.forEach(r => {
+            const rNama = typeof r === 'string' ? r : (r.nama || '');
+            const rJab = typeof r === 'object' ? (r.jabatan || 'Petugas') : 'Petugas';
+            if (rNama) {
+              this._editCollabPartners.push({ nama: rNama, jabatan: rJab, nip: '', username: '' });
+            }
+          });
+        } else {
+          uniquePartners.forEach(req => {
+            this._editCollabPartners.push({
+              nama: req.to_nama || '',
+              jabatan: req.to_jabatan || 'Petugas',
+              nip: req.to_nip || '',
+              username: req.to_username || '',
+              status: req.status || 'pending'
+            });
+          });
+        }
+
+        this._renderEditCollabList();
+
+        // Populate the add dropdown with available users
+        if (collabAddSelect) {
+          collabAddSelect.innerHTML = '<option value="">-- Tambah Petugas Kolaborasi --</option>';
+          try {
+            const usersRes = await fetch('/api/users');
+            if (usersRes.ok) {
+              const usersJson = await usersRes.json();
+              const allUsers = usersJson.data || usersJson || [];
+              allUsers.forEach(u => {
+                const uNama = u.nama || '';
+                const uJab = u.jabatan || '';
+                // Skip current user and already-added partners
+                if (cleanName(uNama) === cleanName(CURRENT_USER.nama)) return;
+                if (this._editCollabPartners.some(p => cleanName(p.nama) === cleanName(uNama))) return;
+                const opt = document.createElement('option');
+                opt.value = JSON.stringify({ nama: uNama, jabatan: uJab, nip: u.nip || '', username: u.username || '' });
+                opt.textContent = `${uNama} (${uJab})`;
+                collabAddSelect.appendChild(opt);
+              });
+            }
+          } catch(e) {}
+
+          // Handle adding new partner
+          collabAddSelect.onchange = () => {
+            if (!collabAddSelect.value) return;
+            try {
+              const newPartner = JSON.parse(collabAddSelect.value);
+              this._editCollabPartners.push(newPartner);
+              this._renderEditCollabList();
+              // Remove from dropdown
+              const selectedOpt = collabAddSelect.querySelector(`option[value='${CSS.escape(collabAddSelect.value)}']`);
+              if (selectedOpt) selectedOpt.remove();
+              collabAddSelect.value = '';
+            } catch(e) {}
+          };
+        }
+      } else if (collabSection) {
+        collabSection.style.display = 'none';
+        this._editCollabPartners = [];
+      }
 
       if (modal) modal.classList.add('active');
+    },
+
+    _renderEditCollabList() {
+      const list = document.getElementById('bokEditCollabList');
+      if (!list) return;
+      list.innerHTML = '';
+      this._editCollabPartners.forEach((p, idx) => {
+        const statusText = p.status === 'accepted' ? '✅' : p.status === 'rejected' ? '❌' : '⏳';
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.08);padding:8px 12px;border-radius:8px;';
+        row.innerHTML = `
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:700;color:#f8fafc;">${statusText} ${p.nama}</div>
+            <div style="font-size:11px;color:#94a3b8;">${p.jabatan}</div>
+          </div>
+          <button type="button" data-idx="${idx}" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#f87171;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">Hapus</button>
+        `;
+        row.querySelector('button').onclick = () => {
+          const removed = this._editCollabPartners.splice(idx, 1)[0];
+          this._renderEditCollabList();
+          // Re-add to dropdown
+          const addSelect = document.getElementById('bokEditCollabAddSelect');
+          if (addSelect && removed) {
+            const opt = document.createElement('option');
+            opt.value = JSON.stringify(removed);
+            opt.textContent = `${removed.nama} (${removed.jabatan})`;
+            addSelect.appendChild(opt);
+          }
+        };
+        list.appendChild(row);
+      });
     },
 
     async simpanJadwal() {
@@ -9135,6 +9276,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const tahunVal = parseInt(tParts[0], 10);
       const bulanVal = parseInt(tParts[1], 10);
 
+      // Check if this is an edit with collab partners
+      const collabPartners = this._editCollabPartners || [];
+      const hasCollabPartners = collabPartners.length > 0;
+
+      let finalKeterangan = keterangan;
+      let rekanKolaborasi = [];
+
+      if (hasCollabPartners) {
+        finalKeterangan = (keterangan ? keterangan + ' ' : '') + `[Kolaborasi dengan ${collabPartners.length} petugas]`;
+        rekanKolaborasi = collabPartners.map(p => ({ nama: p.nama, jabatan: p.jabatan || 'Petugas' }));
+      }
+
       const payload = {
         id: entryId,
         tanggal: tanggal,
@@ -9143,7 +9296,7 @@ document.addEventListener('DOMContentLoaded', () => {
         noKegiatan: noKeg,
         nama_kegiatan: namaKegiatan,
         namaKegiatan: namaKegiatan,
-        keterangan: keterangan,
+        keterangan: finalKeterangan,
         lokasi: 'Puskesmas / Wilayah Kerja',
         petugas_nip: CURRENT_USER.nip,
         petugas_nama: CURRENT_USER.nama,
@@ -9151,12 +9304,36 @@ document.addEventListener('DOMContentLoaded', () => {
         username: CURRENT_USER.username,
         namaUser: CURRENT_USER.nama,
         jabatan: CURRENT_USER.jabatan,
-        rekan_kolaborasi: [],
+        rekan_kolaborasi: rekanKolaborasi,
         status: 'Disetujui',
         updatedAt: new Date().toISOString()
       };
 
       await CloudflareDB.saveJadwal(payload);
+
+      // If collab partners were edited, re-send collab requests
+      if (editId && hasCollabPartners) {
+        // Send new collab request (which auto-deletes old ones for same activity)
+        await CloudflareDB.sendCollabRequest({
+          from_nip: CURRENT_USER.nip,
+          from_nama: CURRENT_USER.nama,
+          from_jabatan: CURRENT_USER.jabatan,
+          from_username: CURRENT_USER.username,
+          tanggal: tanggal,
+          no_kegiatan: noKeg,
+          nama_kegiatan: namaKegiatan,
+          keterangan: keterangan,
+          lokasi: 'Puskesmas / Wilayah Kerja',
+          recipients: collabPartners.map(p => ({
+            nip: p.nip || '',
+            nama: p.nama,
+            jabatan: p.jabatan || 'Petugas',
+            username: p.username || ''
+          }))
+        });
+        this._cachedCollabData = null;
+      }
+
       if (window.showToast) {
         window.showToast(editId ? '✓ Jadwal berhasil diperbarui di Cloudflare D1!' : '✓ Jadwal berhasil ditambahkan ke Cloudflare D1!', 'success');
       }
@@ -9168,6 +9345,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (editIdEl) editIdEl.value = '';
       if (modal) modal.classList.remove('active');
 
+      // Reset collab edit state
+      const collabSection = document.getElementById('bokEditCollabSection');
+      if (collabSection) collabSection.style.display = 'none';
+      this._editCollabPartners = [];
+
       // OPTIMISTIC UPDATE: Langsung tambah/update item di cache tanpa re-fetch dari cloud
       // Ini mencegah data hilang akibat eventual consistency Cloudflare D1
       const optimisticItem = {
@@ -9177,13 +9359,13 @@ document.addEventListener('DOMContentLoaded', () => {
         tahun: tahunVal,
         noKegiatan: noKeg,
         namaKegiatan: namaKegiatan,
-        keterangan: keterangan,
+        keterangan: finalKeterangan,
         lokasi: 'Puskesmas / Wilayah Kerja',
         username: CURRENT_USER.username,
         namaUser: CURRENT_USER.nama,
         jabatan: CURRENT_USER.jabatan,
         petugas_nip: CURRENT_USER.nip,
-        rekan_kolaborasi: [],
+        rekan_kolaborasi: rekanKolaborasi,
         status: 'Disetujui',
         createdAt: new Date().toISOString()
       };

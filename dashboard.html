@@ -3832,6 +3832,22 @@
           </div>
         </div>
 
+        <!-- Collaboration Partners Section (shown only when editing collab activities) -->
+        <div id="bokEditCollabSection" style="display: none;">
+          <div class="input-group">
+            <label style="display: flex; align-items: center; gap: 6px;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              Rekan Kolaborasi
+            </label>
+            <div id="bokEditCollabList" style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px;"></div>
+            <div style="margin-top: 8px;">
+              <select id="bokEditCollabAddSelect" class="poa-select" style="font-size: 12.5px;">
+                <option value="">-- Tambah Petugas Kolaborasi --</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div class="bok-form-hint">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
           <span>Jadwal ini terhubung dengan nama akun Anda dan dapat diedit/dihapus sewaktu-waktu oleh Anda.</span>
@@ -4405,6 +4421,6 @@
     </div>
   </div>
 
-  <script src="dashboard.js?v=77"></script>
+  <script src="dashboard.js?v=78"></script>
 </body>
 </html>
