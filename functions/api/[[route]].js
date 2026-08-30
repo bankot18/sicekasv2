@@ -691,6 +691,13 @@ async function handleApiRequest(request, env, ctx) {
       const tahunVal = parseInt(tParts[0], 10) || new Date().getFullYear();
       const bulanVal = parseInt(tParts[1], 10) || (new Date().getMonth() + 1);
 
+      // Clean up old/stale requests for the same activity to prevent duplicates
+      try {
+        await db.prepare(
+          `DELETE FROM kolaborasi_request WHERE from_nama = ? AND tanggal = ? AND no_kegiatan = ?`
+        ).bind(from_nama, tanggal, parseInt(no_kegiatan, 10)).run();
+      } catch(e) {}
+
       const createdIds = [];
 
       for (const rec of recipients) {

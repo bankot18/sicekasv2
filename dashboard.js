@@ -9795,9 +9795,20 @@ document.addEventListener('DOMContentLoaded', () => {
         status: 'initiator',
         statusLabel: '👑 Pengirim (Inisiator)'
       });
-
-      // 2. Add each recipient from collab requests with their ACTUAL status from DB
+      // 2. Deduplicate: keep only the NEWEST request per recipient (to_nama)
+      const latestPerRecipient = new Map();
       matchingReqs.forEach(req => {
+        const toNama = req.to_nama || req.toNama || '';
+        const key = cleanName(toNama);
+        if (!key) return;
+        const existing = latestPerRecipient.get(key);
+        if (!existing || (req.created_at || '') > (existing.created_at || '')) {
+          latestPerRecipient.set(key, req);
+        }
+      });
+
+      // Add each recipient with their ACTUAL status from the NEWEST DB record
+      latestPerRecipient.forEach(req => {
         const toNama = req.to_nama || req.toNama;
         const toJab = req.to_jabatan || req.toJabatan || 'Petugas';
         const reqStatus = (req.status || 'pending').toLowerCase().trim();
@@ -9814,24 +9825,12 @@ document.addEventListener('DOMContentLoaded', () => {
           finalStatus = 'accepted';
         }
 
-        // Only set if not already present, or update if collab request is more authoritative
-        const existingKey = [...partnerStatusMap.keys()].find(k => cleanName(k) === cleanName(toNama));
-        if (!existingKey) {
-          partnerStatusMap.set(toNama, {
-            nama: toNama,
-            jabatan: toJab,
-            status: finalStatus,
-            statusLabel: label
-          });
-        } else if (existingKey && partnerStatusMap.get(existingKey).status !== 'initiator') {
-          // Update with collab request data (authoritative)
-          partnerStatusMap.set(existingKey, {
-            nama: toNama,
-            jabatan: toJab,
-            status: finalStatus,
-            statusLabel: label
-          });
-        }
+        partnerStatusMap.set(toNama, {
+          nama: toNama,
+          jabatan: toJab,
+          status: finalStatus,
+          statusLabel: label
+        });
       });
 
       // 3. Fallback: partners in rekan_kolaborasi that weren't found in matchingReqs
