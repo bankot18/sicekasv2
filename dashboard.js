@@ -378,12 +378,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return { success: true, id: item.id };
     },
 
-    async deleteJadwal(id) {
+    async deleteJadwal(id, cascade = false) {
       try {
         const res = await fetch('/api/jadwal/delete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id })
+          body: JSON.stringify({ id, cascade })
         });
         if (res.ok) {
           const json = await res.json();
@@ -8340,14 +8340,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button type="button" class="btn-bok-act" title="Lihat Detail" onclick="window.JadwalBOKController.bukaModalDetail('${ev.id}')">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                 </button>
-                ${isMine ? `
+                ${(() => {
+                  // For collab activities: only initiator can edit/delete
+                  // Partners (keterangan contains "[Kolaborasi dengan:") cannot edit/delete
+                  const isCollabPartner = isCollab && ev.keterangan && ev.keterangan.includes('[Kolaborasi dengan:');
+                  const canEditDelete = isMine && !isCollabPartner;
+                  return canEditDelete ? `
                   <button type="button" class="btn-bok-act" title="Edit Jadwal" onclick="window.JadwalBOKController.bukaModalEdit('${ev.id}')">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                   </button>
                   <button type="button" class="btn-bok-act delete" title="Hapus Jadwal" onclick="window.JadwalBOKController.hapusJadwal('${ev.id}')">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                   </button>
-                ` : ''}
+                ` : '';
+                })()}
               </div>
             </div>
           `;
@@ -9206,21 +9212,63 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     async hapusJadwal(id) {
+      const data = await this.getData();
+      const item = data.find(i => i.id === id);
+      if (!item) {
+        if (window.showToast) window.showToast('Data kegiatan tidak ditemukan.', 'error');
+        return;
+      }
+
+      const isCollab = (item.keterangan && item.keterangan.toLowerCase().includes('kolaborasi')) ||
+                       (Array.isArray(item.rekan_kolaborasi) && item.rekan_kolaborasi.length > 0);
+      const isMine = item.namaUser === CURRENT_USER.nama;
+
+      // Check if this is a collab activity but user is NOT the initiator
+      if (isCollab && !isMine) {
+        // Check if user is a partner (not initiator) — they can't delete
+        const isPartner = item.keterangan && item.keterangan.includes('[Kolaborasi dengan:');
+        if (isPartner) {
+          if (window.showToast) window.showToast('⚠️ Hanya inisiator (pengirim request) yang dapat menghapus kegiatan kolaborasi ini.', 'error');
+          return;
+        }
+      }
+
+      let confirmMsg = 'Kegiatan ini akan dihapus secara permanen dari Cloudflare D1 Database.';
+      if (isCollab && isMine) {
+        confirmMsg = 'Kegiatan kolaborasi ini akan dihapus beserta seluruh jadwal rekan kolaborasi yang terkait.';
+      }
+
       const confirmed = await window.SicekasAlert.confirm(
         'Hapus Jadwal Kegiatan?',
-        'Kegiatan ini akan dihapus secara permanen dari Cloudflare D1 Database.',
+        confirmMsg,
         'Ya, Hapus Jadwal',
         'Batal',
         true
       );
       if (!confirmed) return;
 
-      await CloudflareDB.deleteJadwal(id);
-      if (window.showToast) window.showToast('✓ Jadwal kegiatan berhasil dihapus dari Cloudflare D1.', 'info');
+      // Use cascade=true for collaboration activities owned by initiator
+      const cascade = isCollab && isMine;
+      await CloudflareDB.deleteJadwal(id, cascade);
+      
+      if (cascade) {
+        if (window.showToast) window.showToast('✓ Jadwal kegiatan kolaborasi dan seluruh jadwal rekan berhasil dihapus.', 'info');
+        // Also invalidate collab data cache
+        this._cachedCollabData = null;
+      } else {
+        if (window.showToast) window.showToast('✓ Jadwal kegiatan berhasil dihapus dari Cloudflare D1.', 'info');
+      }
 
       // OPTIMISTIC DELETE: Langsung hapus dari cache tanpa re-fetch
       if (this._cachedData) {
-        this._cachedData = this._cachedData.filter(i => i.id !== id);
+        if (cascade) {
+          // Remove all entries with same tanggal + namaKegiatan (partners too)
+          this._cachedData = this._cachedData.filter(i =>
+            !(i.tanggal === item.tanggal && i.namaKegiatan === item.namaKegiatan)
+          );
+        } else {
+          this._cachedData = this._cachedData.filter(i => i.id !== id);
+        }
       } else {
         this.invalidateCache();
       }
@@ -9831,7 +9879,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (btnEdit) {
-        if (isMine) {
+        // For collab activities: only initiator can edit, not partners
+        const isCollabPartner = isCollab && item.keterangan && item.keterangan.includes('[Kolaborasi dengan:');
+        const canEdit = isMine && !isCollabPartner;
+        if (canEdit) {
           btnEdit.style.display = 'inline-block';
           btnEdit.onclick = () => {
             modal.classList.remove('active');

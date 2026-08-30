@@ -528,14 +528,63 @@ async function handleApiRequest(request, env, ctx) {
 
     if (pathname === '/api/jadwal/delete' && (method === 'DELETE' || method === 'POST')) {
       const body = await request.json();
-      const { id } = body;
+      const { id, cascade } = body;
 
       if (!id) {
         return jsonResponse({ success: false, error: 'ID jadwal kegiatan wajib disertakan!' }, 400);
       }
 
+      // Fetch the jadwal being deleted first (for cascade)
+      let deletedRow = null;
+      try {
+        deletedRow = await db.prepare('SELECT * FROM jadwal_kegiatan WHERE id = ?').bind(id).first();
+      } catch(e) {}
+
+      // Delete the main jadwal
       await db.prepare('DELETE FROM jadwal_kegiatan WHERE id = ?').bind(id).run();
-      return jsonResponse({ success: true, message: `Jadwal [${id}] berhasil dihapus dari Cloudflare D1.` });
+
+      let cascadeDeletedJadwal = 0;
+      let cascadeDeletedCollab = 0;
+
+      // Cascade delete: if this was a collaboration activity, also delete partner schedules & collab requests
+      if (cascade && deletedRow) {
+        const tanggal = deletedRow.tanggal;
+        const namaKegiatan = deletedRow.nama_kegiatan;
+        const petugasNama = deletedRow.petugas_nama;
+        const petugasNip = deletedRow.petugas_nip;
+
+        // 1. Delete all jadwal_kegiatan entries from partners for the same activity+date
+        //    Partners' keterangan contains "[Kolaborasi dengan: <initiator_nama>]"
+        try {
+          const { results: partnerJadwal } = await db.prepare(
+            `SELECT id FROM jadwal_kegiatan WHERE tanggal = ? AND nama_kegiatan = ? AND id != ?`
+          ).bind(tanggal, namaKegiatan, id).all();
+
+          for (const pj of (partnerJadwal || [])) {
+            await db.prepare('DELETE FROM jadwal_kegiatan WHERE id = ?').bind(pj.id).run();
+            cascadeDeletedJadwal++;
+          }
+        } catch(e) {}
+
+        // 2. Delete all kolaborasi_request entries for this activity
+        try {
+          const { results: collabReqs } = await db.prepare(
+            `SELECT id FROM kolaborasi_request WHERE tanggal = ? AND nama_kegiatan = ? AND (from_nama = ? OR from_nip = ?)`
+          ).bind(tanggal, namaKegiatan, petugasNama, petugasNip || '').all();
+
+          for (const cr of (collabReqs || [])) {
+            await db.prepare('DELETE FROM kolaborasi_request WHERE id = ?').bind(cr.id).run();
+            cascadeDeletedCollab++;
+          }
+        } catch(e) {}
+      }
+
+      return jsonResponse({
+        success: true,
+        message: `Jadwal [${id}] berhasil dihapus dari Cloudflare D1.`,
+        cascadeDeletedJadwal,
+        cascadeDeletedCollab
+      });
     }
 
     // ------------------------------------------------------------------------
