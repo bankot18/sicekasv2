@@ -63,60 +63,63 @@
           <span class="mac-dot yellow"></span>
           <span class="mac-dot green"></span>
         </div>
+        <div class="mac-title">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          <span>SICEKAS v2.0 &bull; Puskesmas Banjaran Kota</span>
+        </div>
+        <div class="mac-actions">
+          <span class="host-pill"><span class="status-live-dot"></span> Cloud D1 Live</span>
+        </div>
       </div>
 
-      <!-- Window Main Content Area -->
-      <div class="mac-window-content">
+      <!-- Split Layout Content Area -->
+      <div class="mac-window-content split-content">
 
-        <!-- SICEKAS Official Centered Branding Block -->
-        <div class="sicekas-brand-centered">
+        <!-- ================= LEFT COLUMN: AUTH FORM ================= -->
+        <div class="auth-form-column">
           
-          <!-- Centered Logo with Golden Backlight & Dynamic Animations -->
-          <div class="logo-aura-box-centered">
-            <div class="logo-backlight"></div>
-            <img src="LOGO.png" alt="Logo Puskesmas Banjaran Kota" class="sicekas-logo-centered" id="appLogo">
-            <div class="logo-shine-glare"></div>
-          </div>
-
-          <!-- Centered Brand Titles with Shimmer & Glowing Text Animation -->
-          <div class="brand-title-group-centered">
-            <div class="brand-title-row-centered">
-              <h1 class="brand-name-centered">SICEKAS</h1>
-              <span class="brand-badge-v2">v2.0</span>
+          <!-- SICEKAS Official Brand Header -->
+          <div class="auth-brand-header">
+            <div class="auth-logo-badge-row">
+              <div class="logo-aura-box-compact">
+                <div class="logo-backlight"></div>
+                <img src="LOGO.png" alt="Logo Puskesmas Banjaran Kota" class="sicekas-logo-compact" id="appLogo">
+                <div class="logo-shine-glare"></div>
+              </div>
+              <div class="auth-brand-text">
+                <div class="brand-title-row-compact">
+                  <h1 class="brand-name-compact">SICEKAS</h1>
+                  <span class="brand-badge-v2">v2.0</span>
+                </div>
+                <p class="brand-sub-compact">Sistem Informasi Catat Pelaporan Puskesmas</p>
+                <div class="brand-sub-loc">
+                  <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                  <span>Puskesmas Banjaran Kota</span>
+                </div>
+              </div>
             </div>
-            <p class="brand-subtitle-1">Sistem Informasi Catat Pelaporan Puskesmas</p>
-            <div class="brand-subtitle-2">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-              <span>Puskesmas Banjaran Kota</span>
+
+            <div class="auth-heading-block">
+              <h2 class="auth-main-title">Selamat Datang Kembali</h2>
+              <p class="auth-main-subtitle" id="cardSubtitleText">Masuk menggunakan email resmi atau akun pegawai Anda</p>
             </div>
           </div>
 
-        </div>
-
-        <!-- Main Runaway Card with Animated Glowing Border -->
-        <div class="runaway-main-card">
-          <div class="card-inner-glow"></div>
-
-          <div class="card-heading-group">
-            <h2 class="card-title-text">Selamat Datang</h2>
-            <p class="card-subtitle-text" id="cardSubtitleText">Silakan masukkan kredensial akun pegawai Anda</p>
-          </div>
-
-          <!-- Form -->
-          <form id="loginForm" class="runaway-form" autocomplete="off" onsubmit="event.preventDefault();">
+          <!-- Main Auth Form -->
+          <form id="loginForm" class="auth-split-form" autocomplete="off" onsubmit="event.preventDefault();">
             
-            <!-- Field 1: Searchable Officer Dropdown -->
+            <!-- Field 1: Email / Searchable Officer Dropdown -->
             <div class="form-field-wrapper" id="fieldWrapperUser" style="position: relative;">
               <div class="field-label-row">
-                <label for="username" class="field-label">Akun Pegawai Puskesmas</label>
-                <span class="field-status-txt" id="fieldUserStatus">Pilih / cari nama pegawai</span>
+                <label for="username" class="field-label">Email / Akun Pegawai</label>
+                <span class="field-status-txt" id="fieldUserStatus">Pilih / cari nama</span>
               </div>
               
               <div class="field-input-box" id="boxUser">
                 <div class="field-icon-left">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
+                    <rect width="20" height="16" x="2" y="4" rx="2"></rect>
+                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
                   </svg>
                 </div>
                 
@@ -124,8 +127,8 @@
                   type="text" 
                   id="username" 
                   class="field-input" 
-                  placeholder="Cari nama, NIP, atau jabatan pegawai..." 
-                  autocomplete="off"
+                  placeholder="nama@puskesmasbanjaran.go.id atau cari nama/NIP..." 
+                  autocomplete="username"
                   required
                 >
 
@@ -150,6 +153,14 @@
                 <div class="dropdown-items-scroll" id="dropdownItemsList">
                   <!-- Dynamically populated 39 officers -->
                 </div>
+              </div>
+
+              <!-- Quick Demo Suggestions -->
+              <div class="quick-officer-chips">
+                <span class="quick-chip-label">Akses Cepat:</span>
+                <button type="button" class="quick-chip-btn" onclick="selectQuickOfficer('ozie')">⚡ Super Admin</button>
+                <button type="button" class="quick-chip-btn" onclick="selectQuickOfficer('rina')">👑 Kapus</button>
+                <button type="button" class="quick-chip-btn" onclick="selectQuickOfficer('teti')">🩺 Satker/Bidan</button>
               </div>
             </div>
 
@@ -193,7 +204,22 @@
               </div>
             </div>
 
-            <!-- THE DOCK TRACK (Runaway Button Track) -->
+            <!-- Extra Options: Remember Me & Security Tag -->
+            <div class="auth-extra-row">
+              <label class="auth-checkbox-label">
+                <input type="checkbox" id="rememberMe" checked class="auth-checkbox">
+                <span class="auth-checkbox-custom">
+                  <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </span>
+                <span class="auth-checkbox-text">Ingat sesi masuk di perangkat ini</span>
+              </label>
+              <div class="auth-security-tag" title="Enkripsi SSL 256-bit Cloudflare D1">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <span>SSL Encrypted</span>
+              </div>
+            </div>
+
+            <!-- THE DOCK TRACK (Runaway Primary CTA Button Track) -->
             <div class="dock-track-container" id="dockContainer">
               
               <!-- Rubber Elastic Band SVG -->
@@ -207,13 +233,13 @@
                 <line id="bandLine" x1="50%" y1="50%" x2="50%" y2="50%" stroke="url(#bandGrad)" stroke-width="2.5" stroke-dasharray="4 4" opacity="0"></line>
               </svg>
 
-              <!-- Target Center Socket Slot (Dashed outline in center) -->
+              <!-- Target Center Socket Slot -->
               <div class="dock-target-socket" id="dockSocket">
                 <span class="socket-inner-dash"></span>
                 <span class="socket-glow-aura"></span>
               </div>
 
-              <!-- The Runaway CTA Button -->
+              <!-- The Runaway Primary CTA Button -->
               <button 
                 type="submit" 
                 class="dock-cta-btn" 
@@ -221,7 +247,7 @@
                 tabindex="0"
               >
                 <span class="cta-inner" id="ctaInner">
-                  <span class="cta-text" id="ctaText">Log in</span>
+                  <span class="cta-text" id="ctaText">Masuk ke SICEKAS</span>
                   <span class="cta-spinner" id="ctaSpinner" style="display: none;"></span>
                   <svg class="cta-check-icon" id="ctaCheck" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" style="display: none;">
                     <polyline points="20 6 9 17 4 12"></polyline>
@@ -234,11 +260,161 @@
             <!-- Dynamic Status Bullet & Text -->
             <div class="dynamic-status-row">
               <span class="status-dot" id="statusDot"></span>
-              <span class="status-label" id="statusLabel">Lengkapi username dan sandi untuk membuka tombol.</span>
+              <span class="status-label" id="statusLabel">Lengkapi akun dan sandi untuk membuka tombol.</span>
             </div>
 
           </form>
 
+          <!-- Form Footer Info -->
+          <div class="auth-form-footer">
+            <div class="footer-gov-row">
+              <span class="gov-text">Dinas Kesehatan Kab. Bandung</span>
+              <span class="gov-dot">&bull;</span>
+              <span class="gov-text">Puskesmas Banjaran Kota</span>
+            </div>
+            <p class="footer-copyright">&copy; 2026 SICEKAS Enterprise Suite. Hak Cipta Dilindungi.</p>
+          </div>
+
+        </div>
+
+        <!-- ================= RIGHT COLUMN: VISUAL SHOWCASE PANEL ================= -->
+        <div class="auth-visual-column">
+          <div class="visual-panel-inner">
+            
+            <!-- Visual Atmospheric Glows -->
+            <div class="visual-glow-orb orb-1"></div>
+            <div class="visual-glow-orb orb-2"></div>
+            <div class="visual-grid-overlay"></div>
+
+            <!-- Top Visual Badge -->
+            <div class="visual-header-badge">
+              <span class="badge-icon">✨</span>
+              <span class="badge-text">SICEKAS v2.0 Enterprise Cloud</span>
+              <span class="badge-status-pill">LIVE D1</span>
+            </div>
+
+            <!-- Product Showcase Mockup Card -->
+            <div class="product-preview-card">
+              
+              <!-- Mock Window Bar -->
+              <div class="preview-window-bar">
+                <div class="preview-dots">
+                  <span></span><span></span><span></span>
+                </div>
+                <div class="preview-bar-title">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
+                  <span>sicekas.web.id/dashboard</span>
+                </div>
+                <div class="preview-badge-status">
+                  <span class="dot-blink"></span> Online
+                </div>
+              </div>
+
+              <!-- Product Feature Grid Cards -->
+              <div class="preview-features-grid">
+
+                <!-- Feature 1: Perencanaan POA -->
+                <div class="preview-feat-card card-poa">
+                  <div class="feat-card-header">
+                    <div class="feat-icon-box poa">📊</div>
+                    <div class="feat-meta">
+                      <h5>Perencanaan POA Bulanan</h5>
+                      <span>24 Program Puskesmas Otomatis</span>
+                    </div>
+                  </div>
+                  <div class="feat-progress-wrap">
+                    <div class="feat-prog-bar"><div class="feat-prog-fill" style="width: 100%;"></div></div>
+                    <span class="feat-prog-val">100% Selesai</span>
+                  </div>
+                </div>
+
+                <!-- Feature 2: Jadwal BOK & Kolaborasi -->
+                <div class="preview-feat-card card-jadwal">
+                  <div class="feat-card-header">
+                    <div class="feat-icon-box jadwal">📅</div>
+                    <div class="feat-meta">
+                      <h5>Jadwal BOK & Kolaborasi</h5>
+                      <span>Kalender Tim & Penanda Libur</span>
+                    </div>
+                  </div>
+                  <div class="feat-avatar-stack">
+                    <div class="stack-avatars">
+                      <span class="av-mini ri" title="dr. Rina Indriati">RI</span>
+                      <span class="av-mini mf" title="Mochamad Fauzie S.Gz">MF</span>
+                      <span class="av-mini tn" title="Teti Nuryati S.Keb">TN</span>
+                      <span class="av-mini dp" title="Dadi Permadi SKM">DP</span>
+                      <span class="av-mini extra">+35</span>
+                    </div>
+                    <span class="stack-caption">39 Pegawai Terkoneksi</span>
+                  </div>
+                </div>
+
+                <!-- Feature 3: SPPD & LPT Digital -->
+                <div class="preview-feat-card card-sppd">
+                  <div class="feat-card-header">
+                    <div class="feat-icon-box sppd">📄</div>
+                    <div class="feat-meta">
+                      <h5>Generator SPPD & LPT Visum</h5>
+                      <span>Standar Baku Permendagri</span>
+                    </div>
+                  </div>
+                  <div class="feat-tag-row">
+                    <span class="mini-tag ready">✓ Cetak A4 PDF</span>
+                    <span class="mini-tag verified">Visum Digital</span>
+                  </div>
+                </div>
+
+                <!-- Feature 4: TP POL Jaspel Scoring -->
+                <div class="preview-feat-card card-tppol">
+                  <div class="feat-card-header">
+                    <div class="feat-icon-box tppol">🏆</div>
+                    <div class="feat-meta">
+                      <h5>TP POL Jaspel Scoring</h5>
+                      <span>Penilaian Kinerja Terverifikasi</span>
+                    </div>
+                  </div>
+                  <div class="feat-score-display">
+                    <span class="score-num">100</span>
+                    <span class="score-unit">/ 100 Poin</span>
+                    <span class="score-badge">Optimal</span>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
+            <!-- Floating Live System Metric Badges -->
+            <div class="visual-metrics-row">
+              <div class="metric-capsule">
+                <span class="metric-dot green"></span>
+                <span class="metric-label">Latency:</span>
+                <strong class="metric-val">&lt; 15ms</strong>
+              </div>
+              <div class="metric-capsule">
+                <span class="metric-dot blue"></span>
+                <span class="metric-label">Cloud:</span>
+                <strong class="metric-val">Cloudflare D1</strong>
+              </div>
+              <div class="metric-capsule">
+                <span class="metric-dot gold"></span>
+                <span class="metric-label">Security:</span>
+                <strong class="metric-val">AES-256</strong>
+              </div>
+            </div>
+
+            <!-- Endorsement Quote Card -->
+            <div class="visual-quote-card">
+              <p class="quote-text">
+                &ldquo;Mewujudkan tata kelola pencatatan dan pelaporan program Puskesmas yang akuntabel, transparan, dan presisi.&rdquo;
+              </p>
+              <div class="quote-author">
+                <span class="author-name">Puskesmas Banjaran Kota</span>
+                <span class="author-sub">Dinas Kesehatan Kabupaten Bandung</span>
+              </div>
+            </div>
+
+          </div>
         </div>
 
       </div>

@@ -1031,6 +1031,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (topbarTitle) topbarTitle.textContent = 'Beranda SICEKAS';
       if (topbarSubtitle) topbarSubtitle.textContent = 'Sistem Informasi Catat Pelaporan Puskesmas Banjaran Kota';
       
+      if (window.JadwalBOKController && typeof window.JadwalBOKController.renderBerandaWidget === 'function') {
+        window.JadwalBOKController.renderBerandaWidget();
+      }
+
       setTimeout(() => {
         if (window.healthChartInstance) window.healthChartInstance.resize();
       }, 100);
@@ -7474,6 +7478,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const JadwalBOKController = {
     currentYear: new Date().getFullYear(),
     currentMonth: new Date().getMonth() + 1,
+    berandaSelectedDate: new Date().toISOString().split('T')[0],
+    berandaFilterTab: 'all', // 'all' | 'sendiri' | 'collab'
     selectedStaff: '',
     searchKeyword: '',
     activeTab: 'all', // 'all' | 'mine' | 'collab'
@@ -7482,14 +7488,16 @@ document.addEventListener('DOMContentLoaded', () => {
     _lastFetchKey: '', // tracks last fetch params to avoid redundant calls
 
     // Fetch kegiatan from Cloudflare D1 cloud database (async)
-    async getData() {
-      const fetchKey = `${this.currentMonth}-${this.currentYear}`;
+    async getData(targetMonth = null, targetYear = null) {
+      const fetchMonth = targetMonth !== null ? targetMonth : this.currentMonth;
+      const fetchYear = targetYear !== null ? targetYear : this.currentYear;
+      const fetchKey = `${fetchMonth}-${fetchYear}`;
       // Use cache if we already fetched for this month/year
       if (this._cachedData !== null && this._lastFetchKey === fetchKey) {
         return this._cachedData;
       }
       try {
-        const cloudData = await CloudflareDB.fetchJadwal(this.currentMonth, this.currentYear);
+        const cloudData = await CloudflareDB.fetchJadwal(fetchMonth, fetchYear);
         // Normalize cloud data fields to match local format
         const normalized = (cloudData || []).map(item => {
           const kegName = item.namaKegiatan || item.nama_kegiatan || '';
@@ -7784,7 +7792,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const btnBerandaTambahJadwal = document.getElementById('btnBerandaTambahJadwal');
 
       if (btnTambah) btnTambah.addEventListener('click', () => this.bukaModalTambah());
-      if (btnBerandaTambahJadwal) btnBerandaTambahJadwal.addEventListener('click', () => this.bukaModalTambah());
+      if (btnBerandaTambahJadwal) btnBerandaTambahJadwal.addEventListener('click', () => this.bukaModalTambah(this.berandaSelectedDate));
       if (btnCollab) btnCollab.addEventListener('click', () => this.bukaModalCollab());
       if (btnNotif) btnNotif.addEventListener('click', () => this.bukaModalNotif());
       if (btnExport) btnExport.addEventListener('click', () => this.cetakJadwalBulanan());
@@ -7795,6 +7803,71 @@ document.addEventListener('DOMContentLoaded', () => {
           if (navItem) navItem.click();
         });
       }
+
+      // Beranda Date Toolbar & Filter Events
+      const inputBerandaDate = document.getElementById('inputBerandaDate');
+      const btnBerandaPrevDate = document.getElementById('btnBerandaPrevDate');
+      const btnBerandaNextDate = document.getElementById('btnBerandaNextDate');
+      const btnBerandaToday = document.getElementById('btnBerandaToday');
+      const berandaTabAll = document.getElementById('berandaTabAll');
+      const berandaTabSendiri = document.getElementById('berandaTabSendiri');
+      const berandaTabCollab = document.getElementById('berandaTabCollab');
+
+      if (inputBerandaDate) {
+        inputBerandaDate.addEventListener('change', async (e) => {
+          if (e.target.value) {
+            this.berandaSelectedDate = e.target.value;
+            await this.renderBerandaWidget();
+          }
+        });
+      }
+
+      if (btnBerandaPrevDate) {
+        btnBerandaPrevDate.addEventListener('click', async () => {
+          const current = new Date(this.berandaSelectedDate + 'T00:00:00');
+          current.setDate(current.getDate() - 1);
+          const y = current.getFullYear();
+          const m = String(current.getMonth() + 1).padStart(2, '0');
+          const d = String(current.getDate()).padStart(2, '0');
+          this.berandaSelectedDate = `${y}-${m}-${d}`;
+          await this.renderBerandaWidget();
+        });
+      }
+
+      if (btnBerandaNextDate) {
+        btnBerandaNextDate.addEventListener('click', async () => {
+          const current = new Date(this.berandaSelectedDate + 'T00:00:00');
+          current.setDate(current.getDate() + 1);
+          const y = current.getFullYear();
+          const m = String(current.getMonth() + 1).padStart(2, '0');
+          const d = String(current.getDate()).padStart(2, '0');
+          this.berandaSelectedDate = `${y}-${m}-${d}`;
+          await this.renderBerandaWidget();
+        });
+      }
+
+      if (btnBerandaToday) {
+        btnBerandaToday.addEventListener('click', async () => {
+          const now = new Date();
+          const y = now.getFullYear();
+          const m = String(now.getMonth() + 1).padStart(2, '0');
+          const d = String(now.getDate()).padStart(2, '0');
+          this.berandaSelectedDate = `${y}-${m}-${d}`;
+          await this.renderBerandaWidget();
+        });
+      }
+
+      const berandaTabs = [berandaTabAll, berandaTabSendiri, berandaTabCollab];
+      berandaTabs.forEach(tab => {
+        if (tab) {
+          tab.addEventListener('click', async () => {
+            berandaTabs.forEach(t => t && t.classList.remove('active'));
+            tab.classList.add('active');
+            this.berandaFilterTab = tab.getAttribute('data-tab') || 'all';
+            await this.renderBerandaWidget();
+          });
+        }
+      });
 
       // Modal Close Handlers
       const modalTambah = document.getElementById('modalTambahJadwalBOK');
@@ -8130,20 +8203,35 @@ document.addEventListener('DOMContentLoaded', () => {
         const isToday = dateStr === todayStr;
         const dateObj = new Date(year, month - 1, d);
         const dayOfWeek = dateObj.getDay();
-        const isSunday = dayOfWeek === 0; // Hanya hari Minggu yang libur di Puskesmas
+        const isSunday = dayOfWeek === 0; // Libur Puskesmas di hari Minggu
 
-        // Check National Holidays (SKB 3 Menteri)
-        const holidays = (typeof NATIONAL_HOLIDAYS_2026 !== 'undefined') ? NATIONAL_HOLIDAYS_2026 : {};
-        const holidayInfo = holidays[dateStr];
-        const isHoliday = isSunday || !!holidayInfo;
+        // Check National Holidays & Cuti Bersama (SKB 3 Menteri)
+        const holidayInfo = (typeof INDONESIAN_HOLIDAYS !== 'undefined') ? INDONESIAN_HOLIDAYS[dateStr] : null;
+        const isNationalHoliday = (holidayInfo && holidayInfo.type === 'national');
+        const isCutiBersama = (holidayInfo && holidayInfo.type === 'cuti');
 
         const dayEvents = eventMap[dateStr] || [];
 
+        let cellClasses = ['bok-cal-cell'];
+        if (isToday) cellClasses.push('is-today');
+        if (isSunday) cellClasses.push('is-sunday is-holiday');
+        if (isNationalHoliday) cellClasses.push('is-holiday');
+        if (isCutiBersama) cellClasses.push('is-cuti');
+
+        let holidayTagHtml = '';
+        if (isToday) {
+          holidayTagHtml = '<span class="bok-cal-today-tag">Hari Ini</span>';
+        } else if (isNationalHoliday) {
+          holidayTagHtml = `<span class="bok-cal-holiday-label national" title="${holidayInfo.name}">🔴 ${holidayInfo.name}</span>`;
+        } else if (isCutiBersama) {
+          holidayTagHtml = `<span class="bok-cal-holiday-label cuti" title="${holidayInfo.name}">🟠 ${holidayInfo.name}</span>`;
+        }
+
         html += `
-          <div class="bok-cal-cell ${isToday ? 'is-today' : ''} ${isSunday ? 'is-sunday is-holiday' : ''} ${holidayInfo ? 'is-holiday' : ''}" onclick="window.JadwalBOKController.bukaModalTambah('${dateStr}')" title="Klik untuk tambah jadwal ${d} ${monthNames[month]}">
+          <div class="${cellClasses.join(' ')}" onclick="window.JadwalBOKController.bukaModalTambah('${dateStr}')" title="Klik untuk tambah jadwal ${d} ${monthNames[month]}">
             <div class="bok-cal-cell-top">
               <span class="bok-cal-date-num">${d}</span>
-              ${holidayInfo ? `<span class="bok-cal-holiday-label" title="${holidayInfo.name}">🎌 ${holidayInfo.name}</span>` : (isToday ? '<span class="bok-cal-today-tag">Hari Ini</span>' : '')}
+              ${holidayTagHtml}
             </div>
 
             <div class="bok-cal-events-wrap">
@@ -8153,7 +8241,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const myNorm = (CURRENT_USER.nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
           const uNorm = (ev.namaUser || ev.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
           const isMine = uNorm.includes(myNorm) || myNorm.includes(uNorm);
-          const isCollab = ev.keterangan && ev.keterangan.toLowerCase().includes('kolaborasi');
+          const isCollab = (ev.keterangan && ev.keterangan.toLowerCase().includes('kolaborasi')) || (Array.isArray(ev.rekan_kolaborasi) && ev.rekan_kolaborasi.length > 0) || (ev.namaKegiatan && ev.namaKegiatan.toLowerCase().includes('kolaborasi'));
           const cls = isMine ? 'mine' : (isCollab ? 'collab' : 'other');
           const noPrefix = (ev.noKegiatan && ev.noKegiatan > 0) ? `No.${ev.noKegiatan} ` : '';
 
@@ -8255,8 +8343,62 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     async renderBerandaWidget() {
-      const container = document.getElementById('bokBerandaList');
-      const all = await this.getData();
+      const container = document.getElementById('berandaTableContainer');
+      const dateDisplay = document.getElementById('berandaDateDisplayBadge');
+      const inputDateEl = document.getElementById('inputBerandaDate');
+      const holidayAlert = document.getElementById('berandaHolidayAlert');
+      const countAllEl = document.getElementById('berandaCountAll');
+      const countSendiriEl = document.getElementById('berandaCountSendiri');
+      const countCollabEl = document.getElementById('berandaCountCollab');
+
+      // Update target date string & datepicker input
+      if (!this.berandaSelectedDate) {
+        this.berandaSelectedDate = new Date().toISOString().split('T')[0];
+      }
+      if (inputDateEl) {
+        inputDateEl.value = this.berandaSelectedDate;
+      }
+
+      const dateParts = this.berandaSelectedDate.split('-');
+      const selYear = parseInt(dateParts[0], 10) || new Date().getFullYear();
+      const selMonth = parseInt(dateParts[1], 10) || (new Date().getMonth() + 1);
+      const selDay = parseInt(dateParts[2], 10) || new Date().getDate();
+
+      const monthNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+      const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+      const dateObj = new Date(selYear, selMonth - 1, selDay);
+      const dayName = dayNames[dateObj.getDay()];
+      const fullDateStr = `${dayName}, ${selDay} ${monthNames[selMonth]} ${selYear}`;
+
+      if (dateDisplay) {
+        dateDisplay.textContent = `📅 ${fullDateStr}`;
+      }
+
+      // Check National Holiday / Cuti Bersama for this date
+      const holidayInfo = (typeof INDONESIAN_HOLIDAYS !== 'undefined') ? INDONESIAN_HOLIDAYS[this.berandaSelectedDate] : null;
+      const isSunday = dateObj.getDay() === 0;
+
+      if (holidayAlert) {
+        if (holidayInfo && holidayInfo.type === 'national') {
+          holidayAlert.className = 'beranda-holiday-alert national';
+          holidayAlert.innerHTML = `<span>🎌</span> <span><strong>Hari Libur Nasional:</strong> ${holidayInfo.name}</span>`;
+          holidayAlert.style.display = 'flex';
+        } else if (holidayInfo && holidayInfo.type === 'cuti') {
+          holidayAlert.className = 'beranda-holiday-alert cuti';
+          holidayAlert.innerHTML = `<span>🟠</span> <span><strong>Cuti Bersama:</strong> ${holidayInfo.name}</span>`;
+          holidayAlert.style.display = 'flex';
+        } else if (isSunday) {
+          holidayAlert.className = 'beranda-holiday-alert sunday';
+          holidayAlert.innerHTML = `<span>🏖️</span> <span><strong>Hari Minggu:</strong> Libur Pelayanan Rutin Puskesmas</span>`;
+          holidayAlert.style.display = 'flex';
+        } else {
+          holidayAlert.style.display = 'none';
+        }
+      }
+
+      // Fetch all month activities
+      const all = await this.getData(selMonth, selYear);
 
       // Update Beranda KPI Counters
       const totalEl = document.getElementById('berandaStatBokCount');
@@ -8269,65 +8411,141 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!container) return;
 
-      const todayStr = new Date().toISOString().split('T')[0];
-      const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+      // Filter activities for this selected date
+      const dateActivities = (all || []).filter(item => item.tanggal === this.berandaSelectedDate);
 
-      // Sort upcoming
-      const upcoming = all
-        .filter(item => item.tanggal >= todayStr)
-        .sort((a, b) => a.tanggal.localeCompare(b.tanggal))
-        .slice(0, 6);
+      // Extract all assigned employees
+      const employeeEntries = [];
 
-      if (upcoming.length === 0) {
+      dateActivities.forEach(item => {
+        const isCollab = (item.keterangan && item.keterangan.toLowerCase().includes('kolaborasi')) ||
+                         (Array.isArray(item.rekan_kolaborasi) && item.rekan_kolaborasi.length > 0) ||
+                         (item.namaKegiatan && item.namaKegiatan.toLowerCase().includes('kolaborasi'));
+        
+        const staffName = item.namaUser || item.petugas_nama || 'Petugas';
+        const staffJabatan = item.jabatan || item.petugas_jabatan || 'Pegawai';
+        const isMine = staffName === CURRENT_USER.nama || (item.petugas_nip && item.petugas_nip === CURRENT_USER.nip);
+
+        // Rekan list
+        let collabPartners = [];
+        if (Array.isArray(item.rekan_kolaborasi)) {
+          collabPartners = item.rekan_kolaborasi.map(r => typeof r === 'string' ? r : (r.nama || ''));
+        }
+
+        employeeEntries.push({
+          id: item.id,
+          nama: staffName,
+          jabatan: staffJabatan,
+          noKegiatan: item.noKegiatan,
+          namaKegiatan: item.namaKegiatan,
+          keterangan: item.keterangan || '',
+          lokasi: item.lokasi || '',
+          isCollab: isCollab,
+          isMine: isMine,
+          rekanKolaborasi: collabPartners
+        });
+      });
+
+      // Update Tab Badges Counts
+      const countTotal = employeeEntries.length;
+      const countSendiri = employeeEntries.filter(e => !e.isCollab).length;
+      const countCollab = employeeEntries.filter(e => e.isCollab).length;
+
+      if (countAllEl) countAllEl.textContent = countTotal;
+      if (countSendiriEl) countSendiriEl.textContent = countSendiri;
+      if (countCollabEl) countCollabEl.textContent = countCollab;
+
+      // Filter items according to active tab
+      let displayedEntries = employeeEntries;
+      if (this.berandaFilterTab === 'sendiri') {
+        displayedEntries = employeeEntries.filter(e => !e.isCollab);
+      } else if (this.berandaFilterTab === 'collab') {
+        displayedEntries = employeeEntries.filter(e => e.isCollab);
+      }
+
+      if (displayedEntries.length === 0) {
         container.innerHTML = `
-          <div style="grid-column: 1 / -1; text-align: center; padding: 24px; color: #94a3b8; font-size: 13px;">
-            <p style="margin: 0;">Tidak ada kegiatan BOK mendatang untuk periode ini.</p>
+          <div style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+            <div style="font-size: 36px; margin-bottom: 10px; opacity: 0.6;">📋</div>
+            <h4 style="color: #ffffff; font-size: 15px; font-weight: 700; margin-bottom: 6px;">Tidak Ada Jadwal Pegawai</h4>
+            <p style="font-size: 12.5px; margin: 0 0 16px 0; color: #94a3b8;">
+              ${this.berandaFilterTab === 'all' 
+                ? `Tidak ada pegawai yang memiliki jadwal kegiatan pada ${fullDateStr}.` 
+                : `Tidak ada kegiatan bertipe ${this.berandaFilterTab === 'sendiri' ? 'Mandiri/Sendiri' : 'Kolaborasi'} pada ${fullDateStr}.`}
+            </p>
+            <button type="button" class="btn-hero-action btn-gold-pulse" style="display: inline-flex; margin: 0 auto; padding: 8px 16px;" onclick="window.JadwalBOKController.bukaModalTambah('${this.berandaSelectedDate}')">
+              <span>+ Tambah Jadwal Tanggal Ini</span>
+            </button>
           </div>
         `;
         return;
       }
 
-      const todayObj = new Date(todayStr + 'T00:00:00');
-      let html = '';
+      let tableHtml = `
+        <table class="beranda-schedule-table">
+          <thead>
+            <tr>
+              <th style="width: 45px;" class="center">No</th>
+              <th>Nama Pegawai (Klik untuk Detail)</th>
+              <th>Jabatan</th>
+              <th>Kegiatan BOK</th>
+              <th style="width: 140px;">Tipe Kegiatan</th>
+              <th style="width: 175px; text-align: right;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
 
-      upcoming.forEach(item => {
-        const tglObj = new Date(item.tanggal + 'T00:00:00');
-        const diffDays = Math.round((tglObj - todayObj) / (1000 * 60 * 60 * 24));
-        const dayNum = tglObj.getDate();
-        const mthStr = monthNames[tglObj.getMonth() + 1];
-        const isMine = item.namaUser === CURRENT_USER.nama;
-        const isCollab = item.keterangan && item.keterangan.toLowerCase().includes('kolaborasi');
+      displayedEntries.forEach((entry, idx) => {
+        const initials = entry.nama.split(' ').map(w => w[0]).filter(c => /[A-Za-z]/.test(c)).slice(0, 2).join('').toUpperCase() || 'PG';
+        const typeClass = entry.isCollab ? 'collab' : 'sendiri';
+        const rowClass = entry.isCollab ? 'row-collab' : 'row-sendiri';
 
-        html += `
-          <div class="dash-list-item" style="padding: 12px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(255, 209, 102, 0.12); border: 1px solid rgba(255, 209, 102, 0.25); display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0;">
-                <span style="font-size: 14px; font-weight: 800; color: #ffd166; line-height: 1;">${dayNum}</span>
-                <span style="font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">${monthName.slice(0, 3)}</span>
-              </div>
-              <div>
-                <h5 style="margin: 0 0 3px 0; font-size: 13.5px; font-weight: 700; color: #ffffff;">${item.namaKegiatan}</h5>
-                <div style="font-size: 11.5px; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
-                  <span>${dayName}</span>
-                  <span>•</span>
-                  <span style="color: ${isMine ? '#ffd166' : '#94a3b8'};">${isMine ? 'Anda' : item.namaUser}</span>
+        tableHtml += `
+          <tr class="${rowClass}">
+            <td class="center" style="font-weight: 700; color: #64748b;">${idx + 1}</td>
+            <td>
+              <a href="javascript:void(0)" class="staff-name-clickable" onclick="window.JadwalBOKController.bukaModalDetail('${entry.id}')" title="Klik untuk melihat rincian kegiatan lengkap">
+                <div class="staff-avatar-mini ${typeClass}">${initials}</div>
+                <div class="staff-name-text">
+                  <span class="name">${entry.nama} ${entry.isMine ? '<span style="color: #ffd166; font-size: 11px;">(Anda)</span>' : ''}</span>
+                  <span class="hint">👆 Klik untuk detail</span>
                 </div>
+              </a>
+            </td>
+            <td style="color: #cbd5e1; font-weight: 600;">
+              ${entry.jabatan}
+            </td>
+            <td>
+              <div style="font-weight: 700; color: #ffffff;">No.${entry.noKegiatan} ${entry.namaKegiatan}</div>
+              ${entry.keterangan ? `<div style="font-size: 11px; color: #94a3b8; margin-top: 2px; font-style: italic;">• ${entry.keterangan}</div>` : ''}
+            </td>
+            <td>
+              ${entry.isCollab 
+                ? `<span class="kegiatan-badge-collab" title="Kegiatan Bersama / Kolaborasi Tim">👥 Kolaborasi</span>` 
+                : `<span class="kegiatan-badge-sendiri" title="Kegiatan Mandiri / Sendiri">🟢 Kegiatan Sendiri</span>`
+              }
+            </td>
+            <td>
+              <div class="table-actions-cell">
+                <button type="button" class="btn-table-act" title="Lihat Rincian Detail" onclick="window.JadwalBOKController.bukaModalDetail('${entry.id}')">
+                  👁 Detail
+                </button>
+                <button type="button" class="btn-table-act btn-sppd" title="Buat SPPD dari Jadwal Ini" onclick="window.JadwalBOKController.buatSppdDariJadwal('${entry.id}')">
+                  📄 Buat SPPD
+                </button>
               </div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-              <button type="button" class="btn-bok-act btn-bok-sppd" title="Buat SPPD dari Jadwal Ini" onclick="window.JadwalBOKController.buatSppdDariJadwal('${item.id}')">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-                <span>Buat SPPD</span>
-              </button>
-              <button type="button" class="btn-bok-act" title="Detail" onclick="window.JadwalBOKController.bukaModalDetail('${item.id}')">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-              </button>
-            </div>
-          </div>
+            </td>
+          </tr>
         `;
       });
 
-      container.innerHTML = html;
+      tableHtml += `
+          </tbody>
+        </table>
+      `;
+
+      container.innerHTML = tableHtml;
     },
 
     bukaModalTambah(defaultDate = null) {
@@ -8735,7 +8953,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const btnEdit = document.getElementById('btnDetailBokEdit');
 
       const isMine = item.namaUser === CURRENT_USER.nama;
-      const isCollab = item.keterangan && item.keterangan.toLowerCase().includes('kolaborasi');
+      const isCollab = (item.keterangan && item.keterangan.toLowerCase().includes('kolaborasi')) || 
+                       (Array.isArray(item.rekan_kolaborasi) && item.rekan_kolaborasi.length > 0) ||
+                       (item.namaKegiatan && item.namaKegiatan.toLowerCase().includes('kolaborasi'));
+
+      let collabPartnersText = '';
+      if (Array.isArray(item.rekan_kolaborasi) && item.rekan_kolaborasi.length > 0) {
+        collabPartnersText = item.rekan_kolaborasi.map(r => typeof r === 'string' ? r : `${r.nama} (${r.jabatan || 'Petugas'})`).join(', ');
+      }
 
       if (btnEdit) {
         if (isMine) {
@@ -8777,9 +9002,17 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="detail-bok-row">
             <span class="detail-bok-label">Status Jadwal</span>
             <span class="detail-bok-val">
-              ${isCollab ? '<span class="bok-collab-tag-pill">👥 Kegiatan Kolaborasi</span>' : '<span class="bok-staff-pill mine">Kegiatan Mandiri / Terprogram</span>'}
+              ${isCollab ? '<span class="kegiatan-badge-collab">👥 Kegiatan Kolaborasi</span>' : '<span class="kegiatan-badge-sendiri">🟢 Kegiatan Mandiri / Sendiri</span>'}
             </span>
           </div>
+
+          ${collabPartnersText ? `
+          <div class="detail-bok-row">
+            <span class="detail-bok-label">Rekan Kolaborasi</span>
+            <span class="detail-bok-val" style="color: #38bdf8; font-weight: 600;">
+              👥 ${collabPartnersText}
+            </span>
+          </div>` : ''}
 
           <div class="detail-bok-row">
             <span class="detail-bok-label">Keterangan / Lokasi / Sasaran</span>
