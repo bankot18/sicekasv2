@@ -4,11 +4,12 @@
    ============================================================================ */
 
 :root {
-  --bg-space: #06080d;
-  --mac-frame-bg: rgba(13, 17, 26, 0.92);
-  --mac-titlebar-bg: rgba(19, 24, 36, 0.95);
+  /* Onyx Luxury Dark Palette (#020202) */
+  --bg-space: #020202;
+  --mac-frame-bg: rgba(10, 10, 14, 0.94);
+  --mac-titlebar-bg: rgba(16, 16, 22, 0.96);
   
-  --card-bg: rgba(10, 14, 22, 0.85);
+  --card-bg: rgba(14, 14, 18, 0.88);
   --card-border: rgba(45, 212, 191, 0.2);
   --card-border-glow: rgba(45, 212, 191, 0.4);
   
@@ -21,7 +22,7 @@
   --text-muted: #8b949e;
   --text-dim: #4b5563;
   
-  --input-bg: rgba(7, 10, 16, 0.85);
+  --input-bg: rgba(8, 8, 10, 0.88);
   --input-border: rgba(255, 255, 255, 0.08);
   --input-border-focus: #2dd4bf;
   
