@@ -4463,14 +4463,25 @@ document.addEventListener('DOMContentLoaded', () => {
       if (docKet) docKet.textContent = ket;
     }
 
-    // Update Lembar Belakang (Visum Tabel I, II, III, IV, V, VI, VII)
+    // Update Lembar Belakang (Visum Tabel 0, I, II, III, IV, V, VI, VII)
+    // Row 0: Berangkat Awal (Tempat Kedudukan)
+    const sppdBackBerangkatDari = document.getElementById('sppdBackBerangkatDari');
+    if (sppdBackBerangkatDari) sppdBackBerangkatDari.textContent = tempatBerangkat;
+
+    const sppdBackKeAwal = document.getElementById('sppdBackKeAwal');
+    if (sppdBackKeAwal) sppdBackKeAwal.textContent = tujuan;
+
+    const sppdBackTglAwal = document.getElementById('sppdBackTglAwal');
+    if (sppdBackTglAwal) sppdBackTglAwal.textContent = tglBerangkat;
+
+    // Row I: Kotak Sebelah Kiri (Tiba di Lokasi Tujuan)
     const sppdBackTiba1 = document.getElementById('sppdBackTiba1');
     if (sppdBackTiba1) sppdBackTiba1.textContent = tujuan;
 
     const sppdBackTibaTgl1 = document.getElementById('sppdBackTibaTgl1');
     if (sppdBackTibaTgl1) sppdBackTibaTgl1.textContent = tglBerangkat;
 
-    // Row I: Kotak Sebelah Kanan
+    // Row I: Kotak Sebelah Kanan (Berangkat Kembali ke Tempat Kedudukan)
     const sppdBackBrgkt1 = document.getElementById('sppdBackBrgkt1');
     if (sppdBackBrgkt1) sppdBackBrgkt1.textContent = tujuan;
 
@@ -4479,6 +4490,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const sppdBackBrgktTgl1 = document.getElementById('sppdBackBrgktTgl1');
     if (sppdBackBrgktTgl1) sppdBackBrgktTgl1.textContent = tglKembali;
+
+    // Row IV: Kotak Sebelah Kiri (Tiba Kembali di Tempat Kedudukan)
+    const sppdBackTibaAkhir = document.getElementById('sppdBackTibaAkhir');
+    if (sppdBackTibaAkhir) sppdBackTibaAkhir.textContent = tempatBerangkat;
 
     const sppdBackTibaTglAkhir = document.getElementById('sppdBackTibaTglAkhir');
     if (sppdBackTibaTglAkhir) sppdBackTibaTglAkhir.textContent = tglKembali;
