@@ -211,6 +211,7 @@
       inset: 0;
       background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
       background-size: 32px 32px;
+      -webkit-mask-image: radial-gradient(circle at center, black 40%, transparent 85%);
       mask-image: radial-gradient(circle at center, black 40%, transparent 85%);
       pointer-events: none;
       opacity: 0.7;
@@ -244,8 +245,8 @@
       font-family: inherit;
       cursor: pointer;
       box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-      backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
@@ -278,8 +279,8 @@
       overflow: hidden;
       position: relative;
       z-index: 1;
-      backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
       transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     }
 
@@ -619,8 +620,8 @@
       overflow-y: auto;
       z-index: 1000;
       display: none;
-      backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
     }
 
     .user-dropdown.show { display: block; }
