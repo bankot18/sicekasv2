@@ -5447,6 +5447,30 @@ input[type="date"].modal-input,
   text-align: right;
 }
 
+.dok-photo-card.align-free {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  align-items: stretch;
+}
+.dok-photo-card.align-free .dok-photo-caption {
+  text-align: center;
+}
+
+.dok-menu-align-btn:hover {
+  background: rgba(45, 212, 191, 0.15) !important;
+  color: #2dd4bf !important;
+}
+
+.dok-menu-align-btn.active {
+  background: #2dd4bf !important;
+  color: #0f172a !important;
+  box-shadow: 0 2px 8px rgba(45, 212, 191, 0.35);
+}
+
+.dok-r2-cloud-badge {
+  display: none !important;
+}
+
 /* Size Modifiers */
 .dok-photo-card.size-s { width: 33% !important; max-width: 33% !important; }
 .dok-photo-card.size-m { width: 50% !important; max-width: 50% !important; }

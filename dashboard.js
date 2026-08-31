@@ -5104,11 +5104,12 @@ document.addEventListener('DOMContentLoaded', () => {
           <button type="button" class="dok-toolbar-btn btn-zoom-in" title="Perbesar (+10%)">➕</button>
         </div>
 
-        <!-- Position Alignment (Kiri, Tengah, Kanan) -->
-        <div class="dok-toolbar-group" title="Posisi Rata Kiri / Tengah / Kanan">
-          <button type="button" class="dok-toolbar-btn btn-align" data-align="align-left" title="Rata Kiri">⬅</button>
-          <button type="button" class="dok-toolbar-btn btn-align active" data-align="align-center" title="Rata Tengah">⏺</button>
-          <button type="button" class="dok-toolbar-btn btn-align" data-align="align-right" title="Rata Kanan">➡</button>
+        <!-- Position Alignment (Left, Center, Right, Free) -->
+        <div class="dok-toolbar-group" title="Posisi Rata Kiri / Tengah / Kanan / Bebas">
+          <button type="button" class="dok-toolbar-btn btn-align" data-align="align-left" title="Rata Kiri (Left)">⬅ Left</button>
+          <button type="button" class="dok-toolbar-btn btn-align active" data-align="align-center" title="Rata Tengah (Center)">⏺ Center</button>
+          <button type="button" class="dok-toolbar-btn btn-align" data-align="align-right" title="Rata Kanan (Right)">➡ Right</button>
+          <button type="button" class="dok-toolbar-btn btn-align" data-align="align-free" title="Posisi Bebas (Free)">🔀 Free</button>
         </div>
 
         <!-- Move Up / Down (Posisi Atas / Bawah) -->
@@ -5168,16 +5169,22 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // Alignment Horizontal listeners (Kiri, Tengah, Kanan)
+    // Alignment Horizontal listeners (Left, Center, Right, Free)
     const alignBtns = card.querySelectorAll('.btn-align');
     alignBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const align = btn.getAttribute('data-align');
-        card.classList.remove('align-left', 'align-center', 'align-right');
+        card.classList.remove('align-left', 'align-center', 'align-right', 'align-free');
         card.classList.add(align);
         alignBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
+
+        // Sync to sidebar menu buttons
+        const alignKey = align.replace('align-', '');
+        if (typeof window.updateMenuAlignUI === 'function') {
+          window.updateMenuAlignUI(alignKey);
+        }
       });
     });
 
@@ -5232,12 +5239,25 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // Click card to activate toolbar
+    // Click card to activate toolbar & sync sidebar menu
     card.addEventListener('click', (e) => {
-      document.querySelectorAll('.dok-photo-card').forEach(c => {
-        if (c !== card) c.classList.remove('is-active');
-      });
-      card.classList.toggle('is-active');
+      const wasActive = card.classList.contains('is-active');
+      document.querySelectorAll('.dok-photo-card').forEach(c => c.classList.remove('is-active'));
+      if (!wasActive) {
+        card.classList.add('is-active');
+      }
+
+      const indicator = document.getElementById('dokActivePhotoIndicator');
+      if (card.classList.contains('is-active')) {
+        if (indicator) indicator.textContent = 'Foto Terpilih';
+        let currentAlign = 'center';
+        if (card.classList.contains('align-left')) currentAlign = 'left';
+        else if (card.classList.contains('align-right')) currentAlign = 'right';
+        else if (card.classList.contains('align-free')) currentAlign = 'free';
+        if (typeof window.updateMenuAlignUI === 'function') window.updateMenuAlignUI(currentAlign);
+      } else {
+        if (indicator) indicator.textContent = 'Semua Foto';
+      }
     });
 
     // Delete button listener
@@ -5279,14 +5299,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     updateDokEmptyState();
 
-    // Direct Cloudflare R2 Upload Sync
+    // Direct Cloudflare R2 Upload Sync (Silent Background Sync without badge overlay)
     if (typeof imageSrc === 'string' && imageSrc.startsWith('data:')) {
-      const cloudBadge = document.createElement('span');
-      cloudBadge.className = 'dok-r2-cloud-badge';
-      cloudBadge.innerHTML = '<span class="dok-upload-spinner"></span> Menyimpan ke R2...';
-      const imgWrap = card.querySelector('.dok-photo-img-wrap');
-      if (imgWrap) imgWrap.appendChild(cloudBadge);
-
       CloudflareDB.uploadFotoR2(imageSrc, 'dok_kegiatan.jpg').then(res => {
         if (res && res.url) {
           const img = card.querySelector('.dok-photo-img');
@@ -5294,18 +5308,9 @@ document.addEventListener('DOMContentLoaded', () => {
             img.src = res.url;
             img.setAttribute('data-r2-key', res.key || '');
           }
-          cloudBadge.innerHTML = '☁️ R2 Cloud';
-          setTimeout(() => {
-            cloudBadge.style.opacity = '0.75';
-          }, 2000);
-        } else {
-          cloudBadge.innerHTML = '💾 Lokal Preview';
-          setTimeout(() => {
-            if (cloudBadge.parentNode) cloudBadge.parentNode.removeChild(cloudBadge);
-          }, 2500);
         }
-      }).catch(() => {
-        if (cloudBadge.parentNode) cloudBadge.parentNode.removeChild(cloudBadge);
+      }).catch(err => {
+        console.warn('R2 upload silent fallback:', err);
       });
     }
   };
@@ -5417,6 +5422,58 @@ document.addEventListener('DOMContentLoaded', () => {
       else dokPhotoContainer.classList.add('dok-layout-grid-2');
     });
   }
+
+  // Position Alignment Controller (Left, Center, Right, Free)
+  const menuAlignBtns = document.querySelectorAll('.dok-menu-align-btn');
+  window.updateMenuAlignUI = (alignType) => {
+    menuAlignBtns.forEach(btn => {
+      if (btn.getAttribute('data-align') === alignType) {
+        btn.classList.add('active');
+        btn.style.background = '#2dd4bf';
+        btn.style.color = '#0f172a';
+      } else {
+        btn.classList.remove('active');
+        btn.style.background = 'transparent';
+        btn.style.color = '#cbd5e1';
+      }
+    });
+  };
+
+  const applyPhotoAlignment = (alignType) => {
+    window.updateMenuAlignUI(alignType);
+    const activeCard = dokPhotoContainer ? dokPhotoContainer.querySelector('.dok-photo-card.is-active') : null;
+    const cardsToUpdate = activeCard ? [activeCard] : (dokPhotoContainer ? Array.from(dokPhotoContainer.querySelectorAll('.dok-photo-card')) : []);
+
+    cardsToUpdate.forEach(card => {
+      card.classList.remove('align-left', 'align-center', 'align-right', 'align-free');
+      card.classList.add(`align-${alignType}`);
+
+      const cardAlignBtns = card.querySelectorAll('.btn-align');
+      cardAlignBtns.forEach(b => {
+        if (b.getAttribute('data-align') === `align-${alignType}`) {
+          b.classList.add('active');
+        } else {
+          b.classList.remove('active');
+        }
+      });
+    });
+
+    if (alignType === 'free') {
+      if (dokSelectLayout) {
+        dokSelectLayout.value = 'free';
+        dokPhotoContainer.classList.remove('dok-layout-grid-2', 'dok-layout-grid-3', 'dok-layout-grid-1');
+        dokPhotoContainer.classList.add('dok-layout-free');
+      }
+    }
+  };
+
+  menuAlignBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const align = btn.getAttribute('data-align');
+      applyPhotoAlignment(align);
+    });
+  });
 
   // Drag and Drop files onto dropzone and preview sheet
   [dokDropzoneBox, dokSheetDoc].forEach(zone => {
