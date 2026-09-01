@@ -547,31 +547,28 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (e) {
         console.warn('Network error deleting Collab from Cloudflare D1:', e);
       }
-      return { success: true };
-    },
-
-    // 3. POA Bulanan
-    async fetchPoa(bulan, tahun, nip) {
+    // 3. POA Bulanan (Direct Cloudflare D1 Database)
+    async fetchPoa(bulan, tahun, nip = '', nama = '') {
       try {
-        const url = `/api/poa?bulan=${bulan || ''}&tahun=${tahun || ''}&nip=${nip || ''}`;
-        const res = await fetch(url);
+        const qParams = new URLSearchParams();
+        if (bulan) qParams.set('bulan', bulan);
+        if (tahun) qParams.set('tahun', tahun);
+        if (nip) qParams.set('nip', nip);
+        if (nama) qParams.set('nama', nama);
+        qParams.set('_t', Date.now());
+
+        const url = `/api/poa?${qParams.toString()}`;
+        const res = await fetch(url, { cache: 'no-store' });
         if (res.ok) {
           const json = await res.json();
-          if (json.success && json.data) {
-            let local = JSON.parse(localStorage.getItem('SICEKAS_POA_DATA_V2')) || [];
-            json.data.forEach(item => {
-              const idx = local.findIndex(i => i.id === item.id);
-              if (idx >= 0) local[idx] = item;
-              else local.push(item);
-            });
-            localStorage.setItem('SICEKAS_POA_DATA_V2', JSON.stringify(local));
+          if (json.success && Array.isArray(json.data)) {
             return json.data;
           }
         }
       } catch (e) {
-        console.warn('Fallback fetch POA', e);
+        console.warn('Network error fetching POA from Cloudflare D1:', e);
       }
-      return JSON.parse(localStorage.getItem('SICEKAS_POA_DATA_V2')) || [];
+      return [];
     },
 
     async savePoa(item) {
@@ -583,23 +580,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (res.ok) {
           const json = await res.json();
-          if (json.success) {
-            let local = JSON.parse(localStorage.getItem('SICEKAS_POA_DATA_V2')) || [];
-            const idx = local.findIndex(i => i.id === item.id);
-            if (idx >= 0) local[idx] = item;
-            else local.push(item);
-            localStorage.setItem('SICEKAS_POA_DATA_V2', JSON.stringify(local));
-            return json;
-          }
+          return json;
         }
       } catch (e) {
-        console.warn('Fallback save POA', e);
+        console.warn('Network error saving POA to Cloudflare D1:', e);
       }
-      let local = JSON.parse(localStorage.getItem('SICEKAS_POA_DATA_V2')) || [];
-      const idx = local.findIndex(i => i.id === item.id);
-      if (idx >= 0) local[idx] = item;
-      else local.push(item);
-      localStorage.setItem('SICEKAS_POA_DATA_V2', JSON.stringify(local));
       return { success: true, id: item.id };
     },
 
@@ -612,35 +597,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (res.ok) {
           const json = await res.json();
-          if (json.success) {
-            let local = JSON.parse(localStorage.getItem('SICEKAS_POA_DATA_V2')) || [];
-            local = local.filter(i => i.id !== id);
-            localStorage.setItem('SICEKAS_POA_DATA_V2', JSON.stringify(local));
-            return json;
-          }
+          return json;
         }
       } catch (e) {
-        console.warn('Fallback delete POA', e);
+        console.warn('Network error deleting POA from Cloudflare D1:', e);
       }
-      let local = JSON.parse(localStorage.getItem('SICEKAS_POA_DATA_V2')) || [];
-      local = local.filter(i => i.id !== id);
-      localStorage.setItem('SICEKAS_POA_DATA_V2', JSON.stringify(local));
       return { success: true };
     },
 
-    // 4. TP POL Jaspel
+    // 4. TP POL Jaspel (Direct Cloudflare D1 Database)
     async fetchTpPol(bulan, tahun, nip) {
       try {
-        const url = `/api/tppol?bulan=${bulan || ''}&tahun=${tahun || ''}&nip=${nip || ''}`;
-        const res = await fetch(url);
+        const url = `/api/tppol?bulan=${bulan || ''}&tahun=${tahun || ''}&nip=${nip || ''}&_t=${Date.now()}`;
+        const res = await fetch(url, { cache: 'no-store' });
         if (res.ok) {
           const json = await res.json();
-          if (json.success) return json.data;
+          if (json.success && Array.isArray(json.data)) return json.data;
         }
       } catch (e) {
-        console.warn('Fallback fetch TP POL', e);
+        console.warn('Fallback fetch TP POL from Cloudflare D1:', e);
       }
-      return JSON.parse(localStorage.getItem('SICEKAS_TPPOL_DATA_V2')) || [];
+      return [];
     },
 
     async fetchTppol(bulan, tahun, nip) {
@@ -656,24 +633,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (res.ok) return await res.json();
       } catch (e) {
-        console.warn('Fallback save TP POL', e);
+        console.warn('Error saving TP POL to Cloudflare D1:', e);
       }
       return { success: true };
     },
 
-    // 5. SPPD & LPT
+    // 5. SPPD & LPT (Direct Cloudflare D1 Database)
     async fetchSppd(id) {
       try {
-        const url = `/api/sppd?id=${id || ''}`;
-        const res = await fetch(url);
+        const url = `/api/sppd?id=${id || ''}&_t=${Date.now()}`;
+        const res = await fetch(url, { cache: 'no-store' });
         if (res.ok) {
           const json = await res.json();
-          if (json.success) return json.data;
+          if (json.success && Array.isArray(json.data)) return json.data;
         }
       } catch (e) {
-        console.warn('Fallback fetch SPPD', e);
+        console.warn('Fallback fetch SPPD from Cloudflare D1:', e);
       }
-      return JSON.parse(localStorage.getItem('SICEKAS_SPPD_DATA_V2')) || [];
+      return [];
     },
 
     async saveSppd(item) {
@@ -685,28 +662,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (res.ok) return await res.json();
       } catch (e) {
-        console.warn('Fallback save SPPD', e);
+        console.warn('Error saving SPPD to Cloudflare D1:', e);
       }
       return { success: true };
     },
 
-    // 5b. SPPD Templates (Cloud D1)
+    // 5b. SPPD Templates (Direct Cloudflare D1 Database)
     async fetchSppdTemplates(username) {
       try {
         const u = username || '';
-        const url = u ? `/api/sppd/templates?username=${encodeURIComponent(u)}` : '/api/sppd/templates';
-        const res = await fetch(url);
+        const url = u ? `/api/sppd/templates?username=${encodeURIComponent(u)}&_t=${Date.now()}` : `/api/sppd/templates?_t=${Date.now()}`;
+        const res = await fetch(url, { cache: 'no-store' });
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.data)) {
-            localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(json.data));
             return json.data;
           }
         }
       } catch (e) {
-        console.warn('Fallback fetch SPPD templates', e);
+        console.warn('Fallback fetch SPPD templates from Cloudflare D1:', e);
       }
-      return JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
+      return [];
     },
 
     async saveSppdTemplate(item) {
@@ -1470,26 +1446,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
-  // State store for POA activities (strictly initialized empty & populated from Cloudflare D1 poa_bulanan table)
+  // State store for POA activities (strictly populated live from Cloudflare D1 poa_bulanan table)
   const poaActivitiesState = {};
 
-  // Sync POA calendar data live from Cloudflare D1 Database (poa_bulanan table)
+  // Helper to resolve officer object robustly from DAFTAR_PEGAWAI
+  const findPoaOfficer = (searchNameOrNip) => {
+    const list = window.DAFTAR_PEGAWAI || DAFTAR_PEGAWAI || [];
+    if (!searchNameOrNip) return (typeof CURRENT_USER !== 'undefined' ? CURRENT_USER : (list[27] || {}));
+    const sClean = String(searchNameOrNip).toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+
+    // 1. Direct match on NIP
+    const byNip = list.find(p => p.nip && String(p.nip).replace(/[\s.]+/g, '') === String(searchNameOrNip).replace(/[\s.]+/g, ''));
+    if (byNip) return byNip;
+
+    // 2. Direct match on nama
+    const byNama = list.find(p => p.nama && p.nama.toLowerCase() === String(searchNameOrNip).toLowerCase());
+    if (byNama) return byNama;
+
+    // 3. Fuzzy match
+    const byFuzzy = list.find(p => {
+      const pClean = (p.nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+      return pClean.includes(sClean) || sClean.includes(pClean);
+    });
+    if (byFuzzy) return byFuzzy;
+
+    // 4. Fallback to CURRENT_USER
+    return (typeof CURRENT_USER !== 'undefined' ? CURRENT_USER : (list[27] || {}));
+  };
+
+  // Sync POA calendar data live directly from Cloudflare D1 Database (poa_bulanan table)
   const syncPoaFromCloud = async (month, year, officerName) => {
     // Clear existing in-memory map
     for (const k in poaActivitiesState) delete poaActivitiesState[k];
     
     try {
-      const officerObj = (typeof DAFTAR_PEGAWAI !== 'undefined' ? DAFTAR_PEGAWAI : []).find(p => p.nama === officerName) || {};
-      const items = await CloudflareDB.fetchPoa(month, year, officerObj.nip || '');
+      const officerObj = findPoaOfficer(officerName);
+      const targetNip = officerObj.nip || '';
+      const targetNama = officerObj.nama || officerName || '';
+      
+      const items = await CloudflareDB.fetchPoa(month, year, targetNip, targetNama);
       if (!Array.isArray(items)) return;
 
       const normSearch = (officerName || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+      const normObjNama = (targetNama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
 
       items.forEach(it => {
-        const itemOfficer = (it.petugas_nama || '').toLowerCase();
-        const isPrimaryMatch = itemOfficer.includes(normSearch) || normSearch.includes(itemOfficer) || (it.petugas_nip && officerObj.nip && it.petugas_nip === officerObj.nip);
+        const itemOfficer = (it.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+        const isMatch = (it.petugas_nip && targetNip && it.petugas_nip === targetNip) ||
+                        (itemOfficer && normSearch && (itemOfficer.includes(normSearch) || normSearch.includes(itemOfficer))) ||
+                        (itemOfficer && normObjNama && (itemOfficer.includes(normObjNama) || normObjNama.includes(itemOfficer)));
 
-        if (isPrimaryMatch && it.tanggal) {
+        if (isMatch && it.tanggal) {
           poaActivitiesState[it.tanggal] = {
             kegiatan: it.uraian_kegiatan || it.kegiatan || it.nama_kegiatan || '',
             keterangan: it.keterangan || ''
@@ -1538,10 +1545,18 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const getPoaOfficerName = () => {
-    if (!poaSelectOfficer || poaSelectOfficer.selectedIndex < 0) return 'Mochamad Fauzie, S.Gz';
+    if (!poaSelectOfficer || poaSelectOfficer.selectedIndex < 0) {
+      return (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.nama) ? CURRENT_USER.nama : 'Mochamad Fauzie, S.Gz';
+    }
+    const val = poaSelectOfficer.value;
+    if (val && val.trim() && isNaN(Number(val))) {
+      return val.trim();
+    }
     const opt = poaSelectOfficer.options[poaSelectOfficer.selectedIndex];
-    if (opt.value && isNaN(Number(opt.value))) return opt.value;
-    return opt.text.split('(')[0].replace(/^\d+\.\s*/, '').trim();
+    if (opt) {
+      return opt.text.split('(')[0].replace(/^\d+\.\s*/, '').trim();
+    }
+    return (typeof CURRENT_USER !== 'undefined' && CURRENT_USER.nama) ? CURRENT_USER.nama : 'Mochamad Fauzie, S.Gz';
   };
 
   // Render Full Calendar (Connected directly to Cloudflare D1)
@@ -1719,19 +1734,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Handle Single Activity Form Save (Persist to Cloudflare D1 poa_bulanan table)
+  // Handle Single Activity Form Save (Direct to Cloudflare D1 poa_bulanan table)
   if (singleActivityForm) {
     singleActivityForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const val = activityInput.value.trim();
       const ketVal = activityDesc ? activityDesc.value.trim() : '';
-      const selectedMonth = parseInt(poaSelectMonth.value, 10);
-      const selectedYear = parseInt(poaSelectYear.value, 10);
+      const selectedMonth = parseInt(poaSelectMonth ? poaSelectMonth.value : String(new Date().getMonth() + 1), 10);
+      const selectedYear = parseInt(poaSelectYear ? poaSelectYear.value : String(new Date().getFullYear()), 10);
       const officerText = getPoaOfficerName();
-      const officerObj = DAFTAR_PEGAWAI.find(p => p.nama === officerText) || {};
+      const officerObj = findPoaOfficer(officerText);
 
       if (currentActiveDateKey) {
-        const poaId = `poa-${currentActiveDateKey}-${(officerObj.nip || 'user').replace(/[^a-zA-Z0-9]/g, '')}`;
+        const cleanNip = (officerObj.nip || '').replace(/[^a-zA-Z0-9]/g, '');
+        const cleanNama = (officerObj.nama || officerText || 'user').replace(/[^a-zA-Z0-9]/g, '');
+        const poaId = `poa-${currentActiveDateKey}-${cleanNip || cleanNama}`;
 
         if (val || ketVal) {
           poaActivitiesState[currentActiveDateKey] = { kegiatan: val, keterangan: ketVal };
@@ -1741,7 +1758,7 @@ document.addEventListener('DOMContentLoaded', () => {
             bulan: selectedMonth,
             tahun: selectedYear,
             petugas_nip: officerObj.nip || '',
-            petugas_nama: officerText,
+            petugas_nama: officerObj.nama || officerText,
             petugas_jabatan: officerObj.jabatan || '',
             program_kesehatan: 'BOK Puskesmas',
             uraian_kegiatan: val,
@@ -1749,14 +1766,14 @@ document.addEventListener('DOMContentLoaded', () => {
             lokasi_pelaksanaan: 'Puskesmas / Wilayah Kerja',
             status: 'Aktif'
           });
-          if (typeof showToast === 'function') showToast('✅ Kegiatan POA berhasil disimpan ke Database POA!', 'success');
+          if (typeof showToast === 'function') showToast('✅ Kegiatan POA tersimpan langsung ke Cloud Database!', 'success');
         } else {
           delete poaActivitiesState[currentActiveDateKey];
           await CloudflareDB.deletePoa(poaId);
-          if (typeof showToast === 'function') showToast('Kegiatan POA dihapus dari Database POA.', 'info');
+          if (typeof showToast === 'function') showToast('Kegiatan POA dihapus dari Cloud Database.', 'info');
         }
 
-        // Re-render calendar to reflect update
+        // Re-render calendar directly from Cloud DB
         await renderPoaCalendar(selectedMonth, selectedYear, officerText);
       }
       closeSingleActivityModal();
@@ -1818,8 +1835,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkModalTitle = document.getElementById('bulkModalTitle');
 
   const openBulkModal = () => {
-    const selectedMonth = parseInt(poaSelectMonth.value, 10);
-    const selectedYear = parseInt(poaSelectYear.value, 10);
+    const selectedMonth = parseInt(poaSelectMonth ? poaSelectMonth.value : String(new Date().getMonth() + 1), 10);
+    const selectedYear = parseInt(poaSelectYear ? poaSelectYear.value : String(new Date().getFullYear()), 10);
     if (bulkModalTitle) {
       bulkModalTitle.textContent = `📝 Isi POA ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear} Sekaligus`;
     }
@@ -1841,17 +1858,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Handle Bulk Form Save (Persist to Cloudflare D1 poa_bulanan table)
+  // Handle Bulk Form Save (Direct to Cloudflare D1 poa_bulanan table)
   if (bulkActivityForm) {
     bulkActivityForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      const selectedMonth = parseInt(poaSelectMonth.value, 10);
-      const selectedYear = parseInt(poaSelectYear.value, 10);
+      const selectedMonth = parseInt(poaSelectMonth ? poaSelectMonth.value : String(new Date().getMonth() + 1), 10);
+      const selectedYear = parseInt(poaSelectYear ? poaSelectYear.value : String(new Date().getFullYear()), 10);
       const officerText = getPoaOfficerName();
-      const officerObj = DAFTAR_PEGAWAI.find(p => p.nama === officerText) || {};
+      const officerObj = findPoaOfficer(officerText);
 
       let savedCount = 0;
+      const cleanNip = (officerObj.nip || '').replace(/[^a-zA-Z0-9]/g, '');
+      const cleanNama = (officerObj.nama || officerText || 'user').replace(/[^a-zA-Z0-9]/g, '');
 
       for (const tr of bulkTableBody.querySelectorAll('tr')) {
         const inputKeg = tr.querySelector('.input-kegiatan');
@@ -1861,7 +1880,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateKey = inputKeg.getAttribute('data-datekey');
         const val = inputKeg.value.trim();
         const ket = inputKet ? inputKet.value.trim() : '';
-        const poaId = `poa-${dateKey}-${(officerObj.nip || 'user').replace(/[^a-zA-Z0-9]/g, '')}`;
+        const poaId = `poa-${dateKey}-${cleanNip || cleanNama}`;
 
         if (val || ket) {
           poaActivitiesState[dateKey] = { kegiatan: val, keterangan: ket };
@@ -1871,7 +1890,7 @@ document.addEventListener('DOMContentLoaded', () => {
             bulan: selectedMonth,
             tahun: selectedYear,
             petugas_nip: officerObj.nip || '',
-            petugas_nama: officerText,
+            petugas_nama: officerObj.nama || officerText,
             petugas_jabatan: officerObj.jabatan || '',
             program_kesehatan: 'BOK Puskesmas',
             uraian_kegiatan: val,
@@ -1889,9 +1908,9 @@ document.addEventListener('DOMContentLoaded', () => {
       await renderPoaCalendar(selectedMonth, selectedYear, officerText);
 
       if (typeof showToast === 'function') {
-        showToast(`✅ ${savedCount} agenda kegiatan POA berhasil disimpan ke Database POA!`, 'success');
+        showToast(`✅ ${savedCount} agenda kegiatan POA tersimpan langsung ke Cloud Database!`, 'success');
       } else {
-        alert(`Semua rencana kegiatan POA berhasil disimpan ke Database POA!`);
+        alert(`Semua rencana kegiatan POA berhasil disimpan ke Cloud Database!`);
       }
       closeBulkModalFunc();
     });
@@ -2464,10 +2483,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================================================
-  // 9. INITIAL LOAD: RENDER AUGUST 2026 CALENDAR
+  // 9. INITIAL LOAD: RENDER CURRENT POA CALENDAR (Direct from Cloudflare D1)
   // ==========================================================================
-  const initialMonth = parseInt(poaSelectMonth ? poaSelectMonth.value : '8', 10);
-  const initialYear = parseInt(poaSelectYear ? poaSelectYear.value : '2026', 10);
+  const realCurrentMonth = new Date().getMonth() + 1;
+  const realCurrentYear = new Date().getFullYear();
+  if (poaSelectMonth) {
+    poaSelectMonth.value = String(realCurrentMonth);
+  }
+  if (poaSelectYear) {
+    poaSelectYear.value = String(realCurrentYear);
+  }
+  const initialMonth = parseInt(poaSelectMonth ? poaSelectMonth.value : String(realCurrentMonth), 10);
+  const initialYear = parseInt(poaSelectYear ? poaSelectYear.value : String(realCurrentYear), 10);
   const initialOfficer = getPoaOfficerName();
   renderPoaCalendar(initialMonth, initialYear, initialOfficer);
 

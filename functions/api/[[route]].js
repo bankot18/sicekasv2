@@ -915,12 +915,13 @@ async function handleApiRequest(request, env, ctx) {
     }
 
     // ------------------------------------------------------------------------
-    // 5. POA BULANAN (/api/poa, /api/poa/save, /api/poa/delete) - SEPARATE TABLE poa_bulanan
+    // 5. POA BULANAN (/api/poa, /api/poa/save, /api/poa/delete) - CLOUDFLARE D1
     // ------------------------------------------------------------------------
     if (pathname === '/api/poa' && method === 'GET') {
       const bulan = url.searchParams.get('bulan');
       const tahun = url.searchParams.get('tahun');
-      const nip = url.searchParams.get('nip');
+      const nip = (url.searchParams.get('nip') || '').trim();
+      const nama = (url.searchParams.get('nama') || url.searchParams.get('petugas') || '').trim();
 
       // Auto-migration: Ensure table poa_bulanan exists with tanggal column
       try {
@@ -949,7 +950,7 @@ async function handleApiRequest(request, env, ctx) {
         `).run();
       } catch (tblErr) {}
 
-      // Add tanggal column if table exists from previous migrations without it
+      // Add tanggal and keterangan columns if table exists from previous migrations without it
       try {
         await db.prepare(`ALTER TABLE poa_bulanan ADD COLUMN tanggal DATE;`).run();
       } catch (colErr) {}
@@ -967,13 +968,20 @@ async function handleApiRequest(request, env, ctx) {
         query += ' AND ((bulan = ? AND tahun = ?) OR (tanggal LIKE ?))';
         params.push(mNum, yNum, `${yNum}-${mStr}-%`);
       }
-      if (nip) {
-        query += ' AND (petugas_nip = ? OR petugas_nip LIKE ?)';
-        params.push(nip, `%${nip}%`);
+      
+      if (nip && nama) {
+        query += ' AND (petugas_nip = ? OR petugas_nip LIKE ? OR petugas_nama LIKE ?)';
+        params.push(nip, `%${nip}%`, `%${nama}%`);
+      } else if (nip) {
+        query += ' AND (petugas_nip = ? OR petugas_nip LIKE ? OR petugas_nama LIKE ?)';
+        params.push(nip, `%${nip}%`, `%${nip}%`);
+      } else if (nama) {
+        query += ' AND (petugas_nama LIKE ? OR petugas_nip LIKE ?)';
+        params.push(`%${nama}%`, `%${nama}%`);
       }
 
       query += ' ORDER BY tanggal ASC, created_at DESC';
-      const { results } = await db.prepare(query).bind(...params).all();
+      const { results } = params.length > 0 ? await db.prepare(query).bind(...params).all() : await db.prepare(query).all();
 
       const parsed = (results || []).map(r => {
         let b = r.bulan;
@@ -995,8 +1003,10 @@ async function handleApiRequest(request, env, ctx) {
 
     if (pathname === '/api/poa/save' && method === 'POST') {
       const item = await request.json();
-      const nipClean = (item.petugas_nip || item.nip || 'user').replace(/[^a-zA-Z0-9]/g, '');
-      const id = item.id || `poa-${item.tanggal || Date.now()}-${nipClean}`;
+      const cleanNip = (item.petugas_nip || item.nip || '').trim();
+      const cleanNama = (item.petugas_nama || item.nama || '').trim();
+      const nipIdentifier = (cleanNip || cleanNama || 'user').replace(/[^a-zA-Z0-9]/g, '');
+      const id = item.id || `poa-${item.tanggal || Date.now()}-${nipIdentifier}`;
       
       let bulan = parseInt(item.bulan, 10);
       let tahun = parseInt(item.tahun, 10);
@@ -1039,7 +1049,7 @@ async function handleApiRequest(request, env, ctx) {
         `).run();
       } catch (tblErr) {}
 
-      // Add tanggal column if missing
+      // Add tanggal and keterangan column if missing
       try {
         await db.prepare(`ALTER TABLE poa_bulanan ADD COLUMN tanggal DATE;`).run();
       } catch (colErr) {}
@@ -1048,8 +1058,11 @@ async function handleApiRequest(request, env, ctx) {
       } catch (colErr) {}
 
       await db.prepare(`
-        INSERT INTO poa_bulanan (id, tanggal, bulan, tahun, petugas_nip, petugas_nama, petugas_jabatan, program_kesehatan, uraian_kegiatan, keterangan, target_sasaran, lokasi_pelaksanaan, vol_kegiatan, satuan, anggaran_bok, sumber_dana, status, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        INSERT INTO poa_bulanan (
+          id, tanggal, bulan, tahun, petugas_nip, petugas_nama, petugas_jabatan,
+          program_kesehatan, uraian_kegiatan, keterangan, target_sasaran,
+          lokasi_pelaksanaan, vol_kegiatan, satuan, anggaran_bok, sumber_dana, status, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(id) DO UPDATE SET
           tanggal = excluded.tanggal,
           bulan = excluded.bulan,
@@ -1073,8 +1086,8 @@ async function handleApiRequest(request, env, ctx) {
         item.tanggal || '',
         bulan,
         tahun,
-        item.petugas_nip || item.nip || '',
-        item.petugas_nama || item.nama || '',
+        cleanNip,
+        cleanNama,
         item.petugas_jabatan || item.jabatan || '',
         item.program_kesehatan || item.program || 'BOK Puskesmas',
         item.uraian_kegiatan || item.uraian || item.kegiatan || item.nama_kegiatan || '',
@@ -1088,7 +1101,7 @@ async function handleApiRequest(request, env, ctx) {
         item.status || 'Aktif'
       ).run();
 
-      return jsonResponse({ success: true, message: 'POA Bulanan berhasil disimpan ke Cloudflare D1!', id });
+      return jsonResponse({ success: true, message: 'POA Bulanan berhasil disimpan ke Cloudflare D1 Database!', id });
     }
 
     if (pathname === '/api/poa/delete' && (method === 'DELETE' || method === 'POST')) {
@@ -1100,7 +1113,7 @@ async function handleApiRequest(request, env, ctx) {
       }
 
       await db.prepare('DELETE FROM poa_bulanan WHERE id = ?').bind(id).run();
-      return jsonResponse({ success: true, message: `Data POA [${id}] berhasil dihapus dari Cloudflare D1.` });
+      return jsonResponse({ success: true, message: `Data POA [${id}] berhasil dihapus dari Cloudflare D1 Database.` });
     }
 
     // ------------------------------------------------------------------------
