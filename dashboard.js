@@ -63,6 +63,30 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// ============================================================================
+// SHADCN-INSPIRED ALERT HELPER (Universal Component Generator)
+// ============================================================================
+window.createSicekasAlert = function(title, message, variant = 'default', iconSvg = '') {
+  let defaultIcon = '';
+  if (variant === 'destructive') {
+    defaultIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+  } else if (variant === 'success') {
+    defaultIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
+  } else if (variant === 'warning') {
+    defaultIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+  } else {
+    defaultIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+  }
+  const icon = iconSvg || defaultIcon;
+  return `
+    <div class="alert-sicekas ${variant}" role="alert">
+      ${icon}
+      ${title ? `<h5 class="alert-title">${title}</h5>` : ''}
+      <div class="alert-description">${message}</div>
+    </div>
+  `;
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   // Elements
   const sidebar = document.getElementById('sidebar');
@@ -1920,7 +1944,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnDownloadPdfPoa = document.getElementById('btnDownloadPdfPoa');
 
   // Build Exact Calendar Mirror HTML for POA Bulanan (Pure A4 Landscape)
-  const generatePoaDocumentHtml = (month, year, officerName) => {
+  const generatePoaDocumentHtml = (month, year, officerName, isPrintPreview = false) => {
     const monthIndex = month - 1;
     const monthName = MONTH_NAMES[monthIndex];
     const totalDays = new Date(year, month, 0).getDate();
@@ -1948,7 +1972,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Day header matching screenshot exactly
     const dayHeaders = ['SENIN', 'SELASA', 'RABU', 'KAMIS', 'JUMAT', 'SABTU', 'MINGGU'];
     const headerRowHtml = dayHeaders.map((dh, idx) => `
-      <th style="width: 14.285%; background: ${idx === 6 ? '#fee2e2' : '#f1f5f9'}; color: ${idx === 6 ? '#dc2626' : '#1e293b'}; font-weight: 800; font-size: 11px; padding: 7px 4px; border: 1px solid #cbd5e1; border-top: none; text-align: center; text-transform: uppercase; letter-spacing: 0.5px;">
+      <th style="width: 14.285%; background: ${idx === 6 ? '#fee2e2' : '#f1f5f9'}; color: ${idx === 6 ? '#b91c1c' : '#0f172a'}; font-weight: 800; font-size: 11px; padding: 7px 4px; border: 1px solid #cbd5e1; border-top: none; text-align: center; text-transform: uppercase; letter-spacing: 0.5px;">
         ${dh}
       </th>
     `).join('');
@@ -1979,30 +2003,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
           let badgeHtml = '';
           if (isHoliday) {
-            badgeHtml = `<span style="background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c; font-size: 8px; font-weight: 700; padding: 1.5px 5px; border-radius: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; display: inline-block;">🔴 ${holidayInfo.name}</span>`;
+            badgeHtml = `<span style="background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c; font-size: 8px; font-weight: 700; padding: 1.5px 5px; border-radius: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; display: inline-block;">🔴 ${holidayInfo.name}</span>`;
           } else if (isCuti) {
-            badgeHtml = `<span style="background: #fef3c7; border: 1px solid #fde68a; color: #b45309; font-size: 8px; font-weight: 700; padding: 1.5px 5px; border-radius: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; display: inline-block;">🟠 ${holidayInfo.name}</span>`;
+            badgeHtml = `<span style="background: #fef3c7; border: 1px solid #fde68a; color: #b45309; font-size: 8px; font-weight: 700; padding: 1.5px 5px; border-radius: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; display: inline-block;">🟠 ${holidayInfo.name}</span>`;
           }
 
           let taskContent = '';
           if (task || taskDesc) {
             taskContent = `
-              <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-left: 3px solid #10b981; color: #065f46; font-size: 9px; font-weight: 700; padding: 3px 5px; border-radius: 4px; line-height: 1.25; margin-top: 4px; word-break: break-word;">
-                ${task ? `<div>${task}</div>` : ''}
-                ${taskDesc ? `<div style="font-size: 8px; font-weight: 500; color: #047857; margin-top: 2px; font-style: italic; border-top: 1px dashed #a7f3d0; padding-top: 1px;">📌 ${taskDesc}</div>` : ''}
+              <div style="background: #ecfdf5; border: 1px solid #6ee7b7; border-left: 3.5px solid #059669; color: #064e3b; font-size: 9.5px; font-weight: 700; padding: 4px 6px; border-radius: 4px; line-height: 1.3; margin-top: 4px; word-break: break-word; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+                <div style="font-weight: 800; color: #064e3b; font-size: 9.5px; letter-spacing: -0.1px;">${task}</div>
+                ${taskDesc ? `<div style="font-size: 8.5px; font-weight: 600; color: #047857; margin-top: 2.5px; font-style: italic; border-top: 1px dashed #a7f3d0; padding-top: 2px;">📌 ${taskDesc}</div>` : ''}
               </div>
             `;
           }
 
           const cellBg = (isSunday || isHoliday ? '#fff5f5' : (isCuti ? '#fffbeb' : '#ffffff'));
-          const numColor = (isSunday || isHoliday ? '#dc2626' : '#334155');
-          const cellBorder = '1px solid #e2e8f0';
+          const numColor = (isSunday || isHoliday ? '#dc2626' : '#0f172a');
+          const cellBorder = '1px solid #cbd5e1';
 
           rowCells += `
             <td style="background: ${cellBg}; border: ${cellBorder}; vertical-align: top; height: 80px; padding: 6px 8px; position: relative;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <div>${badgeHtml}</div>
-                <div style="font-size: 13px; font-weight: 800; color: ${numColor}; margin-left: auto;">${day}</div>
+                <div style="font-size: 13.5px; font-weight: 800; color: ${numColor}; margin-left: auto;">${day}</div>
               </div>
               ${taskContent}
             </td>
@@ -2030,13 +2054,70 @@ document.addEventListener('DOMContentLoaded', () => {
             print-color-adjust: exact !important;
           }
           body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-            color: #1e293b;
-            background: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+            color: #0f172a;
+            background: ${isPrintPreview ? '#0f172a' : '#ffffff'};
             margin: 0;
-            padding: 0;
+            padding: ${isPrintPreview ? '24px 0 40px 0' : '0'};
             font-size: 11px;
             line-height: 1.3;
+          }
+          .preview-floating-bar {
+            position: sticky;
+            top: 12px;
+            z-index: 9999;
+            max-width: 285mm;
+            margin: 0 auto 16px auto;
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 10px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: #ffffff;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+          }
+          .preview-floating-bar .doc-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 12px;
+            font-weight: 700;
+          }
+          .preview-floating-bar .btn-group {
+            display: flex;
+            gap: 8px;
+          }
+          .preview-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            font-size: 11.5px;
+            font-weight: 700;
+            border-radius: 6px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+          }
+          .preview-btn.primary {
+            background: #10b981;
+            color: #ffffff;
+          }
+          .preview-btn.primary:hover {
+            background: #059669;
+          }
+          .preview-btn.secondary {
+            background: rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+          }
+          .preview-btn.secondary:hover {
+            background: rgba(255, 255, 255, 0.25);
           }
           .poa-print-card {
             width: 285mm;
@@ -2044,9 +2125,9 @@ document.addEventListener('DOMContentLoaded', () => {
             margin: 0 auto;
             background: #ffffff;
             border: 1.5px solid #cbd5e1;
-            border-radius: 14px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            box-shadow: ${isPrintPreview ? '0 12px 36px rgba(0, 0, 0, 0.4)' : '0 4px 15px rgba(0, 0, 0, 0.08)'};
           }
           .top-banner {
             display: flex;
@@ -2106,7 +2187,7 @@ document.addEventListener('DOMContentLoaded', () => {
             align-items: center;
             padding: 8px 18px;
             background: #f8fafc;
-            border-top: 1.5px solid #e2e8f0;
+            border-top: 1.5px solid #cbd5e1;
             font-size: 10px;
           }
           .legend-left {
@@ -2118,8 +2199,8 @@ document.addEventListener('DOMContentLoaded', () => {
             display: flex;
             align-items: center;
             gap: 5px;
-            color: #475569;
-            font-weight: 600;
+            color: #334155;
+            font-weight: 700;
           }
           .legend-indicator {
             width: 11px;
@@ -2132,16 +2213,52 @@ document.addEventListener('DOMContentLoaded', () => {
           .legend-indicator.holiday { background: #fee2e2; border-color: #fca5a5; }
           .legend-indicator.cuti { background: #fef3c7; border-color: #fde68a; }
           .legend-right {
-            color: #475569;
+            color: #334155;
             font-size: 10px;
           }
           .officer-highlight {
             color: #059669;
             font-weight: 800;
           }
+          @media print {
+            body {
+              background: #ffffff !important;
+              padding: 0 !important;
+            }
+            .preview-floating-bar {
+              display: none !important;
+            }
+            .poa-print-card {
+              box-shadow: none !important;
+              border: 1.5px solid #cbd5e1 !important;
+              width: 285mm !important;
+              max-width: 285mm !important;
+              margin: 0 auto !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+          }
         </style>
       </head>
       <body>
+        ${isPrintPreview ? `
+          <div class="preview-floating-bar">
+            <div class="doc-info">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+              <span>Pratinjau POA Bulanan (A4 Landscape Standar Resmi)</span>
+            </div>
+            <div class="btn-group">
+              <button type="button" class="preview-btn primary" onclick="window.print()">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                <span>Cetak / Save as PDF</span>
+              </button>
+              <button type="button" class="preview-btn secondary" onclick="window.close()">
+                <span>Tutup</span>
+              </button>
+            </div>
+          </div>
+        ` : ''}
+
         <div class="poa-print-card" id="poaPrintTarget">
           
           <!-- Top Emerald Banner with Logo -->
@@ -2189,15 +2306,49 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
 
         </div>
+
+        ${isPrintPreview ? `
+          <script>
+            window.onload = function() {
+              var images = document.getElementsByTagName('img');
+              var totalImages = images.length;
+              var loadedImages = 0;
+              function tryPrint() {
+                setTimeout(function() {
+                  window.print();
+                }, 350);
+              }
+              if (totalImages === 0) {
+                tryPrint();
+              } else {
+                for (var i = 0; i < totalImages; i++) {
+                  if (images[i].complete) {
+                    loadedImages++;
+                    if (loadedImages === totalImages) tryPrint();
+                  } else {
+                    images[i].addEventListener('load', function() {
+                      loadedImages++;
+                      if (loadedImages === totalImages) tryPrint();
+                    });
+                    images[i].addEventListener('error', function() {
+                      loadedImages++;
+                      if (loadedImages === totalImages) tryPrint();
+                    });
+                  }
+                }
+              }
+            };
+          <\/script>
+        ` : ''}
       </body>
       </html>
     `;
   };
 
-  // Cetak POA (A4 Landscape Pop-up Window)
+  // Cetak POA (A4 Landscape Pop-up Window with True Vector Crisp Printing)
   const printPoaIsolated = (month, year, officerName) => {
-    const htmlContent = generatePoaDocumentHtml(month, year, officerName);
-    const printWin = window.open('', '_blank', 'width=1150,height=800');
+    const htmlContent = generatePoaDocumentHtml(month, year, officerName, true);
+    const printWin = window.open('', '_blank', 'width=1200,height=850');
     if (!printWin) {
       alert('Mohon izinkan pop-up browser untuk mencetak POA Bulanan.');
       return;
@@ -2205,13 +2356,9 @@ document.addEventListener('DOMContentLoaded', () => {
     printWin.document.open();
     printWin.document.write(htmlContent);
     printWin.document.close();
-    setTimeout(() => {
-      printWin.focus();
-      printWin.print();
-    }, 450);
   };
 
-  // Direct Download PDF (Pure A4 Landscape via html2pdf)
+  // Direct Download PDF (Pure A4 Landscape via html2pdf with Ultra-High Resolution 4x Supersampling)
   const exportDirectPoaPdf = async (month, year, officerName) => {
     if (typeof html2pdf === 'undefined') {
       printPoaIsolated(month, year, officerName);
@@ -2219,19 +2366,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (typeof showToast === 'function') {
-      showToast('Membuat file PDF POA (A4 Landscape)...', 'info');
+      showToast('Membuat file PDF POA resolusi tinggi (A4 Landscape)...', 'info');
     }
 
     const monthIndex = month - 1;
     const monthName = MONTH_NAMES[monthIndex];
-    const fullHtml = generatePoaDocumentHtml(month, year, officerName);
+    const fullHtml = generatePoaDocumentHtml(month, year, officerName, false);
 
-    // Create isolated container for PDF compilation
+    // Create isolated container in DOM with normal layout calculation for crisp font rasterization
     const wrapper = document.createElement('div');
     wrapper.style.position = 'fixed';
-    wrapper.style.left = '-99999px';
+    wrapper.style.left = '0';
     wrapper.style.top = '0';
     wrapper.style.width = '285mm';
+    wrapper.style.maxWidth = '285mm';
+    wrapper.style.zIndex = '-99999';
+    wrapper.style.opacity = '0';
+    wrapper.style.pointerEvents = 'none';
     wrapper.style.background = '#ffffff';
     wrapper.style.color = '#000000';
     wrapper.innerHTML = fullHtml;
@@ -2241,19 +2392,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetEl = wrapper.querySelector('#poaPrintTarget') || wrapper;
     const filename = `POA_${officerName.replace(/[^a-zA-Z0-9]/g, '_')}_${monthName}_${year}.pdf`;
 
+    // Wait for all images inside targetEl to be fully loaded
+    const imgs = targetEl.querySelectorAll('img');
+    if (imgs.length > 0) {
+      await Promise.all(Array.from(imgs).map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise(res => {
+          img.onload = res;
+          img.onerror = res;
+        });
+      }));
+    }
+
+    // High definition 4x scale (approx 384 DPI print resolution) + JPEG 1.0 lossless quality
     const opt = {
-      margin: [5, 6, 5, 6],
+      margin: [4, 6, 4, 6],
       filename: filename,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff', logging: false },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+      image: { type: 'jpeg', quality: 1.0 },
+      html2canvas: {
+        scale: 4,
+        dpi: 300,
+        useCORS: true,
+        letterRendering: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        scrollX: 0,
+        scrollY: 0
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'landscape',
+        compress: true,
+        precision: 16
+      },
       pagebreak: { mode: ['css', 'legacy'] }
     };
 
     try {
       await html2pdf().set(opt).from(targetEl).save();
       if (typeof showToast === 'function') {
-        showToast('✓ PDF POA Bulanan (A4 Landscape) berhasil diunduh!', 'success');
+        showToast('✓ PDF POA Bulanan resolusi tinggi berhasil diunduh!', 'success');
       }
     } catch (err) {
       console.error('POA PDF export error:', err);
@@ -6354,9 +6533,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const container = document.createElement('div');
     container.style.position = 'fixed';
-    container.style.left = '-99999px';
+    container.style.left = '0';
     container.style.top = '0';
     container.style.width = '210mm';
+    container.style.maxWidth = '210mm';
+    container.style.zIndex = '-99999';
+    container.style.opacity = '0';
+    container.style.pointerEvents = 'none';
     container.style.background = '#ffffff';
     container.style.color = '#000000';
     container.style.fontFamily = 'Arial, Helvetica, sans-serif';
@@ -6398,6 +6581,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.body.appendChild(container);
 
+    // Wait for all images inside container to be fully loaded
+    const imgs = container.querySelectorAll('img');
+    if (imgs.length > 0) {
+      await Promise.all(Array.from(imgs).map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise(res => {
+          img.onload = res;
+          img.onerror = res;
+        });
+      }));
+    }
+
     const filename = formType === 'dok'
       ? `Dokumentasi_Kegiatan_Puskesmas_Banjaran_Kota_${new Date().toISOString().slice(0,10)}.pdf`
       : (formType === 'lpt' 
@@ -6407,16 +6602,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const opt = {
       margin: 0,
       filename: filename,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      image: { type: 'jpeg', quality: 1.0 },
+      html2canvas: {
+        scale: 4,
+        dpi: 300,
+        useCORS: true,
+        letterRendering: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: 0
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait',
+        compress: true,
+        precision: 16
+      },
       pagebreak: { mode: ['css', 'legacy'] }
     };
 
     try {
       await html2pdf().set(opt).from(container).save();
       if (typeof showToast === 'function') {
-        showToast('✓ PDF resmi A4 berhasil diunduh bersih!', 'success');
+        showToast('✓ PDF resmi A4 resolusi tinggi berhasil diunduh bersih!', 'success');
       }
     } catch (err) {
       console.error('html2pdf direct export error:', err);
@@ -8677,18 +8887,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const fromJab = req.from_jabatan || req.fromJabatan || 'Pegawai';
             const noKeg = req.no_kegiatan || req.noKegiatan;
             const namaKeg = req.nama_kegiatan || req.namaKegiatan;
-            const initials = fromName.split(' ').map(w => w[0]).filter(c => /[A-Za-z]/.test(c)).slice(0, 2).join('').toUpperCase() || 'PG';
             bHtml += `
-              <div class="bok-inline-req-card">
-                <div class="bok-req-info">
-                  <div class="bok-req-avatar">${initials}</div>
-                  <div class="bok-req-text">
-                    <h5>${fromName} (${fromJab}) mengajak kolaborasi</h5>
-                    <p><strong>${req.tanggal}</strong> • No.${noKeg} ${namaKeg} — <em>"${req.keterangan || 'Tidak ada catatan'}"</em></p>
+              <div class="alert-sicekas alert-info" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 12px 42px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                <div style="flex: 1; min-width: 0; padding-right: 12px;">
+                  <h5 class="alert-title" style="font-size: 13.5px; margin-bottom: 2px;">
+                    ${fromName} (${fromJab}) <span style="font-weight: normal; opacity: 0.85;">mengajak kolaborasi</span>
+                  </h5>
+                  <div class="alert-description" style="font-size: 12px;">
+                    <strong>${req.tanggal}</strong> • No.${noKeg} ${namaKeg} ${req.keterangan ? `— <em>"${req.keterangan}"</em>` : ''}
                   </div>
                 </div>
-                <div class="bok-req-actions">
-                  <button type="button" class="btn-req-accept" onclick="window.JadwalBOKController.terimaCollab('${req.id}')">✓ Terima (ACC)</button>
+                <div class="bok-req-actions" style="flex-shrink: 0; display: flex; gap: 6px;">
+                  <button type="button" class="btn-req-accept" onclick="window.JadwalBOKController.terimaCollab('${req.id}')">✓ Terima</button>
                   <button type="button" class="btn-req-reject" onclick="window.JadwalBOKController.tolakCollab('${req.id}')">✕ Tolak</button>
                 </div>
               </div>
