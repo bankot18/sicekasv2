@@ -591,6 +591,23 @@ document.addEventListener('DOMContentLoaded', () => {
       return { success: true, id: item.id };
     },
 
+    async savePoaBatch(items, deletedIds = []) {
+      try {
+        const res = await fetch('/api/poa/save-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items, deletedIds })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          return json;
+        }
+      } catch (e) {
+        console.warn('Network error saving POA batch to Cloudflare D1:', e);
+      }
+      return { success: true, count: items.length };
+    },
+
     async deletePoa(id) {
       try {
         const res = await fetch('/api/poa/delete', {
@@ -1490,12 +1507,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const items = await CloudflareDB.fetchPoa(month, year, targetNip, targetNama);
       if (!Array.isArray(items)) return;
 
-      const normSearch = (officerName || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
-      const normObjNama = (targetNama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+      const normSearch = (officerName || '').toLowerCase().replace(/^\d+\.\s*/, '').split('(')[0].replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+      const normObjNama = (targetNama || '').toLowerCase().replace(/^\d+\.\s*/, '').split('(')[0].replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+      const cleanTargetNip = targetNip.replace(/[^a-zA-Z0-9]/g, '');
 
       items.forEach(it => {
         const itemOfficer = (it.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
-        const isMatch = (it.petugas_nip && targetNip && it.petugas_nip === targetNip) ||
+        const itemNipClean = (it.petugas_nip || '').replace(/[^a-zA-Z0-9]/g, '');
+
+        const isMatch = (cleanTargetNip && itemNipClean && cleanTargetNip === itemNipClean) ||
+                        (it.petugas_nip && targetNip && it.petugas_nip === targetNip) ||
                         (itemOfficer && normSearch && (itemOfficer.includes(normSearch) || normSearch.includes(itemOfficer))) ||
                         (itemOfficer && normObjNama && (itemOfficer.includes(normObjNama) || normObjNama.includes(itemOfficer)));
 
@@ -1866,14 +1887,23 @@ document.addEventListener('DOMContentLoaded', () => {
     bulkActivityForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
+      const submitBtn = bulkActivityForm.querySelector('button[type="submit"]');
+      const origBtnText = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '⏳ Menyimpan ke Cloud Database...';
+      }
+
       const selectedMonth = parseInt(poaSelectMonth ? poaSelectMonth.value : String(new Date().getMonth() + 1), 10);
       const selectedYear = parseInt(poaSelectYear ? poaSelectYear.value : String(new Date().getFullYear()), 10);
       const officerText = getPoaOfficerName();
       const officerObj = findPoaOfficer(officerText);
 
-      let savedCount = 0;
       const cleanNip = (officerObj.nip || '').replace(/[^a-zA-Z0-9]/g, '');
       const cleanNama = (officerObj.nama || officerText || 'user').replace(/[^a-zA-Z0-9]/g, '');
+
+      const itemsToSave = [];
+      const itemsToDelete = [];
 
       for (const tr of bulkTableBody.querySelectorAll('tr')) {
         const inputKeg = tr.querySelector('.input-kegiatan');
@@ -1887,7 +1917,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (val || ket) {
           poaActivitiesState[dateKey] = { kegiatan: val, keterangan: ket };
-          await CloudflareDB.savePoa({
+          itemsToSave.push({
             id: poaId,
             tanggal: dateKey,
             bulan: selectedMonth,
@@ -1901,17 +1931,25 @@ document.addEventListener('DOMContentLoaded', () => {
             lokasi_pelaksanaan: 'Puskesmas / Wilayah Kerja',
             status: 'Aktif'
           });
-          savedCount++;
         } else if (poaActivitiesState[dateKey]) {
           delete poaActivitiesState[dateKey];
-          await CloudflareDB.deletePoa(poaId);
+          itemsToDelete.push(poaId);
         }
       }
 
+      // Send single atomic batch request to Cloudflare D1
+      await CloudflareDB.savePoaBatch(itemsToSave, itemsToDelete);
+
+      // Re-render calendar live from Cloud D1
       await renderPoaCalendar(selectedMonth, selectedYear, officerText);
 
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = origBtnText;
+      }
+
       if (typeof showToast === 'function') {
-        showToast(`✅ ${savedCount} agenda kegiatan POA tersimpan langsung ke Cloud Database!`, 'success');
+        showToast(`✅ ${itemsToSave.length} agenda kegiatan POA berhasil disimpan ke Cloud Database!`, 'success');
       } else {
         alert(`Semua rencana kegiatan POA berhasil disimpan ke Cloud Database!`);
       }

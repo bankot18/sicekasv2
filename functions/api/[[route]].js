@@ -915,7 +915,7 @@ async function handleApiRequest(request, env, ctx) {
     }
 
     // ------------------------------------------------------------------------
-    // 5. POA BULANAN (/api/poa, /api/poa/save, /api/poa/delete) - CLOUDFLARE D1
+    // 5. POA BULANAN (/api/poa, /api/poa/save, /api/poa/save-batch, /api/poa/delete) - CLOUDFLARE D1
     // ------------------------------------------------------------------------
     if (pathname === '/api/poa' && method === 'GET') {
       const bulan = url.searchParams.get('bulan');
@@ -969,15 +969,29 @@ async function handleApiRequest(request, env, ctx) {
         params.push(mNum, yNum, `${yNum}-${mStr}-%`);
       }
       
-      if (nip && nama) {
-        query += ' AND (petugas_nip = ? OR petugas_nip LIKE ? OR petugas_nama LIKE ?)';
-        params.push(nip, `%${nip}%`, `%${nama}%`);
-      } else if (nip) {
-        query += ' AND (petugas_nip = ? OR petugas_nip LIKE ? OR petugas_nama LIKE ?)';
-        params.push(nip, `%${nip}%`, `%${nip}%`);
-      } else if (nama) {
-        query += ' AND (petugas_nama LIKE ? OR petugas_nip LIKE ?)';
-        params.push(`%${nama}%`, `%${nama}%`);
+      // Flexible officer matching
+      const searchTerms = [];
+      if (nip) {
+        searchTerms.push(nip);
+        const cleanNip = nip.replace(/[^a-zA-Z0-9]/g, '');
+        if (cleanNip && cleanNip !== nip) searchTerms.push(cleanNip);
+      }
+      if (nama) {
+        const cleanNameOnly = nama.replace(/^\d+\.\s*/, '').split('(')[0].replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+        if (cleanNameOnly) {
+          searchTerms.push(cleanNameOnly);
+          const words = cleanNameOnly.split(/[\s,.]+/).filter(w => w.length > 3 && !/^(dokter|satker|bidan|perawat|nutrisionis|anda|skm|amd|keb|kep|sgz)$/i.test(w));
+          words.forEach(w => searchTerms.push(w));
+        }
+      }
+
+      if (searchTerms.length > 0) {
+        const uniqueTerms = Array.from(new Set(searchTerms));
+        const orConditions = uniqueTerms.map(() => '(petugas_nip LIKE ? OR petugas_nama LIKE ? OR id LIKE ?)').join(' OR ');
+        query += ` AND (${orConditions})`;
+        uniqueTerms.forEach(t => {
+          params.push(`%${t}%`, `%${t}%`, `%${t}%`);
+        });
       }
 
       query += ' ORDER BY tanggal ASC, created_at DESC';
@@ -1102,6 +1116,122 @@ async function handleApiRequest(request, env, ctx) {
       ).run();
 
       return jsonResponse({ success: true, message: 'POA Bulanan berhasil disimpan ke Cloudflare D1 Database!', id });
+    }
+
+    if (pathname === '/api/poa/save-batch' && method === 'POST') {
+      const body = await request.json();
+      const items = Array.isArray(body.items) ? body.items : (Array.isArray(body) ? body : []);
+      const deletedIds = Array.isArray(body.deletedIds) ? body.deletedIds : [];
+
+      // Auto-migration
+      try {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS poa_bulanan (
+            id TEXT PRIMARY KEY,
+            tanggal DATE,
+            bulan INTEGER NOT NULL,
+            tahun INTEGER NOT NULL,
+            petugas_nip TEXT NOT NULL,
+            petugas_nama TEXT NOT NULL,
+            petugas_jabatan TEXT,
+            program_kesehatan TEXT DEFAULT 'BOK Puskesmas',
+            uraian_kegiatan TEXT NOT NULL,
+            keterangan TEXT,
+            target_sasaran TEXT,
+            lokasi_pelaksanaan TEXT,
+            vol_kegiatan INTEGER DEFAULT 1,
+            satuan TEXT DEFAULT 'Kegiatan',
+            anggaran_bok REAL DEFAULT 0,
+            sumber_dana TEXT DEFAULT 'BOK Puskesmas',
+            status TEXT DEFAULT 'Aktif',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+        `).run();
+      } catch (tblErr) {}
+
+      const statements = [];
+
+      for (const item of items) {
+        const cleanNip = (item.petugas_nip || item.nip || '').trim();
+        const cleanNama = (item.petugas_nama || item.nama || '').trim();
+        const nipIdentifier = (cleanNip || cleanNama || 'user').replace(/[^a-zA-Z0-9]/g, '');
+        const id = item.id || `poa-${item.tanggal || Date.now()}-${nipIdentifier}`;
+
+        let bulan = parseInt(item.bulan, 10);
+        let tahun = parseInt(item.tahun, 10);
+        if (isNaN(bulan) || isNaN(tahun)) {
+          if (item.tanggal && typeof item.tanggal === 'string' && item.tanggal.includes('-')) {
+            const parts = item.tanggal.split('-');
+            tahun = isNaN(tahun) ? parseInt(parts[0], 10) : tahun;
+            bulan = isNaN(bulan) ? parseInt(parts[1], 10) : bulan;
+          } else {
+            const now = new Date();
+            bulan = now.getMonth() + 1;
+            tahun = now.getFullYear();
+          }
+        }
+
+        statements.push(db.prepare(`
+          INSERT INTO poa_bulanan (
+            id, tanggal, bulan, tahun, petugas_nip, petugas_nama, petugas_jabatan,
+            program_kesehatan, uraian_kegiatan, keterangan, target_sasaran,
+            lokasi_pelaksanaan, vol_kegiatan, satuan, anggaran_bok, sumber_dana, status, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          ON CONFLICT(id) DO UPDATE SET
+            tanggal = excluded.tanggal,
+            bulan = excluded.bulan,
+            tahun = excluded.tahun,
+            petugas_nip = excluded.petugas_nip,
+            petugas_nama = excluded.petugas_nama,
+            petugas_jabatan = excluded.petugas_jabatan,
+            program_kesehatan = excluded.program_kesehatan,
+            uraian_kegiatan = excluded.uraian_kegiatan,
+            keterangan = excluded.keterangan,
+            target_sasaran = excluded.target_sasaran,
+            lokasi_pelaksanaan = excluded.lokasi_pelaksanaan,
+            vol_kegiatan = excluded.vol_kegiatan,
+            satuan = excluded.satuan,
+            anggaran_bok = excluded.anggaran_bok,
+            sumber_dana = excluded.sumber_dana,
+            status = excluded.status,
+            updated_at = CURRENT_TIMESTAMP
+        `).bind(
+          id,
+          item.tanggal || '',
+          bulan,
+          tahun,
+          cleanNip,
+          cleanNama,
+          item.petugas_jabatan || item.jabatan || '',
+          item.program_kesehatan || item.program || 'BOK Puskesmas',
+          item.uraian_kegiatan || item.uraian || item.kegiatan || item.nama_kegiatan || '',
+          item.keterangan || '',
+          item.target_sasaran || '',
+          item.lokasi_pelaksanaan || item.lokasi || 'Puskesmas / Wilayah Kerja',
+          parseInt(item.vol_kegiatan) || 1,
+          item.satuan || 'Kegiatan',
+          parseFloat(item.anggaran_bok) || 0,
+          item.sumber_dana || 'BOK Puskesmas',
+          item.status || 'Aktif'
+        ));
+      }
+
+      for (const delId of deletedIds) {
+        if (delId) {
+          statements.push(db.prepare('DELETE FROM poa_bulanan WHERE id = ?').bind(delId));
+        }
+      }
+
+      if (statements.length > 0) {
+        await db.batch(statements);
+      }
+
+      return jsonResponse({
+        success: true,
+        message: `Berhasil menyimpan batch ${items.length} data POA ke Cloudflare D1!`,
+        count: items.length
+      });
     }
 
     if (pathname === '/api/poa/delete' && (method === 'DELETE' || method === 'POST')) {
