@@ -547,6 +547,9 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (e) {
         console.warn('Network error deleting Collab from Cloudflare D1:', e);
       }
+      return { success: true };
+    },
+
     // 3. POA Bulanan (Direct Cloudflare D1 Database)
     async fetchPoa(bulan, tahun, nip = '', nama = '') {
       try {
