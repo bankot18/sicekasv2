@@ -8023,6 +8023,92 @@ document.addEventListener('DOMContentLoaded', () => {
       this._lastFetchKey = '';
     },
 
+    // Helper to safely retrieve an item by ID across cache, active month, or cloud
+    async getItemById(id) {
+      if (id === undefined || id === null || id === '') return null;
+      const strId = String(id).trim();
+
+      const findIn = (arr) => {
+        if (!Array.isArray(arr)) return null;
+        return arr.find(i => i && String(i.id).trim() === strId);
+      };
+
+      // 1. Check in-memory cached data
+      let item = findIn(this._cachedData);
+      if (item) return item;
+
+      // 2. Check Beranda month/year
+      if (this.berandaMonth && this.berandaYear) {
+        const berandaData = await this.getData(this.berandaMonth, this.berandaYear);
+        item = findIn(berandaData);
+        if (item) return item;
+      }
+
+      // 3. Check currentMonth / currentYear
+      if (this.currentMonth && this.currentYear) {
+        const currentData = await this.getData(this.currentMonth, this.currentYear);
+        item = findIn(currentData);
+        if (item) return item;
+      }
+
+      // 4. Check localStorage
+      try {
+        const local = JSON.parse(localStorage.getItem('SICEKAS_BOK_DATA_V2') || localStorage.getItem(STORAGE_BOK_DATA) || '[]');
+        const raw = findIn(local);
+        if (raw) {
+          return this._normalizeRawItem(raw);
+        }
+      } catch (e) {}
+
+      // 5. Query cloud without month/year filter (all items)
+      try {
+        const cloudAll = await CloudflareDB.fetchJadwal('', '');
+        const raw = findIn(cloudAll);
+        if (raw) {
+          return this._normalizeRawItem(raw);
+        }
+      } catch (e) {}
+
+      return null;
+    },
+
+    _normalizeRawItem(raw) {
+      if (!raw) return null;
+      const kegName = raw.namaKegiatan || raw.nama_kegiatan || '';
+      let noKeg = raw.noKegiatan || raw.no_kegiatan;
+      if (!noKeg || noKeg === 0) {
+        const kegIdx = KEGIATAN_BOK_LIST.indexOf(kegName);
+        noKeg = (kegIdx >= 0) ? (kegIdx + 1) : 0;
+      }
+      let normTanggal = raw.tanggal || '';
+      if (normTanggal && typeof normTanggal === 'string' && normTanggal.includes('-')) {
+        const parts = normTanggal.split('-');
+        if (parts.length === 3) {
+          const y = parts[0];
+          const m = String(parseInt(parts[1], 10)).padStart(2, '0');
+          const d = String(parseInt(parts[2], 10)).padStart(2, '0');
+          normTanggal = `${y}-${m}-${d}`;
+        }
+      }
+      return {
+        id: raw.id,
+        tanggal: normTanggal,
+        bulan: raw.bulan,
+        tahun: raw.tahun,
+        noKegiatan: noKeg,
+        namaKegiatan: kegName,
+        keterangan: raw.keterangan || '',
+        lokasi: raw.lokasi || '',
+        username: raw.username || '',
+        namaUser: raw.namaUser || raw.petugas_nama || '',
+        jabatan: raw.jabatan || raw.petugas_jabatan || '',
+        petugas_nip: raw.petugas_nip || '',
+        rekan_kolaborasi: raw.rekan_kolaborasi || [],
+        status: raw.status || 'Disetujui',
+        createdAt: raw.created_at || raw.createdAt || ''
+      };
+    },
+
     async getCollabData() {
       try {
         const uNip = CURRENT_USER.nip || '';
@@ -8553,6 +8639,11 @@ document.addEventListener('DOMContentLoaded', () => {
       };
       if (closeDetail) closeDetail.addEventListener('click', closeModalDetail);
       if (btnCloseDetail) btnCloseDetail.addEventListener('click', closeModalDetail);
+      if (modalDetail) {
+        modalDetail.addEventListener('click', (e) => {
+          if (e.target === modalDetail) closeModalDetail();
+        });
+      }
     },
 
     async getFilteredData() {
@@ -9502,9 +9593,11 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     async bukaModalEdit(id) {
-      const data = await this.getData();
-      const item = data.find(i => i.id === id);
-      if (!item) return;
+      const item = await this.getItemById(id);
+      if (!item) {
+        if (window.showToast) window.showToast('Data jadwal tidak ditemukan untuk diedit.', 'error');
+        return;
+      }
 
       const modal = document.getElementById('modalTambahJadwalBOK');
       const titleEl = document.getElementById('modalBokFormTitle');
@@ -9810,8 +9903,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     async hapusJadwal(id) {
-      const data = await this.getData();
-      const item = data.find(i => i.id === id);
+      const item = await this.getItemById(id);
       if (!item) {
         if (window.showToast) window.showToast('Data kegiatan tidak ditemukan.', 'error');
         return;
@@ -10334,15 +10426,32 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     async bukaModalDetail(id) {
-      const data = await this.getData();
-      const item = data.find(i => i.id === id);
-      if (!item) return;
+      const item = await this.getItemById(id);
+      if (!item) {
+        if (typeof showToast === 'function') showToast('Rincian detail kegiatan tidak ditemukan.', 'warning');
+        return;
+      }
 
       const modal = document.getElementById('modalDetailJadwalBOK');
       const body = document.getElementById('detailBokBody');
       const btnEdit = document.getElementById('btnDetailBokEdit');
+      const titleEl = document.getElementById('detailBokTitle');
+      const subEl = document.getElementById('detailBokSub');
 
-      const isMine = item.namaUser === CURRENT_USER.nama;
+      if (titleEl) titleEl.textContent = 'Detail Jadwal Kegiatan';
+      if (subEl) subEl.textContent = `${item.tanggal} • Puskesmas Banjaran Kota`;
+
+      const userNamaClean = (CURRENT_USER.nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+      const userNipClean = (CURRENT_USER.nip || '').trim();
+      const itemNamaClean = (item.namaUser || item.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
+      const itemNipClean = (item.petugas_nip || '').trim();
+
+      const isMine = (userNipClean && itemNipClean && userNipClean === itemNipClean) ||
+                     (CURRENT_USER.username && item.username && CURRENT_USER.username === item.username) ||
+                     (itemNamaClean && userNamaClean && (itemNamaClean === userNamaClean || itemNamaClean.includes(userNamaClean) || userNamaClean.includes(itemNamaClean)));
+
+      const isSuperAdmin = CURRENT_USER.role === 'Super Admin' || CURRENT_USER.role === 'Admin' || CURRENT_USER.username === 'ozie';
+
       const isCollab = (item.keterangan && item.keterangan.toLowerCase().includes('kolaborasi')) || 
                        (Array.isArray(item.rekan_kolaborasi) && item.rekan_kolaborasi.length > 0) ||
                        (item.namaKegiatan && item.namaKegiatan.toLowerCase().includes('kolaborasi'));
@@ -10393,6 +10502,7 @@ document.addEventListener('DOMContentLoaded', () => {
         status: 'initiator',
         statusLabel: '👑 Pengirim (Inisiator)'
       });
+
       // 2. Deduplicate: keep only the NEWEST request per recipient (to_nama)
       const latestPerRecipient = new Map();
       matchingReqs.forEach(req => {
@@ -10432,8 +10542,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       // 3. Fallback: partners in rekan_kolaborasi that weren't found in matchingReqs
-      // These are added only if no collab request was found for them
-      if (matchingReqs.length === 0 && Array.isArray(item.rekan_kolaborasi)) {
+      if (Array.isArray(item.rekan_kolaborasi)) {
         item.rekan_kolaborasi.forEach(r => {
           const rNama = typeof r === 'string' ? r : (r.nama || '');
           const rJab = typeof r === 'object' ? (r.jabatan || 'Petugas') : 'Petugas';
@@ -10444,9 +10553,38 @@ document.addEventListener('DOMContentLoaded', () => {
             partnerStatusMap.set(rNama, {
               nama: rNama,
               jabatan: rJab,
-              status: 'pending',
-              statusLabel: '⏳ Menunggu Konfirmasi'
+              status: 'accepted',
+              statusLabel: '✅ Disetujui'
             });
+          }
+        });
+      }
+
+      // 4. Also check cached activities on the same date with same activity name/no
+      if (isCollab && Array.isArray(this._cachedData)) {
+        const sameDayActs = this._cachedData.filter(ev => {
+          if (!ev || ev.tanggal !== item.tanggal) return false;
+          const evNo = parseInt(ev.noKegiatan || 0, 10);
+          const evName = (ev.namaKegiatan || '').trim().toLowerCase();
+          if (itemNoKeg > 0 && evNo > 0 && itemNoKeg === evNo) return true;
+          if (itemNamaKeg && evName && (itemNamaKeg === evName || itemNamaKeg.includes(evName) || evName.includes(itemNamaKeg))) return true;
+          return false;
+        });
+
+        sameDayActs.forEach(ev => {
+          const evNama = ev.namaUser || ev.petugas_nama;
+          const evJab = ev.jabatan || ev.petugas_jabatan || 'Pegawai';
+          if (evNama) {
+            const existingKey = [...partnerStatusMap.keys()].find(k => cleanName(k) === cleanName(evNama));
+            if (!existingKey) {
+              const isInit = cleanName(evNama) === cleanName(realInitiatorName);
+              partnerStatusMap.set(evNama, {
+                nama: evNama,
+                jabatan: evJab,
+                status: isInit ? 'initiator' : 'accepted',
+                statusLabel: isInit ? '👑 Pengirim (Inisiator)' : '✅ Disetujui'
+              });
+            }
           }
         });
       }
@@ -10476,11 +10614,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (btnEdit) {
-        // For collab activities: only initiator can edit, not partners
         const isCollabPartner = isCollab && item.keterangan && item.keterangan.includes('[Kolaborasi dengan:');
-        const canEdit = isMine && !isCollabPartner;
+        const canEdit = (isMine && !isCollabPartner) || isSuperAdmin;
         if (canEdit) {
-          btnEdit.style.display = 'inline-block';
+          btnEdit.style.display = 'inline-flex';
           btnEdit.onclick = () => {
             modal.classList.remove('active');
             this.bukaModalEdit(item.id);
@@ -10526,7 +10663,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>` : `
           <div class="detail-bok-row">
             <span class="detail-bok-label">Petugas Pelaksana</span>
-            <span class="detail-bok-val">👤 ${item.namaUser} (${item.jabatan})</span>
+            <span class="detail-bok-val">👤 ${item.namaUser || item.petugas_nama || '-'} (${item.jabatan || item.petugas_jabatan || 'Pegawai'})</span>
           </div>`}
 
           <div class="detail-bok-row">
@@ -10542,8 +10679,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
 
     async buatSppdDariJadwal(id) {
-      const data = await this.getData();
-      const item = data.find(i => i.id === id);
+      const item = await this.getItemById(id);
       if (!item) {
         if (typeof showToast === 'function') showToast('Data kegiatan jadwal tidak ditemukan.', 'error');
         return;

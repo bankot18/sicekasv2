@@ -244,6 +244,8 @@ body::before {
   flex-direction: column;
 }
 
+
+
 .stat-label-pro {
   font-size: 11.5px;
   font-weight: 700;
@@ -8607,11 +8609,18 @@ input[type="date"].modal-input,
   color: var(--accent-cyan);
 }
 
+#modalDetailJadwalBOK .modal-card {
+  max-width: 520px;
+}
+
 .detail-bok-content {
-  padding: 18px 22px;
+  padding: 16px 22px 20px 22px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  max-height: 65vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .detail-bok-row {
@@ -8623,15 +8632,16 @@ input[type="date"].modal-input,
 .detail-bok-label {
   font-size: 11px;
   font-weight: 700;
-  color: var(--text-muted);
+  color: var(--text-muted, #94a3b8);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .detail-bok-val {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   color: #ffffff;
+  line-height: 1.5;
 }
 
 /* ==========================================================================
