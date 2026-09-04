@@ -950,12 +950,15 @@ async function handleApiRequest(request, env, ctx) {
         `).run();
       } catch (tblErr) {}
 
-      // Add tanggal and keterangan columns if table exists from previous migrations without it
+      // Add tanggal, keterangan, and petugas_jabatan columns if table exists from previous migrations without it
       try {
         await db.prepare(`ALTER TABLE poa_bulanan ADD COLUMN tanggal DATE;`).run();
       } catch (colErr) {}
       try {
         await db.prepare(`ALTER TABLE poa_bulanan ADD COLUMN keterangan TEXT;`).run();
+      } catch (colErr) {}
+      try {
+        await db.prepare(`ALTER TABLE poa_bulanan ADD COLUMN petugas_jabatan TEXT;`).run();
       } catch (colErr) {}
 
       let query = 'SELECT * FROM poa_bulanan WHERE 1=1';
@@ -1063,12 +1066,15 @@ async function handleApiRequest(request, env, ctx) {
         `).run();
       } catch (tblErr) {}
 
-      // Add tanggal and keterangan column if missing
+      // Add tanggal, keterangan, and petugas_jabatan column if missing
       try {
         await db.prepare(`ALTER TABLE poa_bulanan ADD COLUMN tanggal DATE;`).run();
       } catch (colErr) {}
       try {
         await db.prepare(`ALTER TABLE poa_bulanan ADD COLUMN keterangan TEXT;`).run();
+      } catch (colErr) {}
+      try {
+        await db.prepare(`ALTER TABLE poa_bulanan ADD COLUMN petugas_jabatan TEXT;`).run();
       } catch (colErr) {}
 
       await db.prepare(`
@@ -1149,6 +1155,16 @@ async function handleApiRequest(request, env, ctx) {
           );
         `).run();
       } catch (tblErr) {}
+
+      try {
+        await db.prepare(`ALTER TABLE poa_bulanan ADD COLUMN tanggal DATE;`).run();
+      } catch (colErr) {}
+      try {
+        await db.prepare(`ALTER TABLE poa_bulanan ADD COLUMN keterangan TEXT;`).run();
+      } catch (colErr) {}
+      try {
+        await db.prepare(`ALTER TABLE poa_bulanan ADD COLUMN petugas_jabatan TEXT;`).run();
+      } catch (colErr) {}
 
       const statements = [];
 

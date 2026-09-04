@@ -87,6 +87,501 @@ window.createSicekasAlert = function(title, message, variant = 'default', iconSv
   `;
 };
 
+// ============================================================================
+// UNIVERSAL SEARCHABLE SELECT / COMBOBOX ENGINE (SICEKAS VIP THEME)
+// ============================================================================
+window.SearchableSelect = {
+  instances: new WeakMap(),
+  allInstances: [],
+
+  TARGET_IDS: [
+    'collabKegiatan',
+    'inputKegiatanBOK',
+    'bokEditCollabAddSelect',
+    'fPetugasBOK',
+    'tppolSelectJabatan',
+    'tppolKlaster',
+    'signKepala',
+    'signVerifikator',
+    'signPetugas',
+    'sppdInputPegawai',
+    'sppdLptSelectForm',
+    'sppdDisplayPart',
+    'selectSppdFontFamily',
+    'sppdPengikutSelect1',
+    'sppdPengikutSelect2',
+    'sppdPengikutSelect3',
+    'sppdPengikutSelect4',
+    'lptSelectPetugas1',
+    'lptSelectPetugas2',
+    'lptSelectPetugas3',
+    'dokSelectLayout',
+    'poaSelectOfficer',
+    'devUserRole',
+    'devUserStatus',
+    'profStatus',
+    'evidenceKeteranganSelect',
+    'poaSelectMonth',
+    'poaSelectYear',
+    'tppolYear',
+    'tppolMonth',
+    'fBulanBOK',
+    'fTahunBOK'
+  ],
+
+  closeAll() {
+    this.allInstances.forEach(inst => {
+      if (inst && typeof inst.close === 'function') {
+        inst.close();
+      }
+    });
+  },
+
+  enhance(selectEl, userConfig = {}) {
+    if (!selectEl || !(selectEl instanceof HTMLSelectElement)) return null;
+    
+    // Check if already enhanced
+    if (this.instances.has(selectEl)) {
+      const existing = this.instances.get(selectEl);
+      existing.rebuild();
+      return existing;
+    }
+
+    // Explicit exclusions (e.g. mini inline header navigator widgets)
+    if (selectEl.hasAttribute('data-no-searchable') || 
+        selectEl.classList.contains('select-beranda-month') || 
+        selectEl.classList.contains('select-beranda-year')) {
+      return null;
+    }
+
+    const config = Object.assign({
+      searchPlaceholder: 'Ketik untuk mencari...',
+      noResultsText: 'Tidak ada opsi yang cocok',
+      autoFlip: true
+    }, userConfig);
+
+    // Create wrapper
+    const wrap = document.createElement('div');
+    wrap.className = 'searchable-select-wrap';
+    if (selectEl.id) wrap.id = 'ss_wrap_' + selectEl.id;
+
+    // Create trigger button
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'searchable-select-trigger';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    const label = document.createElement('span');
+    label.className = 'searchable-select-label';
+
+    const arrow = document.createElement('span');
+    arrow.className = 'searchable-select-arrow';
+    arrow.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+
+    trigger.appendChild(label);
+    trigger.appendChild(arrow);
+
+    // Create dropdown panel
+    const dropdown = document.createElement('div');
+    dropdown.className = 'searchable-select-dropdown';
+    dropdown.style.display = 'none';
+
+    // Search box
+    const searchBox = document.createElement('div');
+    searchBox.className = 'searchable-select-search-box';
+
+    const searchIcon = document.createElement('span');
+    searchIcon.className = 'searchable-select-search-icon';
+    searchIcon.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'searchable-select-input';
+    searchInput.placeholder = config.searchPlaceholder;
+    searchInput.autocomplete = 'off';
+    searchInput.spellcheck = false;
+
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'searchable-select-clear';
+    clearBtn.innerHTML = '&times;';
+    clearBtn.title = 'Hapus pencarian';
+    clearBtn.style.display = 'none';
+
+    searchBox.appendChild(searchIcon);
+    searchBox.appendChild(searchInput);
+    searchBox.appendChild(clearBtn);
+
+    // Options list container
+    const optionsContainer = document.createElement('div');
+    optionsContainer.className = 'searchable-select-options';
+
+    // Empty state container
+    const emptyState = document.createElement('div');
+    emptyState.className = 'searchable-select-empty';
+    emptyState.style.display = 'none';
+    emptyState.innerHTML = '<div class="searchable-select-empty-icon">🔍</div><div>' + config.noResultsText + '</div><div class="searchable-select-empty-hint">Coba kata kunci lain atau periksa ejaan</div>';
+
+    dropdown.appendChild(searchBox);
+    dropdown.appendChild(optionsContainer);
+    dropdown.appendChild(emptyState);
+
+    // Insert wrap into DOM right where selectEl is
+    if (selectEl.parentNode) {
+      selectEl.parentNode.insertBefore(wrap, selectEl);
+      wrap.appendChild(trigger);
+      wrap.appendChild(dropdown);
+      wrap.appendChild(selectEl);
+    }
+
+    // Hide native select visually
+    selectEl.classList.add('searchable-select-native-hidden');
+
+    let activeIndex = -1;
+    let isOpen = false;
+
+    const syncLabel = () => {
+      const idx = selectEl.selectedIndex;
+      const selectedOpt = (idx >= 0 && idx < selectEl.options.length) ? selectEl.options[idx] : null;
+      if (selectedOpt && selectedOpt.textContent.trim()) {
+        const txt = selectedOpt.textContent.trim();
+        label.textContent = txt;
+        label.title = txt;
+        label.classList.toggle('is-placeholder', !selectedOpt.value);
+      } else {
+        const placeholderTxt = selectEl.getAttribute('placeholder') || '-- Pilih --';
+        label.textContent = placeholderTxt;
+        label.title = placeholderTxt;
+        label.classList.add('is-placeholder');
+      }
+      trigger.disabled = selectEl.disabled;
+      wrap.classList.toggle('is-disabled', selectEl.disabled);
+    };
+
+    const highlightText = (text, query) => {
+      if (!query) return text;
+      const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+      if (terms.length === 0) return text;
+      const escaped = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      const regex = new RegExp('(' + escaped.join('|') + ')', 'gi');
+      return text.replace(regex, '<span class="ss-match">$1</span>');
+    };
+
+    const filterOptions = () => {
+      const query = searchInput.value.trim().toLowerCase();
+      clearBtn.style.display = query ? 'block' : 'none';
+
+      const terms = query.split(/\s+/).filter(Boolean);
+      let visibleCount = 0;
+
+      const items = optionsContainer.querySelectorAll('.searchable-select-option');
+      items.forEach((item) => {
+        const text = item.getAttribute('data-text') || '';
+        const lower = text.toLowerCase();
+        const matches = terms.length === 0 || terms.every(t => lower.includes(t));
+
+        if (matches) {
+          item.style.display = 'flex';
+          const spanText = item.querySelector('.searchable-select-option-text');
+          if (spanText) {
+            spanText.innerHTML = highlightText(text, query);
+          }
+          visibleCount++;
+        } else {
+          item.style.display = 'none';
+        }
+      });
+
+      emptyState.style.display = visibleCount === 0 ? 'flex' : 'none';
+      activeIndex = -1;
+      updateActiveOption();
+    };
+
+    const rebuildOptions = () => {
+      optionsContainer.innerHTML = '';
+      const opts = Array.from(selectEl.options);
+
+      opts.forEach((opt, idx) => {
+        const item = document.createElement('div');
+        item.className = 'searchable-select-option';
+        item.setAttribute('data-value', opt.value);
+        item.setAttribute('data-text', opt.textContent.trim());
+        item.setAttribute('data-index', idx);
+
+        if (opt.selected) item.classList.add('is-selected');
+        if (opt.disabled) item.classList.add('is-disabled');
+        if (!opt.value && idx === 0) item.classList.add('is-placeholder-opt');
+
+        const spanText = document.createElement('span');
+        spanText.className = 'searchable-select-option-text';
+        spanText.textContent = opt.textContent.trim();
+        item.appendChild(spanText);
+
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (opt.disabled) return;
+          selectOption(idx);
+          closeDropdown();
+          trigger.focus();
+        });
+
+        optionsContainer.appendChild(item);
+      });
+
+      syncLabel();
+    };
+
+    const selectOption = (idx) => {
+      if (idx >= 0 && idx < selectEl.options.length) {
+        selectEl.selectedIndex = idx;
+        syncLabel();
+        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        selectEl.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      const items = optionsContainer.querySelectorAll('.searchable-select-option');
+      items.forEach(it => {
+        const itIdx = parseInt(it.getAttribute('data-index'), 10);
+        it.classList.toggle('is-selected', itIdx === idx);
+      });
+      trigger.classList.remove('is-invalid');
+    };
+
+    const openDropdown = () => {
+      if (selectEl.disabled) return;
+      window.SearchableSelect.closeAll();
+
+      isOpen = true;
+      wrap.classList.add('is-open');
+      dropdown.style.display = 'flex';
+      trigger.setAttribute('aria-expanded', 'true');
+
+      if (config.autoFlip) {
+        const rect = wrap.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        if (spaceBelow < 280 && spaceAbove > spaceBelow) {
+          dropdown.classList.add('dropup');
+        } else {
+          dropdown.classList.remove('dropup');
+        }
+      }
+
+      searchInput.value = '';
+      clearBtn.style.display = 'none';
+      filterOptions();
+
+      const selectedItem = optionsContainer.querySelector('.searchable-select-option.is-selected');
+      if (selectedItem) {
+        selectedItem.scrollIntoView({ block: 'nearest' });
+      }
+
+      setTimeout(() => {
+        searchInput.focus();
+      }, 30);
+    };
+
+    const closeDropdown = () => {
+      if (!isOpen) return;
+      isOpen = false;
+      wrap.classList.remove('is-open');
+      dropdown.style.display = 'none';
+      trigger.setAttribute('aria-expanded', 'false');
+      activeIndex = -1;
+      updateActiveOption();
+    };
+
+    const updateActiveOption = () => {
+      const visibleItems = Array.from(optionsContainer.querySelectorAll('.searchable-select-option'))
+        .filter(it => it.style.display !== 'none' && !it.classList.contains('is-disabled'));
+      
+      visibleItems.forEach((it, i) => {
+        it.classList.toggle('is-active', i === activeIndex);
+      });
+
+      if (activeIndex >= 0 && visibleItems[activeIndex]) {
+        visibleItems[activeIndex].scrollIntoView({ block: 'nearest' });
+      }
+    };
+
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (isOpen) {
+        closeDropdown();
+      } else {
+        openDropdown();
+      }
+    });
+
+    searchInput.addEventListener('input', () => {
+      filterOptions();
+    });
+
+    clearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      searchInput.value = '';
+      clearBtn.style.display = 'none';
+      filterOptions();
+      searchInput.focus();
+    });
+
+    wrap.addEventListener('keydown', (e) => {
+      if (!isOpen) {
+        if (['Enter', 'ArrowDown', 'ArrowUp', ' '].includes(e.key)) {
+          e.preventDefault();
+          openDropdown();
+        }
+        return;
+      }
+
+      const visibleItems = Array.from(optionsContainer.querySelectorAll('.searchable-select-option'))
+        .filter(it => it.style.display !== 'none' && !it.classList.contains('is-disabled'));
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeDropdown();
+        trigger.focus();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (visibleItems.length > 0) {
+          activeIndex = (activeIndex + 1) % visibleItems.length;
+          updateActiveOption();
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (visibleItems.length > 0) {
+          activeIndex = activeIndex <= 0 ? visibleItems.length - 1 : activeIndex - 1;
+          updateActiveOption();
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activeIndex >= 0 && visibleItems[activeIndex]) {
+          const idx = parseInt(visibleItems[activeIndex].getAttribute('data-index'), 10);
+          selectOption(idx);
+          closeDropdown();
+          trigger.focus();
+        } else if (visibleItems.length === 1) {
+          const idx = parseInt(visibleItems[0].getAttribute('data-index'), 10);
+          selectOption(idx);
+          closeDropdown();
+          trigger.focus();
+        }
+      } else if (e.key === 'Tab') {
+        closeDropdown();
+      }
+    });
+
+    // Native Select Property Overrides for reactive 2-way sync
+    try {
+      const originalValueDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+      if (originalValueDesc) {
+        Object.defineProperty(selectEl, 'value', {
+          get() {
+            return originalValueDesc.get.call(this);
+          },
+          set(val) {
+            originalValueDesc.set.call(this, val);
+            syncLabel();
+            const items = optionsContainer.querySelectorAll('.searchable-select-option');
+            items.forEach(it => {
+              it.classList.toggle('is-selected', it.getAttribute('data-value') === String(val));
+            });
+          },
+          configurable: true
+        });
+      }
+
+      const originalIdxDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'selectedIndex');
+      if (originalIdxDesc) {
+        Object.defineProperty(selectEl, 'selectedIndex', {
+          get() {
+            return originalIdxDesc.get.call(this);
+          },
+          set(idx) {
+            originalIdxDesc.set.call(this, idx);
+            syncLabel();
+            const items = optionsContainer.querySelectorAll('.searchable-select-option');
+            items.forEach(it => {
+              const itIdx = parseInt(it.getAttribute('data-index'), 10);
+              it.classList.toggle('is-selected', itIdx === idx);
+            });
+          },
+          configurable: true
+        });
+      }
+    } catch (e) {
+      console.warn('SearchableSelect property descriptor interception warning:', e);
+    }
+
+    selectEl.addEventListener('change', () => {
+      syncLabel();
+      const items = optionsContainer.querySelectorAll('.searchable-select-option');
+      items.forEach(it => {
+        const itIdx = parseInt(it.getAttribute('data-index'), 10);
+        it.classList.toggle('is-selected', itIdx === selectEl.selectedIndex);
+      });
+    });
+
+    if (selectEl.form) {
+      selectEl.form.addEventListener('reset', () => {
+        setTimeout(syncLabel, 20);
+      });
+    }
+
+    selectEl.addEventListener('invalid', () => {
+      trigger.classList.add('is-invalid');
+      trigger.classList.add('ss-shake');
+      setTimeout(() => trigger.classList.remove('ss-shake'), 500);
+    });
+
+    const observer = new MutationObserver(() => {
+      rebuildOptions();
+    });
+    observer.observe(selectEl, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+
+    rebuildOptions();
+
+    const instance = {
+      selectEl,
+      wrap,
+      trigger,
+      dropdown,
+      rebuild: rebuildOptions,
+      sync: syncLabel,
+      open: openDropdown,
+      close: closeDropdown
+    };
+
+    this.instances.set(selectEl, instance);
+    this.allInstances.push(instance);
+    return instance;
+  },
+
+  initAll() {
+    this.TARGET_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.tagName === 'SELECT') {
+        this.enhance(el);
+      }
+    });
+
+    const allSelects = document.querySelectorAll('select.poa-select, select.sppd-input-styled, select.bok-select, select.sppd-custom-select, select[data-searchable="true"]');
+    allSelects.forEach(el => {
+      this.enhance(el);
+    });
+  }
+};
+
+// Global click outside listener to close any open dropdowns
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.searchable-select-wrap')) {
+    if (window.SearchableSelect && typeof window.SearchableSelect.closeAll === 'function') {
+      window.SearchableSelect.closeAll();
+    }
+  }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
   // Elements
   const sidebar = document.getElementById('sidebar');
@@ -581,14 +1076,15 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(item)
         });
-        if (res.ok) {
-          const json = await res.json();
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json.success !== false) {
           return json;
         }
+        return { success: false, error: json.error || `HTTP ${res.status}: ${res.statusText}` };
       } catch (e) {
         console.warn('Network error saving POA to Cloudflare D1:', e);
+        return { success: false, error: e.message };
       }
-      return { success: true, id: item.id };
     },
 
     async savePoaBatch(items, deletedIds = []) {
@@ -598,14 +1094,15 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ items, deletedIds })
         });
-        if (res.ok) {
-          const json = await res.json();
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json.success !== false) {
           return json;
         }
+        return { success: false, error: json.error || `HTTP ${res.status}: ${res.statusText}` };
       } catch (e) {
         console.warn('Network error saving POA batch to Cloudflare D1:', e);
+        return { success: false, error: e.message };
       }
-      return { success: true, count: items.length };
     },
 
     async deletePoa(id) {
@@ -615,14 +1112,15 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id })
         });
-        if (res.ok) {
-          const json = await res.json();
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json.success !== false) {
           return json;
         }
+        return { success: false, error: json.error || `HTTP ${res.status}: ${res.statusText}` };
       } catch (e) {
         console.warn('Network error deleting POA from Cloudflare D1:', e);
+        return { success: false, error: e.message };
       }
-      return { success: true };
     },
 
     // 4. TP POL Jaspel (Direct Cloudflare D1 Database)
@@ -920,6 +1418,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const currentUser = JSON.parse(rawCurrentUser);
+    window.CURRENT_USER = currentUser;
     if (currentUser) {
       const profileNameEls = document.querySelectorAll('.profile-name, .popover-user-info h4');
       const profileRoleEls = document.querySelectorAll('.profile-role');
@@ -1104,6 +1603,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewJadwalKegiatan) viewJadwalKegiatan.style.display = 'none';
     if (viewDeveloperWeb) viewDeveloperWeb.style.display = 'none';
 
+    if (targetView !== 'developer-web' && window.DeveloperWebController && window.DeveloperWebController.stopLiveAutoSync) {
+      window.DeveloperWebController.stopLiveAutoSync();
+    }
+
     if (targetView === 'poa-bulanan') {
       if (viewPoaBulanan) {
         viewPoaBulanan.style.display = 'block';
@@ -1209,6 +1712,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       setTimeout(() => {
         if (window.healthChartInstance) window.healthChartInstance.resize();
+        if (window.SearchableSelect && typeof window.SearchableSelect.initAll === 'function') {
+          window.SearchableSelect.initAll();
+        }
       }, 100);
     }
   };
@@ -1561,13 +2067,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const itemOfficer = (it.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
         const itemNipClean = (it.petugas_nip || '').replace(/[^a-zA-Z0-9]/g, '');
 
-        const isMatch = (cleanTargetNip && itemNipClean && cleanTargetNip === itemNipClean) ||
-                        (it.petugas_nip && targetNip && it.petugas_nip === targetNip) ||
-                        (itemOfficer && normSearch && (itemOfficer.includes(normSearch) || normSearch.includes(itemOfficer))) ||
-                        (itemOfficer && normObjNama && (itemOfficer.includes(normObjNama) || normObjNama.includes(itemOfficer)));
+        const isMatch = (!cleanTargetNip && !normSearch && !normObjNama) ? true : (
+          (cleanTargetNip && itemNipClean && cleanTargetNip === itemNipClean) ||
+          (it.petugas_nip && targetNip && it.petugas_nip === targetNip) ||
+          (itemOfficer && normSearch && (itemOfficer.includes(normSearch) || normSearch.includes(itemOfficer))) ||
+          (itemOfficer && normObjNama && (itemOfficer.includes(normObjNama) || normObjNama.includes(itemOfficer))) ||
+          (it.id && cleanTargetNip && it.id.includes(cleanTargetNip))
+        );
 
         if (isMatch && it.tanggal) {
-          poaActivitiesState[it.tanggal] = {
+          let dateKey = it.tanggal;
+          if (dateKey.includes('-')) {
+            const p = dateKey.split('-');
+            if (p.length === 3) {
+              dateKey = `${p[0]}-${String(p[1]).padStart(2, '0')}-${String(p[2]).padStart(2, '0')}`;
+            }
+          }
+          poaActivitiesState[dateKey] = {
             kegiatan: it.uraian_kegiatan || it.kegiatan || it.nama_kegiatan || '',
             keterangan: it.keterangan || ''
           };
@@ -1822,7 +2338,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (val || ketVal) {
           poaActivitiesState[currentActiveDateKey] = { kegiatan: val, keterangan: ketVal };
-          await CloudflareDB.savePoa({
+          const saveRes = await CloudflareDB.savePoa({
             id: poaId,
             tanggal: currentActiveDateKey,
             bulan: selectedMonth,
@@ -1836,6 +2352,14 @@ document.addEventListener('DOMContentLoaded', () => {
             lokasi_pelaksanaan: 'Puskesmas / Wilayah Kerja',
             status: 'Aktif'
           });
+          if (!saveRes || saveRes.success === false) {
+            if (typeof showToast === 'function') {
+              showToast(`❌ Gagal menyimpan ke Cloud: ${saveRes?.error || 'Kesalahan database'}`, 'error');
+            } else {
+              alert(`Gagal menyimpan ke Cloud: ${saveRes?.error || 'Kesalahan database'}`);
+            }
+            return;
+          }
           if (typeof showToast === 'function') showToast('✅ Kegiatan POA tersimpan langsung ke Cloud Database!', 'success');
         } else {
           delete poaActivitiesState[currentActiveDateKey];
@@ -1845,6 +2369,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Re-render calendar directly from Cloud DB
         await renderPoaCalendar(selectedMonth, selectedYear, officerText);
+        if (window.DeveloperWebController && window.DeveloperWebController.refreshAllTableCounts) {
+          window.DeveloperWebController.refreshAllTableCounts();
+        }
       }
       closeSingleActivityModal();
       singleActivityForm.reset();
@@ -1904,12 +2431,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const bulkModalTitle = document.getElementById('bulkModalTitle');
 
-  const openBulkModal = () => {
+  const openBulkModal = async () => {
     const selectedMonth = parseInt(poaSelectMonth ? poaSelectMonth.value : String(new Date().getMonth() + 1), 10);
     const selectedYear = parseInt(poaSelectYear ? poaSelectYear.value : String(new Date().getFullYear()), 10);
+    const officerText = getPoaOfficerName();
     if (bulkModalTitle) {
       bulkModalTitle.textContent = `📝 Isi POA ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear} Sekaligus`;
     }
+    // Sync strictly from Cloudflare D1 before displaying rows
+    await syncPoaFromCloud(selectedMonth, selectedYear, officerText);
     populateBulkTable(selectedMonth, selectedYear);
     if (bulkActivityModal) bulkActivityModal.classList.add('active');
   };
@@ -1983,11 +2513,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      // Send single atomic batch request to Cloudflare D1
-      await CloudflareDB.savePoaBatch(itemsToSave, itemsToDelete);
+      // Send single atomic batch request directly to Cloudflare D1
+      const saveRes = await CloudflareDB.savePoaBatch(itemsToSave, itemsToDelete);
+
+      if (!saveRes || saveRes.success === false) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origBtnText;
+        }
+        const errMsg = saveRes?.error || 'Gagal terhubung ke Cloud Database';
+        if (typeof showToast === 'function') {
+          showToast(`❌ Gagal menyimpan ke Cloud: ${errMsg}`, 'error');
+        } else {
+          alert(`Gagal menyimpan ke Cloud: ${errMsg}`);
+        }
+        return;
+      }
 
       // Re-render calendar live from Cloud D1
       await renderPoaCalendar(selectedMonth, selectedYear, officerText);
+
+      // Refresh table count in D1 Database Studio
+      if (window.DeveloperWebController && window.DeveloperWebController.refreshAllTableCounts) {
+        window.DeveloperWebController.refreshAllTableCounts();
+      }
 
       if (submitBtn) {
         submitBtn.disabled = false;
@@ -1995,7 +2544,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (typeof showToast === 'function') {
-        showToast(`✅ ${itemsToSave.length} agenda kegiatan POA berhasil disimpan ke Cloud Database!`, 'success');
+        showToast(`✅ ${itemsToSave.length} agenda kegiatan POA berhasil tersimpan langsung ke Cloud Database!`, 'success');
       } else {
         alert(`Semua rencana kegiatan POA berhasil disimpan ke Cloud Database!`);
       }
@@ -9428,18 +9977,64 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (collabStaffSearch) {
-        collabStaffSearch.addEventListener('input', (e) => {
-          const q = (e.target.value || '').toLowerCase().trim();
-          document.querySelectorAll('.collab-staff-item').forEach(item => {
+        const handleCollabSearch = () => {
+          const rawQ = (collabStaffSearch.value || '').toLowerCase().trim();
+          const items = document.querySelectorAll('.collab-staff-item');
+          const terms = rawQ.split(/\s+/).filter(Boolean);
+          let visibleCount = 0;
+
+          items.forEach(item => {
             const nama = (item.dataset.nama || '').toLowerCase();
             const jab = (item.dataset.jab || '').toLowerCase();
             const nip = (item.dataset.nip || '').toLowerCase();
-            if (!q || nama.includes(q) || jab.includes(q) || nip.includes(q)) {
-              item.style.display = 'flex';
+            const fullText = (item.textContent || '').toLowerCase();
+
+            const isMatch = terms.length === 0 || terms.every(term => 
+              nama.includes(term) || jab.includes(term) || nip.includes(term) || fullText.includes(term)
+            );
+
+            if (isMatch) {
+              item.classList.remove('is-search-hidden');
+              item.style.setProperty('display', 'flex', 'important');
+              visibleCount++;
             } else {
-              item.style.display = 'none';
+              item.classList.add('is-search-hidden');
+              item.style.setProperty('display', 'none', 'important');
             }
           });
+
+          // Empty state handling
+          const container = document.getElementById('collabStaffListContainer');
+          if (container) {
+            let emptyEl = container.querySelector('#collabStaffEmptyState');
+            if (visibleCount === 0 && rawQ) {
+              if (!emptyEl) {
+                emptyEl = document.createElement('div');
+                emptyEl.id = 'collabStaffEmptyState';
+                emptyEl.className = 'collab-no-results';
+                container.appendChild(emptyEl);
+              }
+              const safeQ = rawQ.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+              emptyEl.innerHTML = `
+                <span style="font-size: 22px;">🔍</span>
+                <div style="font-weight: 600; color: #cbd5e1;">Petugas Tidak Ditemukan</div>
+                <div style="font-size: 11.5px; color: #94a3b8;">Tidak ada rekan petugas yang cocok dengan kata kunci: <em>"${safeQ}"</em></div>
+              `;
+              emptyEl.style.display = 'flex';
+            } else if (emptyEl) {
+              emptyEl.style.display = 'none';
+            }
+          }
+        };
+
+        collabStaffSearch.addEventListener('input', handleCollabSearch);
+        collabStaffSearch.addEventListener('keyup', handleCollabSearch);
+        collabStaffSearch.addEventListener('search', handleCollabSearch);
+        collabStaffSearch.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            collabStaffSearch.value = '';
+            handleCollabSearch();
+          }
         });
       }
 
@@ -10441,6 +11036,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (uAv) uAv.textContent = CURRENT_USER.avatar;
 
       if (modal) modal.classList.add('active');
+      if (window.SearchableSelect) {
+        const kegInputEl = document.getElementById('inputKegiatanBOK');
+        if (kegInputEl) window.SearchableSelect.enhance(kegInputEl);
+      }
     },
 
     async bukaModalEdit(id) {
@@ -10921,7 +11520,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Reset visibility and classes of all staff items
       document.querySelectorAll('.collab-staff-item').forEach(item => {
-        item.style.display = 'flex';
+        item.classList.remove('is-search-hidden');
+        item.style.setProperty('display', 'flex', 'important');
         item.classList.remove('is-conflict');
         const cb = item.querySelector('.collab-staff-cb');
         if (cb) {
@@ -10934,11 +11534,17 @@ document.addEventListener('DOMContentLoaded', () => {
           conflictBox.style.display = 'none';
         }
       });
+      const emptyEl = document.getElementById('collabStaffEmptyState');
+      if (emptyEl) emptyEl.style.display = 'none';
 
       const defaultDate = datePrefill || `${this.currentYear}-${String(this.currentMonth).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
       if (tglInput) tglInput.value = defaultDate;
 
       if (modal) modal.classList.add('active');
+      if (window.SearchableSelect) {
+        const collabKegEl = document.getElementById('collabKegiatan');
+        if (collabKegEl) window.SearchableSelect.enhance(collabKegEl);
+      }
 
       // Live conflict scan for the date
       await this.updateCollabConflictUI(defaultDate);
@@ -11803,26 +12409,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     init() {
       if (!this.checkPermissions()) return;
-      this.bindTabEvents();
-      this.bindD1StudioEvents();
-      this.bindUserEvents();
+      if (!this.isInitialized) {
+        this.isInitialized = true;
+        this.bindTabEvents();
+        this.bindD1StudioEvents();
+        this.bindUserEvents();
+        this.bindApiEvents();
+        this.bindTerminalEvents();
+        this.bindMaintenanceEvents();
+        this.bootTerminal();
+      }
       this.renderUsers();
-      this.bindApiEvents();
-      this.bindTerminalEvents();
-      this.bindMaintenanceEvents();
-      this.bootTerminal();
       this.updateStats();
-      this.loadD1Table('users');
+      this.loadD1Table(this.activeD1Table || 'users', false);
+      this.refreshAllTableCounts();
+      this.startLiveAutoSync();
     },
 
     checkPermissions() {
-      const isSuperAdmin = (typeof CURRENT_USER !== 'undefined' && (CURRENT_USER.role === 'Super Admin' || CURRENT_USER.username === 'ozie'));
-      if (navItemDevWeb) {
-        navItemDevWeb.style.display = isSuperAdmin ? 'block' : 'none';
+      let u = window.CURRENT_USER;
+      if (!u) {
+        try { u = JSON.parse(localStorage.getItem('SICEKAS_CURRENT_USER') || '{}'); } catch(e){}
       }
-      if (navSectionGodMode) {
-        navSectionGodMode.style.display = isSuperAdmin ? 'block' : 'none';
-      }
+      const isSuperAdmin = !!(u && (u.role === 'Super Admin' || u.username === 'ozie' || u.role === 'Admin'));
+      const navItem = document.getElementById('navItemDevWeb');
+      const navSec = document.getElementById('navSectionGodMode');
+      if (navItem) navItem.style.display = isSuperAdmin ? 'block' : 'none';
+      if (navSec) navSec.style.display = isSuperAdmin ? 'block' : 'none';
       return isSuperAdmin;
     },
 
@@ -11851,9 +12464,14 @@ document.addEventListener('DOMContentLoaded', () => {
                   { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' }
                 );
                 if (tabKey === 'd1studio') {
-                  this.loadD1Table(this.activeD1Table || 'users');
-                } else if (tabKey === 'users') {
-                  this.renderUsers();
+                  this.loadD1Table(this.activeD1Table || 'users', false);
+                  this.refreshAllTableCounts();
+                  this.startLiveAutoSync();
+                } else {
+                  this.stopLiveAutoSync();
+                  if (tabKey === 'users') {
+                    this.renderUsers();
+                  }
                 }
               }
             }
@@ -11865,6 +12483,103 @@ document.addEventListener('DOMContentLoaded', () => {
     activeD1Table: 'users',
     d1TableData: [],
     loadedUsers: [],
+    liveAutoSyncEnabled: true,
+    liveIntervalMs: 5000,
+    liveTimer: null,
+    isSyncing: false,
+    lastSyncTime: null,
+
+    startLiveAutoSync() {
+      this.stopLiveAutoSync();
+      if (!this.liveAutoSyncEnabled) return;
+
+      this.liveTimer = setInterval(async () => {
+        if (document.hidden) return;
+        const panel = document.getElementById('devTabD1studio');
+        if (!panel || panel.style.display === 'none') return;
+        if (this.isSyncing) return;
+
+        this.isSyncing = true;
+        try {
+          await this.loadD1Table(this.activeD1Table || 'users', true);
+          await this.refreshAllTableCounts();
+        } catch (e) {
+          console.warn('Live D1 auto-sync tick error:', e);
+        } finally {
+          this.isSyncing = false;
+        }
+      }, this.liveIntervalMs);
+
+      this.updateLiveUiState();
+    },
+
+    stopLiveAutoSync() {
+      if (this.liveTimer) {
+        clearInterval(this.liveTimer);
+        this.liveTimer = null;
+      }
+      this.updateLiveUiState();
+    },
+
+    toggleLiveAutoSync() {
+      this.liveAutoSyncEnabled = !this.liveAutoSyncEnabled;
+      if (this.liveAutoSyncEnabled) {
+        this.startLiveAutoSync();
+        showToast('🟢 Auto-Sync D1 Realtime aktif (sinkron tiap 5 detik)', 'success');
+      } else {
+        this.stopLiveAutoSync();
+        showToast('⏸️ Auto-Sync D1 dijeda', 'info');
+      }
+      this.updateLiveUiState();
+    },
+
+    updateLiveUiState() {
+      const badge = document.getElementById('d1LiveBadge');
+      const text = document.getElementById('d1LiveStatusText');
+      const btnText = document.getElementById('btnD1ToggleLiveSyncText');
+      if (this.liveAutoSyncEnabled && this.liveTimer) {
+        if (badge) badge.classList.remove('paused');
+        if (text) text.textContent = 'LIVE AUTO-SYNC (5s)';
+        if (btnText) btnText.textContent = '⏸️ Pause Sync';
+      } else {
+        if (badge) badge.classList.add('paused');
+        if (text) text.textContent = 'SYNC DIJEDA';
+        if (btnText) btnText.textContent = '▶️ Start Sync';
+      }
+    },
+
+    updateTimestampUi() {
+      const el = document.getElementById('d1LastUpdatedTime');
+      if (!el) return;
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('id-ID', { hour12: false });
+      el.textContent = `Update: ${timeStr}`;
+    },
+
+    async refreshAllTableCounts() {
+      const tables = [
+        'users', 'jadwal_kegiatan', 'poa_bulanan', 'tppol_jaspel',
+        'sppd_lpt', 'audit_logs', 'sppd_templates', 'kolaborasi_request', 'foto_upload_logs'
+      ];
+      try {
+        await Promise.all(tables.map(async (t) => {
+          try {
+            const res = await CloudflareDB.executeSql(`SELECT COUNT(*) AS total FROM ${t};`);
+            if (res && res.success && res.rows && res.rows[0]) {
+              const count = res.rows[0].total ?? res.rows[0].cnt ?? 0;
+              const el = document.getElementById(`count-${t}`);
+              if (el) {
+                if (el.textContent !== String(count)) {
+                  el.textContent = count;
+                  el.classList.add('d1-count-pop');
+                  setTimeout(() => el.classList.remove('d1-count-pop'), 500);
+                }
+              }
+            }
+          } catch (err) {}
+        }));
+      } catch (e) {}
+    },
 
     bindD1StudioEvents() {
       const pills = document.querySelectorAll('#d1TablePills .d1-pill');
@@ -11874,15 +12589,26 @@ document.addEventListener('DOMContentLoaded', () => {
           pill.classList.add('active');
           const tableName = pill.getAttribute('data-table');
           this.activeD1Table = tableName;
-          this.loadD1Table(tableName);
+          this.loadD1Table(tableName, false);
         });
       });
 
       const btnRefresh = document.getElementById('btnD1RefreshTable');
       if (btnRefresh) {
-        btnRefresh.addEventListener('click', () => {
-          this.loadD1Table(this.activeD1Table || 'users');
-          showToast('✓ Data tabel D1 berhasil dimuat ulang!', 'info');
+        btnRefresh.addEventListener('click', async () => {
+          const btnText = document.getElementById('btnD1RefreshText');
+          if (btnText) btnText.textContent = '⏳ Sinkron...';
+          await this.loadD1Table(this.activeD1Table || 'users', false);
+          await this.refreshAllTableCounts();
+          if (btnText) btnText.textContent = '🔄 Refresh Data';
+          showToast('✓ Data tabel Cloudflare D1 berhasil disinkronkan!', 'success');
+        });
+      }
+
+      const btnToggleLiveSync = document.getElementById('btnD1ToggleLiveSync');
+      if (btnToggleLiveSync) {
+        btnToggleLiveSync.addEventListener('click', () => {
+          this.toggleLiveAutoSync();
         });
       }
 
@@ -11937,7 +12663,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const res = await CloudflareDB.executeSql(sql);
         const latency = Date.now() - start;
-        if (timerEl) timerEl.textContent = `Latency: ${latency}ms (CGK Node)`;
+        if (timerEl) timerEl.textContent = `Latency: ${latency}ms (Cloudflare Edge)`;
 
         if (res && res.success) {
           if (res.type === 'SELECT' && res.rows) {
@@ -11947,7 +12673,8 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast(`✓ Query sukses! (${res.rows.length} baris, ${latency}ms)`, 'success');
           } else {
             showToast(`✓ Query mutasi berhasil dieksekusi di Cloudflare D1!`, 'success');
-            this.loadD1Table(this.activeD1Table || 'users');
+            await this.loadD1Table(this.activeD1Table || 'users', false);
+            await this.refreshAllTableCounts();
           }
         } else {
           showToast(`❌ SQL Error: ${res?.error || 'Gagal eksekusi query'}`, 'error');
@@ -11957,23 +12684,31 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     },
 
-    async loadD1Table(tableName = 'users') {
+    async loadD1Table(tableName = 'users', silent = false) {
+      this.activeD1Table = tableName;
       const countEl = document.getElementById(`count-${tableName}`);
       const infoEl = document.getElementById('d1TableActiveInfo');
       const thead = document.getElementById('d1GridThead');
       const tbody = document.getElementById('d1GridTbody');
 
-      if (infoEl) infoEl.innerHTML = `Menghubungkan ke Cloudflare D1... (Tabel: <strong>${tableName}</strong>)`;
-      if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; color:#ffd166; padding:24px;"><span class="spinner-mini"></span> Memuat data tabel [${tableName}] dari Cloudflare D1...</td></tr>`;
+      if (!silent) {
+        if (infoEl) infoEl.innerHTML = `Menghubungkan ke Cloudflare D1... (Tabel: <strong>${tableName}</strong>)`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; color:#ffd166; padding:24px;"><span class="spinner-mini"></span> Memuat data tabel [${tableName}] dari Cloudflare D1...</td></tr>`;
+      }
 
+      const start = Date.now();
       try {
         let rows = [];
-        // 1. Direct query via Cloudflare D1 executeSql for 100% table compatibility
-        const sqlRes = await CloudflareDB.executeSql(`SELECT * FROM ${tableName} LIMIT 200;`);
+        // Direct query via Cloudflare D1 executeSql for 100% live table compatibility
+        let sqlRes = await CloudflareDB.executeSql(`SELECT * FROM ${tableName} ORDER BY rowid DESC LIMIT 200;`);
+        if (!sqlRes || !sqlRes.success) {
+          sqlRes = await CloudflareDB.executeSql(`SELECT * FROM ${tableName} LIMIT 200;`);
+        }
+
         if (sqlRes && sqlRes.success && Array.isArray(sqlRes.rows)) {
           rows = sqlRes.rows;
         } else {
-          // 2. Fallback via specialized API endpoints
+          // Fallback via specialized API endpoints
           if (tableName === 'users') {
             rows = await CloudflareDB.fetchUsers();
           } else if (tableName === 'jadwal_kegiatan') {
@@ -11984,20 +12719,35 @@ document.addEventListener('DOMContentLoaded', () => {
             rows = await CloudflareDB.fetchTpPol();
           } else if (tableName === 'sppd_lpt') {
             rows = await CloudflareDB.fetchSppd();
+          } else if (tableName === 'sppd_templates') {
+            rows = await CloudflareDB.fetchSppdTemplates();
+          } else if (tableName === 'foto_upload_logs') {
+            rows = await CloudflareDB.fetchFotoLogs();
           } else if (tableName === 'audit_logs') {
             rows = await CloudflareDB.fetchAuditLogs();
           }
         }
 
-        this.d1TableData = Array.isArray(rows) ? rows : [];
-        if (countEl) countEl.textContent = this.d1TableData.length;
-        if (infoEl) infoEl.innerHTML = `Menampilkan tabel Cloudflare D1: <strong>${tableName}</strong> (${this.d1TableData.length} baris)`;
+        const latency = Date.now() - start;
+        const newRows = Array.isArray(rows) ? rows : [];
+        const hasChanged = JSON.stringify(newRows) !== JSON.stringify(this.d1TableData);
 
-        this.renderDynamicGrid(this.d1TableData);
+        this.d1TableData = newRows;
+        if (countEl) countEl.textContent = this.d1TableData.length;
+        if (infoEl) {
+          infoEl.innerHTML = `Menampilkan tabel Cloudflare D1: <strong>${tableName}</strong> (${this.d1TableData.length} baris) &bull; <span style="color:#34d399;">⚡ ${latency}ms</span>`;
+        }
+
+        if (!silent || hasChanged) {
+          this.renderDynamicGrid(this.d1TableData);
+        }
+        this.updateTimestampUi();
       } catch (e) {
         console.error('Error loading D1 table:', e);
-        if (infoEl) infoEl.innerHTML = `<span style="color:#ef4444;">Gagal memuat tabel ${tableName} dari cloud: ${e.message}</span>`;
-        if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #f87171; padding: 20px;">Gagal memuat data dari cloud database.</td></tr>`;
+        if (!silent) {
+          if (infoEl) infoEl.innerHTML = `<span style="color:#ef4444;">Gagal memuat tabel ${tableName} dari cloud: ${e.message}</span>`;
+          if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #f87171; padding: 20px;">Gagal memuat data dari cloud database.</td></tr>`;
+        }
       }
     },
 
@@ -13087,4 +13837,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.DeveloperWebController = DeveloperWebController;
   DeveloperWebController.init();
+
+  if (window.SearchableSelect && typeof window.SearchableSelect.initAll === 'function') {
+    window.SearchableSelect.initAll();
+  }
 });
