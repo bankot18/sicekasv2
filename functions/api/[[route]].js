@@ -1478,7 +1478,7 @@ async function handleApiRequest(request, env, ctx) {
       const username = url.searchParams.get('username');
       const type = url.searchParams.get('type') || url.searchParams.get('template_type');
 
-      // Auto-migration: Ensure table and columns exist
+      // Auto-migration: Ensure table exists
       try {
         await db.prepare(`
           CREATE TABLE IF NOT EXISTS sppd_templates (
@@ -1486,6 +1486,9 @@ async function handleApiRequest(request, env, ctx) {
             template_type TEXT NOT NULL DEFAULT 'sppd',
             nama_template TEXT NOT NULL,
             username TEXT NOT NULL,
+            no_surat TEXT,
+            tgl_berangkat TEXT,
+            tgl_kembali TEXT,
             pegawai_nama TEXT,
             pegawai_nip TEXT,
             maksud_kegiatan TEXT,
@@ -1499,24 +1502,21 @@ async function handleApiRequest(request, env, ctx) {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
           );
         `).run();
-      } catch (tblErr) {}
-
-      // Add missing columns if legacy table
-      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN template_type TEXT NOT NULL DEFAULT 'sppd'").run(); } catch(e) {}
-      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN lpt_data TEXT").run(); } catch(e) {}
-      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN dok_data TEXT").run(); } catch(e) {}
+      } catch (tblErr) {
+        console.warn('Auto-migration sppd_templates error:', tblErr);
+      }
 
       let query = 'SELECT * FROM sppd_templates WHERE 1=1';
       const params = [];
       if (username && username.trim() && username !== 'all') {
-        query += ' AND (LOWER(TRIM(username)) = LOWER(TRIM(?)) OR username IS NULL OR username = "" OR username = "all")';
+        query += ' AND (LOWER(TRIM(username)) = LOWER(TRIM(?)) OR username IS NULL OR username = "" OR username = "all" OR username = "ozie")';
         params.push(username.trim());
       }
       if (type && type.trim() && type !== 'all') {
         query += ' AND (template_type = ? OR (template_type IS NULL AND ? = "sppd"))';
         params.push(type.trim(), type.trim());
       }
-      query += ' ORDER BY is_favorite DESC, updated_at DESC';
+      query += ' ORDER BY is_favorite DESC, updated_at DESC, created_at DESC';
 
       const stmt = db.prepare(query);
       const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
@@ -1564,15 +1564,9 @@ async function handleApiRequest(request, env, ctx) {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
           );
         `).run();
-      } catch (tblErr) {}
-
-      // Add missing columns if legacy table
-      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN template_type TEXT NOT NULL DEFAULT 'sppd'").run(); } catch(e) {}
-      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN lpt_data TEXT").run(); } catch(e) {}
-      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN dok_data TEXT").run(); } catch(e) {}
-      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN no_surat TEXT").run(); } catch(e) {}
-      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN tgl_berangkat TEXT").run(); } catch(e) {}
-      try { await db.prepare("ALTER TABLE sppd_templates ADD COLUMN tgl_kembali TEXT").run(); } catch(e) {}
+      } catch (tblErr) {
+        console.warn('Auto-migration sppd_templates error:', tblErr);
+      }
 
       // Check 30 template limitation per user per template_type
       const targetUser = item.username || 'ozie';
@@ -1656,6 +1650,7 @@ async function handleApiRequest(request, env, ctx) {
       let fileBuffer;
       let originalName = 'foto.jpg';
       let mimeType = 'image/jpeg';
+      let uploadedBy = request.headers.get('x-user-name') || 'Petugas Puskesmas';
 
       if (contentType.includes('multipart/form-data')) {
         const formData = await request.formData();
@@ -1665,6 +1660,9 @@ async function handleApiRequest(request, env, ctx) {
         }
         originalName = file.name || 'foto.jpg';
         mimeType = file.type || 'image/jpeg';
+        if (formData.get('uploaded_by')) {
+          uploadedBy = formData.get('uploaded_by');
+        }
         fileBuffer = await file.arrayBuffer();
       } else if (contentType.includes('application/json')) {
         const body = await request.json();
@@ -1673,6 +1671,9 @@ async function handleApiRequest(request, env, ctx) {
           return jsonResponse({ success: false, error: 'Data gambar base64 wajib disertakan!' }, 400);
         }
         originalName = body.name || 'foto.jpg';
+        if (body.uploaded_by) {
+          uploadedBy = body.uploaded_by;
+        }
         
         // Parse data URI if present (e.g. data:image/png;base64,xxxx)
         let pureBase64 = base64Data;
@@ -1698,8 +1699,10 @@ async function handleApiRequest(request, env, ctx) {
       const ext = originalName.split('.').pop() || 'jpg';
       const cleanExt = ext.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'jpg';
       const fileKey = `foto-${Date.now()}-${Math.random().toString(36).substr(2, 6)}.${cleanExt}`;
+      const logId = `log-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+      const fileUrl = `/api/foto/${fileKey}`;
 
-      // Upload to R2 Bucket
+      // 1. Upload to R2 Bucket
       await bucket.put(fileKey, fileBuffer, {
         httpMetadata: {
           contentType: mimeType,
@@ -1707,22 +1710,50 @@ async function handleApiRequest(request, env, ctx) {
         },
         customMetadata: {
           originalName: encodeURIComponent(originalName),
-          uploadedAt: new Date().toISOString()
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: encodeURIComponent(uploadedBy)
         }
       });
+
+      // 2. Automatically record entry in Cloudflare D1 (foto_upload_logs)
+      try {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS foto_upload_logs (
+            id TEXT PRIMARY KEY,
+            file_key TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            file_size INTEGER DEFAULT 0,
+            mime_type TEXT DEFAULT 'image/jpeg',
+            url TEXT NOT NULL,
+            uploaded_by TEXT DEFAULT 'Petugas',
+            uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+        `).run();
+
+        await db.prepare(`
+          INSERT INTO foto_upload_logs (id, file_key, file_name, file_size, mime_type, url, uploaded_by, uploaded_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `).bind(logId, fileKey, originalName, fileBuffer.byteLength, mimeType, fileUrl, uploadedBy).run();
+      } catch (logErr) {
+        console.warn('Gagal mencatat foto_upload_logs di D1:', logErr);
+      }
 
       return jsonResponse({
         success: true,
         message: 'Foto berhasil diunggah ke Cloudflare R2!',
+        id: logId,
         key: fileKey,
-        url: `/api/foto/${fileKey}`,
+        url: fileUrl,
         name: originalName,
-        size: fileBuffer.byteLength
+        size: fileBuffer.byteLength,
+        mime_type: mimeType,
+        uploaded_by: uploadedBy,
+        uploaded_at: new Date().toISOString()
       });
     }
 
     // Serve Image from R2
-    if (pathname.startsWith('/api/foto/') && method === 'GET') {
+    if (pathname.startsWith('/api/foto/') && method === 'GET' && !pathname.startsWith('/api/foto/logs')) {
       const bucket = env.BUCKET;
       const fileKey = pathname.replace('/api/foto/', '').trim();
 
@@ -1749,7 +1780,31 @@ async function handleApiRequest(request, env, ctx) {
       return new Response(object.body, { headers });
     }
 
-    // Delete Image from R2
+    // 7d. FOTO UPLOAD LOGS & HISTORY (/api/foto/logs)
+    if (pathname === '/api/foto/logs' && method === 'GET') {
+      try {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS foto_upload_logs (
+            id TEXT PRIMARY KEY,
+            file_key TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            file_size INTEGER DEFAULT 0,
+            mime_type TEXT DEFAULT 'image/jpeg',
+            url TEXT NOT NULL,
+            uploaded_by TEXT DEFAULT 'Petugas',
+            uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+        `).run();
+
+        const { results } = await db.prepare('SELECT * FROM foto_upload_logs ORDER BY uploaded_at DESC LIMIT 100').all();
+        return jsonResponse({ success: true, total: results.length, data: results || [] });
+      } catch (err) {
+        console.error('Error fetching foto_upload_logs:', err);
+        return jsonResponse({ success: false, error: err.message, data: [] }, 500);
+      }
+    }
+
+    // Delete Image from R2 & Remove from foto_upload_logs
     if ((pathname.startsWith('/api/foto/') && method === 'DELETE') || (pathname === '/api/foto/delete' && method === 'POST')) {
       const bucket = env.BUCKET;
       let fileKey = pathname.startsWith('/api/foto/') ? pathname.replace('/api/foto/', '').trim() : '';
@@ -1767,6 +1822,14 @@ async function handleApiRequest(request, env, ctx) {
       }
 
       await bucket.delete(fileKey);
+
+      // Clean up log from D1
+      try {
+        await db.prepare('DELETE FROM foto_upload_logs WHERE file_key = ?').bind(fileKey).run();
+      } catch (delErr) {
+        console.warn('Gagal menghapus foto_upload_logs di D1:', delErr);
+      }
+
       return jsonResponse({ success: true, message: `Foto [${fileKey}] berhasil dihapus dari Cloudflare R2.` });
     }
 

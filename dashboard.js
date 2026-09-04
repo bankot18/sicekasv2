@@ -696,12 +696,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.data)) {
+            // Update local backup
+            try {
+              localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(json.data));
+            } catch (storageErr) {}
             return json.data;
           }
         }
       } catch (e) {
         console.warn('Fallback fetch SPPD templates from Cloudflare D1:', e);
       }
+      // Offline fallback: load from localStorage if D1 request fails
+      try {
+        const local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
+        if (local && local.length > 0) return local;
+      } catch (e) {}
       return [];
     },
 
@@ -719,7 +728,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const idx = local.findIndex(i => i.id === item.id);
             if (idx >= 0) local[idx] = item;
             else local.unshift(item);
-            localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+            try {
+              localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+            } catch (storageErr) {}
             return json;
           }
         } else {
@@ -735,8 +746,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const idx = local.findIndex(i => i.id === item.id);
         if (idx >= 0) local[idx] = item;
         else local.unshift(item);
-        localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
-        return { success: true, id: item.id, isLocalFallback: true };
+        try {
+          localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+        } catch (storageErr) {}
+        return { success: false, error: e.message, isLocalFallback: true, id: item.id };
       }
       return { success: true, id: item.id };
     },
@@ -753,7 +766,9 @@ document.addEventListener('DOMContentLoaded', () => {
           if (json.success) {
             let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
             local = local.filter(i => i.id !== id);
-            localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+            try {
+              localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+            } catch (storageErr) {}
             return json;
           }
         }
@@ -762,7 +777,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
       local = local.filter(i => i.id !== id);
-      localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+      try {
+        localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+      } catch (storageErr) {}
       return { success: true };
     },
 
@@ -793,6 +810,35 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       return null;
     },
+
+    // 5d. Cloudflare R2 Upload Logs & History
+    async fetchFotoLogs() {
+      try {
+        const res = await fetch(`/api/foto/logs?_t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) return json.data;
+        }
+      } catch (e) {
+        console.warn('Error fetching foto logs from D1:', e);
+      }
+      return [];
+    },
+
+    async deleteFotoR2(fileKey) {
+      try {
+        const res = await fetch('/api/foto/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: fileKey })
+        });
+        if (res.ok) return await res.json();
+      } catch (e) {
+        console.warn('Error deleting foto from R2:', e);
+      }
+      return { success: false };
+    },
+
 
     // 6. Audit Logs
     async fetchAuditLogs() {
@@ -5333,10 +5379,14 @@ document.addEventListener('DOMContentLoaded', () => {
     dokEmptyPlaceholder.style.display = cards.length > 0 ? 'none' : 'block';
   };
 
-  const createPhotoCard = (imageSrc, caption = '') => {
-    if (!dokPhotoContainer) return;
+  const createPhotoCard = (imageSrc, caption = '', initialSize = 'size-m') => {
+    if (!dokPhotoContainer) return null;
     const card = document.createElement('div');
-    card.className = 'dok-photo-card align-center';
+    let szClass = 'size-m';
+    if (initialSize === 'size-s' || initialSize === 'S') szClass = 'size-s';
+    else if (initialSize === 'size-l' || initialSize === 'L') szClass = 'size-l';
+    else if (initialSize === 'size-full' || initialSize === '100%') szClass = 'size-full';
+    card.className = `dok-photo-card align-center ${szClass}`;
     card.draggable = true;
 
     card.innerHTML = `
@@ -5453,34 +5503,59 @@ document.addEventListener('DOMContentLoaded', () => {
       btnMoveDown.addEventListener('click', (e) => {
         e.stopPropagation();
         const next = card.nextElementSibling;
-        if (next && next.classList.contains('dok-photo-card')) {
+        if (next && next.classList.contains('dok-photo-card') && next !== dokEmptyPlaceholder) {
           dokPhotoContainer.insertBefore(next, card);
         }
       });
     }
 
-    // Corner Drag Resizer (Free mouse dragging)
+    // Delete Button listener
+    const btnDel = card.querySelector('.dok-toolbar-btn.btn-del');
+    if (btnDel) {
+      btnDel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        card.remove();
+        updateDokEmptyState();
+        if (typeof showToast === 'function') {
+          showToast('Foto berhasil dihapus dari lembar dokumen.', 'info');
+        }
+      });
+    }
+
+    // Interactive Resizing by Corner Handle
     const resizeHandle = card.querySelector('.dok-resize-handle');
     if (resizeHandle) {
-      let startX, startWidth, containerWidth;
-      const onMouseMove = (e) => {
-        const newWidth = Math.min(containerWidth, Math.max(80, startWidth + (e.clientX - startX)));
-        const percent = Math.round((newWidth / containerWidth) * 100);
-        card.classList.remove('size-s', 'size-m', 'size-l', 'size-full');
-        currentScale = percent;
-        card.style.width = percent + '%';
-        card.style.maxWidth = percent + '%';
-      };
-      const onMouseUp = () => {
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-      };
+      let isResizing = false;
+      let startX = 0;
+      let startWidth = 0;
+      let containerWidth = 0;
+
       resizeHandle.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        isResizing = true;
         startX = e.clientX;
         startWidth = card.offsetWidth;
         containerWidth = dokPhotoContainer.offsetWidth || 700;
+        card.classList.add('is-resizing');
+
+        const onMouseMove = (moveEvent) => {
+          if (!isResizing) return;
+          const deltaX = moveEvent.clientX - startX;
+          const newWidthPx = Math.max(140, Math.min(containerWidth, startWidth + deltaX));
+          const newPct = Math.round((newWidthPx / containerWidth) * 100);
+          card.classList.remove('size-s', 'size-m', 'size-l', 'size-full');
+          card.style.width = newPct + '%';
+          card.style.maxWidth = newPct + '%';
+        };
+
+        const onMouseUp = () => {
+          isResizing = false;
+          card.classList.remove('is-resizing');
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+        };
+
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
       });
@@ -5507,27 +5582,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Delete button listener
-    const delBtn = card.querySelector('.btn-del');
-    if (delBtn) {
-      delBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        card.remove();
-        updateDokEmptyState();
-      });
-    }
-
-    // Drag & Drop Reordering between photo cards
+    // Drag & Drop reordering between cards
     card.addEventListener('dragstart', (e) => {
       draggedPhotoCard = card;
       card.classList.add('is-dragging');
       e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', '');
     });
 
     card.addEventListener('dragend', () => {
       draggedPhotoCard = null;
       card.classList.remove('is-dragging');
+      dokPhotoContainer.querySelectorAll('.dok-photo-card').forEach(c => c.classList.remove('drag-over-item'));
     });
 
     card.addEventListener('dragover', (e) => {
@@ -5546,27 +5611,161 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     updateDokEmptyState();
 
-    // Direct Cloudflare R2 Upload Sync (Silent Background Sync without badge overlay)
-    if (typeof imageSrc === 'string' && imageSrc.startsWith('data:')) {
-      CloudflareDB.uploadFotoR2(imageSrc, 'dok_kegiatan.jpg').then(res => {
-        if (res && res.url) {
-          const img = card.querySelector('.dok-photo-img');
-          if (img) {
-            img.src = res.url;
-            img.setAttribute('data-r2-key', res.key || '');
-          }
-        }
-      }).catch(err => {
-        console.warn('R2 upload silent fallback:', err);
-      });
-    }
+    return card;
   };
 
   const MAX_DOK_PHOTOS = 30;
 
-  const handleDokImageFiles = (files) => {
+  // Cloudflare R2 Upload Engine with Real-time Progress Bar
+  const uploadAndInsertPhoto = (fileOrBlob, defaultCaption = '') => {
+    if (!dokPhotoContainer) return Promise.resolve(null);
+
+    const currentCards = dokPhotoContainer.querySelectorAll('.dok-photo-card:not(.dok-uploading-card)');
+    if (currentCards.length >= MAX_DOK_PHOTOS) {
+      if (typeof showToast === 'function') {
+        showToast('⚠️ Batas maksimal 30 foto kegiatan telah tercapai!', 'warn');
+      }
+      return Promise.resolve(null);
+    }
+
+    const uploadId = `dok-upload-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    const originalName = fileOrBlob.name || `foto_${Date.now()}.jpg`;
+    const fileSizeFormatted = fileOrBlob.size ? (fileOrBlob.size < 1024 * 1024 ? `${(fileOrBlob.size / 1024).toFixed(0)} KB` : `${(fileOrBlob.size / (1024 * 1024)).toFixed(1)} MB`) : '';
+
+    // Create Uploading Card with Progress UI in Container
+    const card = document.createElement('div');
+    card.className = 'dok-photo-card dok-uploading-card align-center';
+    card.id = uploadId;
+
+    card.innerHTML = `
+      <div class="dok-upload-overlay">
+        <div class="dok-upload-spinner-wrap">
+          <svg class="dok-spin-circle" viewBox="0 0 58 58">
+            <circle class="dok-spin-circle-bg" cx="29" cy="29" r="25"></circle>
+            <circle class="dok-spin-circle-bar" id="${uploadId}-bar" cx="29" cy="29" r="25"></circle>
+          </svg>
+          <span class="dok-upload-pct" id="${uploadId}-pct">0%</span>
+        </div>
+        <div class="dok-upload-info">
+          <div class="dok-upload-filename" title="${escapeHtmlHelper(originalName)}">${escapeHtmlHelper(originalName)}</div>
+          <div class="dok-upload-status">
+            <span class="dok-status-dot"></span>
+            <span id="${uploadId}-status-text">Mengunggah ke Cloudflare R2...</span>
+          </div>
+          <div class="dok-upload-progress-bar">
+            <div class="dok-upload-progress-fill" id="${uploadId}-fill"></div>
+          </div>
+          <div class="dok-upload-size-info">${fileSizeFormatted}</div>
+        </div>
+      </div>
+    `;
+
+    if (dokEmptyPlaceholder) {
+      dokPhotoContainer.insertBefore(card, dokEmptyPlaceholder);
+    } else {
+      dokPhotoContainer.appendChild(card);
+    }
+    updateDokEmptyState();
+
+    return new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append('file', fileOrBlob, originalName);
+
+      const username = (window.SppdTemplateController && window.SppdTemplateController.getCurrentUsername) ? window.SppdTemplateController.getCurrentUsername() : 'Petugas';
+      formData.append('uploaded_by', username);
+
+      // Track Upload Progress
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const percent = Math.min(99, Math.round((e.loaded / e.total) * 100));
+          const pctEl = document.getElementById(`${uploadId}-pct`);
+          const fillEl = document.getElementById(`${uploadId}-fill`);
+          const barEl = document.getElementById(`${uploadId}-bar`);
+
+          if (pctEl) pctEl.textContent = `${percent}%`;
+          if (fillEl) fillEl.style.width = `${percent}%`;
+          if (barEl) {
+            const circumference = 2 * Math.PI * 25; // ~157.08
+            const offset = circumference - (percent / 100) * circumference;
+            barEl.style.strokeDashoffset = offset;
+          }
+        }
+      });
+
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState === XMLHttpRequest.DONE) {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const res = JSON.parse(xhr.responseText);
+              if (res.success && res.url) {
+                // Set 100% completion visual
+                const pctEl = document.getElementById(`${uploadId}-pct`);
+                const fillEl = document.getElementById(`${uploadId}-fill`);
+                const statusEl = document.getElementById(`${uploadId}-status-text`);
+                if (pctEl) pctEl.textContent = '100%';
+                if (fillEl) fillEl.style.width = '100%';
+                if (statusEl) statusEl.textContent = 'Menyisipkan foto...';
+
+                setTimeout(() => {
+                  card.remove();
+                  createPhotoCard(res.url, defaultCaption || originalName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
+                  updateDokEmptyState();
+                  if (window.FotoUploadLogManager && typeof window.FotoUploadLogManager.refreshBadge === 'function') {
+                    window.FotoUploadLogManager.refreshBadge();
+                  }
+                  if (typeof showToast === 'function') {
+                    showToast(`✓ Foto "${originalName}" berhasil diunggah ke Cloudflare R2!`, 'success');
+                  }
+                  resolve(res);
+                }, 180);
+                return;
+              }
+            } catch (parseErr) {
+              console.warn('Respon JSON parse error:', parseErr);
+            }
+          }
+
+          // Fallback if R2 returns non-ok or error
+          console.warn('Gagal upload ke R2, menggunakan fallback lokal...');
+          const statusEl = document.getElementById(`${uploadId}-status-text`);
+          if (statusEl) statusEl.textContent = 'Memuat pratinjau lokal...';
+
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            card.remove();
+            createPhotoCard(e.target.result, defaultCaption || originalName.replace(/\.[^/.]+$/, ''));
+            updateDokEmptyState();
+            if (typeof showToast === 'function') {
+              showToast(`⚠️ Foto disematkan secara lokal (R2 tidak tersedia).`, 'warn');
+            }
+            resolve(null);
+          };
+          reader.readAsDataURL(fileOrBlob);
+        }
+      };
+
+      xhr.onerror = () => {
+        console.warn('XHR network error R2 upload, fallback ke FileReader lokal...');
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          card.remove();
+          createPhotoCard(e.target.result, defaultCaption || originalName.replace(/\.[^/.]+$/, ''));
+          updateDokEmptyState();
+          resolve(null);
+        };
+        reader.readAsDataURL(fileOrBlob);
+      };
+
+      xhr.open('POST', '/api/foto/upload');
+      xhr.setRequestHeader('x-user-name', username);
+      xhr.send(formData);
+    });
+  };
+
+  const handleDokImageFiles = async (files) => {
     if (!files || files.length === 0) return;
-    const currentCards = dokPhotoContainer ? dokPhotoContainer.querySelectorAll('.dok-photo-card') : [];
+    const currentCards = dokPhotoContainer ? dokPhotoContainer.querySelectorAll('.dok-photo-card:not(.dok-uploading-card)') : [];
     const currentCount = currentCards.length;
 
     if (currentCount >= MAX_DOK_PHOTOS) {
@@ -5586,18 +5785,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    filesToProcess.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        createPhotoCard(e.target.result);
-      };
-      reader.readAsDataURL(file);
-    });
-
-    if (filesToProcess.length > 0 && typeof showToast === 'function') {
-      showToast(`✓ Berhasil menambahkan ${filesToProcess.length} foto dokumentasi!`, 'success');
+    for (const file of filesToProcess) {
+      await uploadAndInsertPhoto(file);
     }
   };
+
 
   // Upload button listeners
   const dokBtnSampleTrigger = document.getElementById('dokBtnSampleTrigger');
@@ -5764,22 +5956,16 @@ document.addEventListener('DOMContentLoaded', () => {
       if (items[i].type.indexOf('image') !== -1) {
         const blob = items[i].getAsFile();
         if (blob) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            createPhotoCard(event.target.result);
-          };
-          reader.readAsDataURL(blob);
+          uploadAndInsertPhoto(blob, 'Foto Screenshot / Paste');
           imageFound = true;
         }
       }
     }
     if (imageFound) {
       e.preventDefault();
-      if (typeof showToast === 'function') {
-        showToast('✓ Foto berhasil di-paste dari Clipboard!', 'success');
-      }
     }
   });
+
 
   // ==========================================================================
   // SEARCHABLE COMBOBOX FOR DOKUMENTASI JUDUL KEGIATAN (40 KEGIATAN PUSKESMAS)
@@ -5873,6 +6059,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Switch between SPPD, LPT, and Dokumentasi Form
   const updateFormDisplay = () => {
+    hydrateSppdAssets();
     const formType = sppdLptSelectForm ? sppdLptSelectForm.value : 'sppd';
 
     if (formType === 'sppd') {
@@ -5950,6 +6137,219 @@ document.addEventListener('DOMContentLoaded', () => {
   applyPrintPaperSize();
 
   // ==========================================================================
+  // SPPD & LPT ASSET RESOLVER & DOCUMENT CUSTOMIZER CONTROLLER
+  // ==========================================================================
+  const hydrateSppdAssets = () => {
+    if (typeof window === 'undefined' || !window.SPPD_ASSETS) return;
+    const logoData = window.SPPD_ASSETS.logoKabBandung || window.SPPD_ASSETS.logo;
+    const barcodeData = window.SPPD_ASSETS.barcodeRina || window.SPPD_ASSETS.barcode;
+    if (logoData) {
+      document.querySelectorAll('.sppd-kop-logo').forEach(img => {
+        if (!img.src || !img.src.startsWith('data:') || img.naturalWidth === 0) {
+          img.src = logoData;
+        }
+      });
+    }
+    if (barcodeData) {
+      document.querySelectorAll('.sppd-barcode-img').forEach(img => {
+        if (!img.src || !img.src.startsWith('data:') || img.naturalWidth === 0) {
+          img.src = barcodeData;
+        }
+      });
+    }
+  };
+
+  const getGuaranteedSppdAsset = (assetType) => {
+    if (assetType === 'logo') {
+      if (window.SPPD_ASSETS && (window.SPPD_ASSETS.logoKabBandung || window.SPPD_ASSETS.logo)) {
+        return window.SPPD_ASSETS.logoKabBandung || window.SPPD_ASSETS.logo;
+      }
+      const existingImg = document.querySelector('.sppd-kop-logo');
+      if (existingImg && existingImg.complete && existingImg.naturalWidth > 0) {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = existingImg.naturalWidth;
+          canvas.height = existingImg.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(existingImg, 0, 0);
+          return canvas.toDataURL('image/png');
+        } catch (e) {}
+      }
+      return 'kabbandung.png';
+    } else if (assetType === 'barcode') {
+      if (window.SPPD_ASSETS && (window.SPPD_ASSETS.barcodeRina || window.SPPD_ASSETS.barcode)) {
+        return window.SPPD_ASSETS.barcodeRina || window.SPPD_ASSETS.barcode;
+      }
+      const existingImg = document.querySelector('.sppd-barcode-img');
+      if (existingImg && existingImg.complete && existingImg.naturalWidth > 0) {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = existingImg.naturalWidth;
+          canvas.height = existingImg.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(existingImg, 0, 0);
+          return canvas.toDataURL('image/png');
+        } catch (e) {}
+      }
+      return 'barcode_rina.png';
+    }
+    return '';
+  };
+
+  // Run immediate hydration for SPPD & LPT sheets
+  hydrateSppdAssets();
+
+  // State kustomisasi cetak dokumen (disimpan di localStorage)
+  const sppdCustomSettings = {
+    hideTableBorders: false,
+    hideBarcode: false,
+    hideKop: false,
+    fontColor: '#000000',
+    fontFamily: 'arial'
+  };
+
+  const loadSppdCustomSettings = () => {
+    try {
+      const saved = localStorage.getItem('sicekas_sppd_customizer');
+      if (saved) {
+        Object.assign(sppdCustomSettings, JSON.parse(saved));
+      }
+    } catch (e) {}
+  };
+
+  const saveSppdCustomSettings = () => {
+    try {
+      localStorage.setItem('sicekas_sppd_customizer', JSON.stringify(sppdCustomSettings));
+    } catch (e) {}
+  };
+
+  const applySppdCustomSettingsToDOM = () => {
+    const docSheets = document.querySelectorAll('.sppd-doc-sheet-exact');
+    docSheets.forEach(sheet => {
+      // 1. Hide Borders
+      sheet.classList.toggle('sppd-hide-borders', !!sppdCustomSettings.hideTableBorders);
+      // 2. Hide Barcode
+      sheet.classList.toggle('sppd-hide-barcode', !!sppdCustomSettings.hideBarcode);
+      // 3. Hide Kop
+      sheet.classList.toggle('sppd-hide-kop', !!sppdCustomSettings.hideKop);
+      // 4. Font Color
+      sheet.style.setProperty('--sppd-doc-font-color', sppdCustomSettings.fontColor || '#000000');
+      // 5. Font Family
+      sheet.classList.toggle('sppd-font-times', sppdCustomSettings.fontFamily === 'times');
+      sheet.classList.toggle('sppd-font-calibri', sppdCustomSettings.fontFamily === 'calibri');
+    });
+
+    // Update UI Toolbar elements
+    const tBorders = document.getElementById('toggleHideTableBorders');
+    const sBorders = document.getElementById('statusHideTableBorders');
+    if (tBorders) {
+      tBorders.checked = !!sppdCustomSettings.hideTableBorders;
+      if (sBorders) sBorders.textContent = tBorders.checked ? 'Sembunyi' : 'Tampil';
+    }
+
+    const tBarcode = document.getElementById('toggleHideBarcode');
+    const sBarcode = document.getElementById('statusHideBarcode');
+    if (tBarcode) {
+      tBarcode.checked = !!sppdCustomSettings.hideBarcode;
+      if (sBarcode) sBarcode.textContent = tBarcode.checked ? 'Sembunyi (TTD Basah)' : 'Tampil';
+    }
+
+    const tKop = document.getElementById('toggleHideKop');
+    const sKop = document.getElementById('statusHideKop');
+    if (tKop) {
+      tKop.checked = !!sppdCustomSettings.hideKop;
+      if (sKop) sKop.textContent = tKop.checked ? 'Sembunyi' : 'Tampil';
+    }
+
+    const colorPicker = document.getElementById('inputSppdFontColor');
+    if (colorPicker) colorPicker.value = sppdCustomSettings.fontColor || '#000000';
+
+    const colorDots = document.querySelectorAll('.sppd-color-dot');
+    colorDots.forEach(dot => {
+      dot.classList.toggle('active', dot.getAttribute('data-color') === (sppdCustomSettings.fontColor || '#000000'));
+    });
+
+    const fontSelect = document.getElementById('selectSppdFontFamily');
+    if (fontSelect) fontSelect.value = sppdCustomSettings.fontFamily || 'arial';
+  };
+
+  const initSppdCustomizerEvents = () => {
+    loadSppdCustomSettings();
+    applySppdCustomSettingsToDOM();
+
+    const tBorders = document.getElementById('toggleHideTableBorders');
+    if (tBorders) {
+      tBorders.addEventListener('change', (e) => {
+        sppdCustomSettings.hideTableBorders = e.target.checked;
+        saveSppdCustomSettings();
+        applySppdCustomSettingsToDOM();
+      });
+    }
+
+    const tBarcode = document.getElementById('toggleHideBarcode');
+    if (tBarcode) {
+      tBarcode.addEventListener('change', (e) => {
+        sppdCustomSettings.hideBarcode = e.target.checked;
+        saveSppdCustomSettings();
+        applySppdCustomSettingsToDOM();
+      });
+    }
+
+    const tKop = document.getElementById('toggleHideKop');
+    if (tKop) {
+      tKop.addEventListener('change', (e) => {
+        sppdCustomSettings.hideKop = e.target.checked;
+        saveSppdCustomSettings();
+        applySppdCustomSettingsToDOM();
+      });
+    }
+
+    const colorDots = document.querySelectorAll('.sppd-color-dot');
+    colorDots.forEach(dot => {
+      dot.addEventListener('click', () => {
+        const color = dot.getAttribute('data-color');
+        sppdCustomSettings.fontColor = color;
+        saveSppdCustomSettings();
+        applySppdCustomSettingsToDOM();
+      });
+    });
+
+    const colorPicker = document.getElementById('inputSppdFontColor');
+    if (colorPicker) {
+      colorPicker.addEventListener('input', (e) => {
+        sppdCustomSettings.fontColor = e.target.value;
+        saveSppdCustomSettings();
+        applySppdCustomSettingsToDOM();
+      });
+    }
+
+    const fontSelect = document.getElementById('selectSppdFontFamily');
+    if (fontSelect) {
+      fontSelect.addEventListener('change', (e) => {
+        sppdCustomSettings.fontFamily = e.target.value;
+        saveSppdCustomSettings();
+        applySppdCustomSettingsToDOM();
+      });
+    }
+
+    const btnReset = document.getElementById('btnResetSppdCustomizer');
+    if (btnReset) {
+      btnReset.addEventListener('click', () => {
+        sppdCustomSettings.hideTableBorders = false;
+        sppdCustomSettings.hideBarcode = false;
+        sppdCustomSettings.hideKop = false;
+        sppdCustomSettings.fontColor = '#000000';
+        sppdCustomSettings.fontFamily = 'arial';
+        saveSppdCustomSettings();
+        applySppdCustomSettingsToDOM();
+        if (typeof showToast === 'function') {
+          showToast('Format dokumen dikembalikan ke pengaturan standar resmi', 'info');
+        }
+      });
+    }
+  };
+
+  // ==========================================================================
   // PRECISION ISOLATED DOCUMENT PRINTER — EXACT A4 REPLICA (ZERO OVERFLOW)
   // ==========================================================================
   const printIsolatedDocument = (formType, part) => {
@@ -5964,21 +6364,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoSize = '180';
     const logoPos = '-31';
 
+    const prepareSheetForPrint = (html) => {
+      let res = html;
+      const logoData = getGuaranteedSppdAsset('logo');
+      const barcodeData = getGuaranteedSppdAsset('barcode');
+      if (logoData) {
+        res = res.replace(/(<img[^>]*class=["'][^"']*sppd-kop-logo[^"']*["'][^>]*src=["'])[^"']*(")/gi, `$1${logoData}$2`);
+        res = res.replace(/src=["'][^"']*(?:kabbandung|Logo.*Bandung)[^"']*["']/gi, `src="${logoData}"`);
+      }
+      if (barcodeData) {
+        res = res.replace(/(<img[^>]*class=["'][^"']*sppd-barcode-img[^"']*["'][^>]*src=["'])[^"']*(")/gi, `$1${barcodeData}$2`);
+        res = res.replace(/src=["'][^"']*(?:barcode_rina|Barcode.*TTD)[^"']*["']/gi, `src="${barcodeData}"`);
+      }
+      
+      let classes = 'sppd-doc-sheet-exact';
+      if (sppdCustomSettings.hideTableBorders) classes += ' sppd-hide-borders';
+      if (sppdCustomSettings.hideBarcode) classes += ' sppd-hide-barcode';
+      if (sppdCustomSettings.hideKop) classes += ' sppd-hide-kop';
+      if (sppdCustomSettings.fontFamily === 'times') classes += ' sppd-font-times';
+      if (sppdCustomSettings.fontFamily === 'calibri') classes += ' sppd-font-calibri';
+
+      res = res.replace(/class=["']sppd-doc-sheet-exact([^"']*)["']/i, `class="${classes}$1" style="--sppd-doc-font-color: ${sppdCustomSettings.fontColor || '#000000'}; color: ${sppdCustomSettings.fontColor || '#000000'} !important;"`);
+      return res;
+    };
+
     const contentToPrint = [];
     if (formType === 'dok') {
       const dokEl = document.getElementById('dokSheetDoc');
-      if (dokEl) contentToPrint.push(dokEl.outerHTML);
+      if (dokEl) contentToPrint.push(prepareSheetForPrint(dokEl.outerHTML));
     } else if (formType === 'lpt') {
       const lptEl = document.getElementById('lptSheetDoc');
-      if (lptEl) contentToPrint.push(lptEl.outerHTML);
+      if (lptEl) contentToPrint.push(prepareSheetForPrint(lptEl.outerHTML));
     } else {
       if (part === 'both' || part === 'front') {
         const frontEl = document.getElementById('sppdSheetDepan');
-        if (frontEl) contentToPrint.push(frontEl.outerHTML);
+        if (frontEl) contentToPrint.push(prepareSheetForPrint(frontEl.outerHTML));
       }
       if (part === 'both' || part === 'back') {
         const backEl = document.getElementById('sppdSheetBelakang');
-        if (backEl) contentToPrint.push(backEl.outerHTML);
+        if (backEl) contentToPrint.push(prepareSheetForPrint(backEl.outerHTML));
       }
     }
 
@@ -6004,6 +6428,14 @@ document.addEventListener('DOMContentLoaded', () => {
 <meta charset="UTF-8">
 <base href="${baseHref}">
 <title>${formType === 'lpt' ? 'LPT' : 'SPPD'} — Puskesmas Banjaran Kota</title>
+<script>
+  window.SPPD_ASSETS = {
+    logoKabBandung: ${JSON.stringify(getGuaranteedSppdAsset('logo'))},
+    barcodeRina: ${JSON.stringify(getGuaranteedSppdAsset('barcode'))},
+    logo: ${JSON.stringify(getGuaranteedSppdAsset('logo'))},
+    barcode: ${JSON.stringify(getGuaranteedSppdAsset('barcode'))}
+  };
+</script>
 <style>
   :root {
     --sppd-logo-size: ${logoSize}px;
@@ -6523,6 +6955,84 @@ document.addEventListener('DOMContentLoaded', () => {
   .dok-photo-caption:empty {
     display: none !important;
   }
+
+  /* Document Customization Modifiers inside Print Window */
+  .sppd-doc-sheet-exact {
+    --sppd-doc-font-color: ${sppdCustomSettings.fontColor || '#000000'};
+    color: var(--sppd-doc-font-color, #000000) !important;
+  }
+  .sppd-doc-sheet-exact p,
+  .sppd-doc-sheet-exact span,
+  .sppd-doc-sheet-exact td,
+  .sppd-doc-sheet-exact th,
+  .sppd-doc-sheet-exact h2,
+  .sppd-doc-sheet-exact h3,
+  .sppd-doc-sheet-exact label,
+  .sppd-doc-sheet-exact .lpt-editable-field,
+  .sppd-doc-sheet-exact div:not(.sppd-kop-logo):not(.sppd-barcode-img) {
+    color: var(--sppd-doc-font-color, #000000) !important;
+  }
+  .sppd-hide-borders .exact-sppd-table,
+  .sppd-hide-borders .exact-sppd-table th,
+  .sppd-hide-borders .exact-sppd-table td,
+  .sppd-hide-borders .sppd-back-outer-table,
+  .sppd-hide-borders .sppd-back-outer-table td,
+  .sppd-hide-borders .exact-lpt-table,
+  .sppd-hide-borders .exact-lpt-table th,
+  .sppd-hide-borders .exact-lpt-table td,
+  .sppd-hide-borders .sppd-title-divider {
+    border-color: transparent !important;
+  }
+  .sppd-hide-barcode .sppd-barcode-img {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  .sppd-hide-barcode .sppd-sig-barcode-wrap {
+    min-height: 52px !important;
+    height: 52px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .sppd-hide-kop .sppd-kop-container,
+  .sppd-hide-kop .sppd-kop-divider {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  .sppd-font-times, .sppd-font-times * {
+    font-family: "Times New Roman", Times, Georgia, serif !important;
+  }
+  .sppd-font-calibri, .sppd-font-calibri * {
+    font-family: Calibri, "Segoe UI", Arial, sans-serif !important;
+  }
+
+  /* Quick Customizer Bar in Print Preview */
+  .no-print-bar {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    padding: 8px 18px !important;
+  }
+  .print-quick-tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 4px 10px;
+    border-radius: 8px;
+  }
+  .print-quick-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 11.5px;
+    color: #cbd5e1;
+  }
+  .print-quick-label input[type="checkbox"] {
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -6534,6 +7044,32 @@ document.addEventListener('DOMContentLoaded', () => {
     </strong>
     <span class="doc-badge">${paperLabel}</span>
   </div>
+
+  <div class="print-quick-tools">
+    <span style="color: #94a3b8; font-size: 11px; font-weight: 600;">Kustomisasi:</span>
+    <label class="print-quick-label" title="Sembunyikan garis tabel">
+      <input type="checkbox" id="popCheckBorders" ${sppdCustomSettings.hideTableBorders ? 'checked' : ''} onchange="window.setCustomBorder(this.checked)">
+      <span>Hide Garis</span>
+    </label>
+    <label class="print-quick-label" title="Sembunyikan barcode digital untuk tanda tangan basah">
+      <input type="checkbox" id="popCheckBarcode" ${sppdCustomSettings.hideBarcode ? 'checked' : ''} onchange="window.setCustomBarcode(this.checked)">
+      <span>Hide Barcode</span>
+    </label>
+    <label class="print-quick-label" title="Sembunyikan kop jika mencetak di kertas blanko ber-kop">
+      <input type="checkbox" id="popCheckKop" ${sppdCustomSettings.hideKop ? 'checked' : ''} onchange="window.setCustomKop(this.checked)">
+      <span>Hide Kop</span>
+    </label>
+    <label class="print-quick-label" title="Ubah warna font dokumen" style="gap:4px;">
+      <span>Warna:</span>
+      <input type="color" id="popTextColor" value="${sppdCustomSettings.fontColor || '#000000'}" onchange="window.setCustomColor(this.value)" style="width:20px;height:20px;border:none;border-radius:4px;cursor:pointer;padding:0;background:transparent;">
+    </label>
+    <select id="popFontFamily" onchange="window.setCustomFont(this.value)" style="background:#0f172a;color:#f8fafc;border:1px solid rgba(255,255,255,0.2);border-radius:4px;font-size:11px;padding:2px 4px;cursor:pointer;">
+      <option value="arial" ${sppdCustomSettings.fontFamily === 'arial' ? 'selected' : ''}>Arial</option>
+      <option value="times" ${sppdCustomSettings.fontFamily === 'times' ? 'selected' : ''}>Times New Roman</option>
+      <option value="calibri" ${sppdCustomSettings.fontFamily === 'calibri' ? 'selected' : ''}>Calibri</option>
+    </select>
+  </div>
+
   <div class="btn-group">
     <button type="button" class="btn-print-action" onclick="window.print()">
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
@@ -6550,38 +7086,77 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 
 <script>
-  window.onload = function() {
-    // Ensure all images are fully loaded before launching print dialog
-    var images = document.getElementsByTagName('img');
-    var totalImages = images.length;
-    var loadedImages = 0;
-    
-    function tryPrint() {
-      setTimeout(function() {
-        window.print();
-      }, 300);
-    }
-    
-    if (totalImages === 0) {
-      tryPrint();
-    } else {
-      for (var i = 0; i < totalImages; i++) {
-        if (images[i].complete) {
-          loadedImages++;
-          if (loadedImages === totalImages) tryPrint();
-        } else {
-          images[i].addEventListener('load', function() {
-            loadedImages++;
-            if (loadedImages === totalImages) tryPrint();
-          });
-          images[i].addEventListener('error', function() {
-            loadedImages++;
-            if (loadedImages === totalImages) tryPrint();
-          });
-        }
+  window.setCustomBorder = function(hide) {
+    document.querySelectorAll('.sppd-doc-sheet-exact').forEach(function(el) {
+      if (hide) el.classList.add('sppd-hide-borders');
+      else el.classList.remove('sppd-hide-borders');
+    });
+  };
+  window.setCustomBarcode = function(hide) {
+    document.querySelectorAll('.sppd-doc-sheet-exact').forEach(function(el) {
+      if (hide) el.classList.add('sppd-hide-barcode');
+      else el.classList.remove('sppd-hide-barcode');
+    });
+  };
+  window.setCustomKop = function(hide) {
+    document.querySelectorAll('.sppd-doc-sheet-exact').forEach(function(el) {
+      if (hide) el.classList.add('sppd-hide-kop');
+      else el.classList.remove('sppd-hide-kop');
+    });
+  };
+  window.setCustomColor = function(color) {
+    document.querySelectorAll('.sppd-doc-sheet-exact').forEach(function(el) {
+      el.style.setProperty('--sppd-doc-font-color', color);
+      el.style.color = color;
+    });
+  };
+  window.setCustomFont = function(font) {
+    document.querySelectorAll('.sppd-doc-sheet-exact').forEach(function(el) {
+      el.classList.remove('sppd-font-times', 'sppd-font-calibri');
+      if (font === 'times') el.classList.add('sppd-font-times');
+      if (font === 'calibri') el.classList.add('sppd-font-calibri');
+    });
+  };
+
+  function executeAutoPrint() {
+    if (window.SPPD_ASSETS) {
+      if (window.SPPD_ASSETS.logoKabBandung) {
+        document.querySelectorAll('.sppd-kop-logo').forEach(function(img) {
+          if (!img.src || !img.src.startsWith('data:') || img.naturalWidth === 0) {
+            img.src = window.SPPD_ASSETS.logoKabBandung;
+          }
+        });
+      }
+      if (window.SPPD_ASSETS.barcodeRina) {
+        document.querySelectorAll('.sppd-barcode-img').forEach(function(img) {
+          if (!img.src || !img.src.startsWith('data:') || img.naturalWidth === 0) {
+            img.src = window.SPPD_ASSETS.barcodeRina;
+          }
+        });
       }
     }
-  };
+    var images = Array.from(document.images);
+    var promises = images.map(function(img) {
+      if (img.decode) return img.decode().catch(function() {});
+      return new Promise(function(resolve) {
+        if (img.complete) return resolve();
+        img.onload = resolve;
+        img.onerror = resolve;
+      });
+    });
+
+    Promise.all(promises).then(function() {
+      setTimeout(function() {
+        window.print();
+      }, 450);
+    });
+  }
+
+  if (document.readyState === 'complete') {
+    executeAutoPrint();
+  } else {
+    window.addEventListener('load', executeAutoPrint);
+  }
 <\/script>
 </body>
 </html>`);
@@ -6640,6 +7215,23 @@ document.addEventListener('DOMContentLoaded', () => {
       sheet.style.border = 'none';
       sheet.style.boxSizing = 'border-box';
       sheet.style.background = '#ffffff';
+
+      // Apply guaranteed assets & customizer settings to cloned sheet
+      const logoData = getGuaranteedSppdAsset('logo');
+      const barcodeData = getGuaranteedSppdAsset('barcode');
+      sheet.querySelectorAll('.sppd-kop-logo').forEach(img => {
+        if (logoData) img.src = logoData;
+      });
+      sheet.querySelectorAll('.sppd-barcode-img').forEach(img => {
+        if (barcodeData) img.src = barcodeData;
+      });
+      sheet.classList.toggle('sppd-hide-borders', !!sppdCustomSettings.hideTableBorders);
+      sheet.classList.toggle('sppd-hide-barcode', !!sppdCustomSettings.hideBarcode);
+      sheet.classList.toggle('sppd-hide-kop', !!sppdCustomSettings.hideKop);
+      sheet.classList.toggle('sppd-font-times', sppdCustomSettings.fontFamily === 'times');
+      sheet.classList.toggle('sppd-font-calibri', sppdCustomSettings.fontFamily === 'calibri');
+      sheet.style.setProperty('--sppd-doc-font-color', sppdCustomSettings.fontColor || '#000000');
+
       if (idx > 0) {
         sheet.style.pageBreakBefore = 'always';
         sheet.style.breakBefore = 'page';
@@ -6731,6 +7323,7 @@ document.addEventListener('DOMContentLoaded', () => {
   syncLptOfficer(3);
   updateLptPetugasVisibility();
   updateFormDisplay();
+  initSppdCustomizerEvents();
 
   // ==========================================================================
   // SPPD, LPT, & FOTO KEGIATAN TEMPLATES CONTROLLER (CLOUDFLARE D1 STUDIO)
@@ -6903,10 +7496,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async loadTemplates() {
       const u = this.getCurrentUsername();
-      const list = await CloudflareDB.fetchSppdTemplates(u);
+      let list = await CloudflareDB.fetchSppdTemplates(u);
+      if (!list || list.length === 0) {
+        try {
+          const cached = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
+          if (cached && cached.length > 0) list = cached;
+        } catch (e) {}
+      }
       this.templates = Array.isArray(list) ? list : [];
       this.render();
     },
+
 
     updateBadges() {
       const sppdList = this.templates.filter(t => (t.template_type || 'sppd') === 'sppd');
@@ -7553,9 +8153,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const typeLabel = targetType === 'lpt' ? 'LPT' : (targetType === 'dok' ? 'Foto Kegiatan' : 'SPPD');
         const countNow = this.templates.filter(t => (t.template_type || 'sppd') === targetType).length;
 
-        if (typeof showToast === 'function') {
-          showToast(`✓ Template ${typeLabel} "${templateName}" berhasil disimpan (${countNow}/${MAX_TEMPLATES_PER_TYPE})!`, 'success');
+        if (res && res.isLocalFallback) {
+          if (typeof showToast === 'function') {
+            showToast(`⚠️ Template ${typeLabel} "${templateName}" disimpan di cache lokal browser (D1: ${res.error || 'offline'}).`, 'warn');
+          }
+        } else {
+          if (typeof showToast === 'function') {
+            showToast(`✓ Template ${typeLabel} "${templateName}" berhasil disimpan ke Cloud D1 (${countNow}/${MAX_TEMPLATES_PER_TYPE})!`, 'success');
+          }
         }
+
       } catch (err) {
         console.error('Error saat menyimpan template:', err);
         if (typeof Swal !== 'undefined') {
@@ -7740,15 +8347,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof updateDokLayoutClass === 'function') updateDokLayoutClass();
           }
           if (Array.isArray(dok.photos) && dok.photos.length > 0) {
-            dokPhotoItems = dok.photos.slice(0, 30).map(p => ({
-              id: p.id || `photo-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-              url: p.url,
-              caption: p.caption || '',
-              size: p.size || 'M',
-              isR2: true
-            }));
-            if (typeof renderDokPhotos === 'function') renderDokPhotos();
+            if (dokPhotoContainer) {
+              const existingCards = dokPhotoContainer.querySelectorAll('.dok-photo-card');
+              existingCards.forEach(c => c.remove());
+            }
+            dok.photos.forEach(p => {
+              if (p && p.url) {
+                createPhotoCard(p.url, p.caption || '', p.size || 'M');
+              }
+            });
+            updateDokEmptyState();
           }
+
         }
       }
 
@@ -7795,6 +8405,243 @@ document.addEventListener('DOMContentLoaded', () => {
   window.SppdTemplateController = SppdTemplateController;
   SppdTemplateController.init();
 
+  // ==========================================================================
+  // FOTO UPLOAD LOG MANAGER (CLOUDFLARE R2 & D1 MEDIA VAULT)
+  // ==========================================================================
+  const FotoUploadLogManager = {
+    logs: [],
+    modal: document.getElementById('modalFotoUploadLog'),
+    tableBody: document.getElementById('dokLogTableBody'),
+    emptyState: document.getElementById('dokLogEmptyState'),
+    searchInput: document.getElementById('dokLogSearchInput'),
+    counterText: document.getElementById('dokLogCounterText'),
+    badgeCount: document.getElementById('dokUploadLogCountBadge'),
+    btnOpen: document.getElementById('dokBtnOpenUploadLog'),
+    btnClose: document.getElementById('btnCloseFotoUploadLog'),
+    btnRefresh: document.getElementById('dokLogBtnRefresh'),
+
+    async init() {
+      if (this.btnOpen) {
+        this.btnOpen.addEventListener('click', (e) => {
+          e.preventDefault();
+          this.openModal();
+        });
+      }
+      if (this.btnClose) {
+        this.btnClose.addEventListener('click', (e) => {
+          e.preventDefault();
+          this.closeModal();
+        });
+      }
+      if (this.modal) {
+        this.modal.addEventListener('click', (e) => {
+          if (e.target === this.modal) this.closeModal();
+        });
+      }
+      if (this.btnRefresh) {
+        this.btnRefresh.addEventListener('click', (e) => {
+          e.preventDefault();
+          this.loadLogs();
+        });
+      }
+      if (this.searchInput) {
+        this.searchInput.addEventListener('input', (e) => {
+          this.render(e.target.value || '');
+        });
+      }
+
+      await this.refreshBadge();
+    },
+
+    async openModal() {
+      if (!this.modal) this.modal = document.getElementById('modalFotoUploadLog');
+      if (!this.modal) return;
+      this.modal.classList.add('active');
+      await this.loadLogs();
+    },
+
+    closeModal() {
+      if (!this.modal) this.modal = document.getElementById('modalFotoUploadLog');
+      if (this.modal) this.modal.classList.remove('active');
+    },
+
+    async loadLogs() {
+      const data = await CloudflareDB.fetchFotoLogs();
+      this.logs = Array.isArray(data) ? data : [];
+      this.render();
+      this.updateBadge();
+    },
+
+    async refreshBadge() {
+      const data = await CloudflareDB.fetchFotoLogs();
+      this.logs = Array.isArray(data) ? data : [];
+      this.updateBadge();
+    },
+
+    updateBadge() {
+      const total = this.logs.length;
+      if (!this.badgeCount) this.badgeCount = document.getElementById('dokUploadLogCountBadge');
+      if (!this.counterText) this.counterText = document.getElementById('dokLogCounterText');
+      if (this.badgeCount) this.badgeCount.textContent = total;
+      if (this.counterText) this.counterText.textContent = `${total} Foto di Cloud`;
+    },
+
+    render(filterText = '') {
+      if (!this.tableBody) this.tableBody = document.getElementById('dokLogTableBody');
+      if (!this.emptyState) this.emptyState = document.getElementById('dokLogEmptyState');
+      if (!this.tableBody) return;
+
+      const q = (filterText || '').toLowerCase().trim();
+      const filtered = this.logs.filter(item => {
+        if (!q) return true;
+        const name = (item.file_name || '').toLowerCase();
+        const key = (item.file_key || '').toLowerCase();
+        const user = (item.uploaded_by || '').toLowerCase();
+        const date = (item.uploaded_at || '').toLowerCase();
+        return name.includes(q) || key.includes(q) || user.includes(q) || date.includes(q);
+      });
+
+      if (filtered.length === 0) {
+        this.tableBody.innerHTML = '';
+        if (this.emptyState) this.emptyState.classList.remove('dok-log-hidden');
+        return;
+      }
+
+      if (this.emptyState) this.emptyState.classList.add('dok-log-hidden');
+
+      let html = '';
+      filtered.forEach(item => {
+        const title = escapeHtmlHelper(item.file_name || 'Foto');
+        const key = escapeHtmlHelper(item.file_key || '-');
+        const url = escapeHtmlHelper(item.url || `/api/foto/${item.file_key}`);
+        const sizeFormatted = item.file_size ? (item.file_size < 1024 * 1024 ? `${(item.file_size / 1024).toFixed(0)} KB` : `${(item.file_size / (1024 * 1024)).toFixed(1)} MB`) : '-';
+        const dateFormatted = item.uploaded_at ? new Date(item.uploaded_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+        const user = escapeHtmlHelper(item.uploaded_by || 'Petugas');
+
+        html += `
+          <tr data-key="${key}" data-url="${url}">
+            <td>
+              <div class="dok-log-thumb-wrap" onclick="window.open('${url}', '_blank')" title="Klik untuk pratinjau resolusi penuh">
+                <img src="${url}" class="dok-log-thumb-img" alt="${title}" loading="lazy">
+              </div>
+            </td>
+            <td>
+              <div class="dok-log-file-title" title="${title}">${title}</div>
+              <div class="dok-log-file-key">${key}</div>
+              <div class="dok-log-badge-cloud">
+                <span>☁️ R2 Storage</span>
+              </div>
+            </td>
+            <td>
+              <span style="font-weight: 600; color: #cbd5e1;">${sizeFormatted}</span>
+            </td>
+            <td>
+              <span style="color: #94a3b8; font-size: 11.5px;">${dateFormatted}</span>
+            </td>
+            <td>
+              <span style="color: #e2e8f0; font-weight: 500;">${user}</span>
+            </td>
+            <td>
+              <div class="dok-log-actions-cell" style="justify-content: flex-end;">
+                <button type="button" class="dok-log-btn-use" data-url="${url}" data-title="${title}" title="Sisipkan foto ini langsung ke formulir kegiatan aktif">
+                  <span>➕ Sisipkan</span>
+                </button>
+                <button type="button" class="dok-log-btn-copy" data-url="${url}" title="Salin URL Foto">
+                  <span>🔗</span>
+                </button>
+                <button type="button" class="dok-log-btn-del" data-key="${key}" title="Hapus Foto dari Cloudflare R2">
+                  <span>🗑️</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+
+      this.tableBody.innerHTML = html;
+
+      // Event listeners on table actions
+      this.tableBody.querySelectorAll('.dok-log-btn-use').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const u = btn.getAttribute('data-url');
+          const t = btn.getAttribute('data-title');
+          this.insertPhotoToForm(u, t);
+        });
+      });
+
+      this.tableBody.querySelectorAll('.dok-log-btn-copy').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const u = btn.getAttribute('data-url');
+          const fullUrl = u.startsWith('http') ? u : `${window.location.origin}${u}`;
+          navigator.clipboard.writeText(fullUrl).then(() => {
+            if (typeof showToast === 'function') showToast('✓ Link foto berhasil disalin ke clipboard!', 'success');
+          });
+        });
+      });
+
+      this.tableBody.querySelectorAll('.dok-log-btn-del').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const k = btn.getAttribute('data-key');
+          await this.deletePhoto(k);
+        });
+      });
+    },
+
+    insertPhotoToForm(url, title = '') {
+      if (!dokPhotoContainer) return;
+      // Auto-switch to Dokumentasi Form if currently on SPPD/LPT
+      if (sppdLptSelectForm && sppdLptSelectForm.value !== 'dok') {
+        sppdLptSelectForm.value = 'dok';
+        if (typeof updateFormDisplay === 'function') updateFormDisplay();
+      }
+
+      createPhotoCard(url, title);
+      updateDokEmptyState();
+      this.closeModal();
+
+      if (typeof showToast === 'function') {
+        showToast(`✓ Foto "${title}" berhasil disisipkan ke formulir!`, 'success');
+      }
+    },
+
+    async deletePhoto(fileKey) {
+      if (!fileKey) return;
+      let confirmed = true;
+      if (typeof Swal !== 'undefined') {
+        const res = await Swal.fire({
+          title: 'Hapus Foto dari R2?',
+          text: `File [${fileKey}] akan dihapus secara permanen dari Cloudflare R2 Bucket.`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Ya, Hapus Permanen',
+          cancelButtonText: 'Batal',
+          confirmButtonColor: '#ef4444',
+          background: '#0f172a',
+          color: '#ffffff'
+        });
+        confirmed = res.isConfirmed;
+      } else {
+        confirmed = confirm(`Hapus file [${fileKey}] dari R2?`);
+      }
+
+      if (!confirmed) return;
+
+      const res = await CloudflareDB.deleteFotoR2(fileKey);
+      if (res && res.success) {
+        if (typeof showToast === 'function') showToast('✓ Foto berhasil dihapus dari Cloudflare R2.', 'success');
+      } else {
+        if (typeof showToast === 'function') showToast('Foto dihapus dari log.', 'info');
+      }
+      await this.loadLogs();
+    }
+  };
+
+  window.FotoUploadLogManager = FotoUploadLogManager;
+  FotoUploadLogManager.init();
+
   // Global event delegation for 100% reliable template button clicks
   document.addEventListener('click', (e) => {
     if (e.target.closest('#btnOpenSppdTemplateModal')) {
@@ -7812,8 +8659,12 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (e.target.closest('#btnModalSaveCurrentTemplate')) {
       e.preventDefault();
       window.SppdTemplateController.saveCurrentAsTemplate(window.SppdTemplateController.activeTab);
+    } else if (e.target.closest('#dokBtnOpenUploadLog')) {
+      e.preventDefault();
+      window.FotoUploadLogManager.openModal();
     }
   });
+
 
   // Initial update
   updateTpPolDocHeader();

@@ -47,6 +47,33 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- SweetAlert2 CDN for Luxury Notifications & Interactive Modals -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- SPPD & LPT Embedded Guaranteed Assets (Base64) -->
+  <script src="sppd_assets.js"></script>
+  <script>
+    // Early hydration for SPPD & LPT assets (Logo & Barcode)
+    (function() {
+      function hydrate() {
+        if (!window.SPPD_ASSETS) return;
+        var logo = window.SPPD_ASSETS.logoKabBandung || window.SPPD_ASSETS.logo;
+        var barcode = window.SPPD_ASSETS.barcodeRina || window.SPPD_ASSETS.barcode;
+        if (logo) {
+          document.querySelectorAll('.sppd-kop-logo').forEach(function(img) {
+            img.src = logo;
+          });
+        }
+        if (barcode) {
+          document.querySelectorAll('.sppd-barcode-img').forEach(function(img) {
+            img.src = barcode;
+          });
+        }
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', hydrate);
+      } else {
+        hydrate();
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="dashboard.css?v=81">
 </head>
 <body>
@@ -1320,6 +1347,69 @@
                 </div>
               </div>
 
+              <!-- Bilah Kustomisasi Tampilan Cetak Dokumen (SICEKAS Doc Customizer) -->
+              <div class="sppd-customizer-toolbar" id="sppdCustomizerToolbar">
+                <div class="sppd-customizer-top">
+                  <div class="sppd-customizer-title">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    <span>Kustomisasi Tampilan Cetak Dokumen</span>
+                  </div>
+                  <span class="sppd-customizer-hint">Otomatis diterapkan saat pratinjau &amp; cetak PDF/kertas</span>
+                </div>
+                <div class="sppd-customizer-grid">
+                  <!-- Toggle 1: Sembunyikan Garis Tabel -->
+                  <label class="sppd-custom-toggle" title="Hilangkan garis hitam tabel untuk format bersih borderless">
+                    <input type="checkbox" id="toggleHideTableBorders">
+                    <span class="custom-toggle-slider"></span>
+                    <span class="custom-toggle-label">Garis Tabel: <strong class="toggle-status-text" id="statusHideTableBorders">Tampil</strong></span>
+                  </label>
+
+                  <!-- Toggle 2: Sembunyikan Barcode TTD (TTD Basah) -->
+                  <label class="sppd-custom-toggle" title="Sembunyikan barcode digital dan beri ruang kosong tanda tangan basah &amp; stempel fisik">
+                    <input type="checkbox" id="toggleHideBarcode">
+                    <span class="custom-toggle-slider"></span>
+                    <span class="custom-toggle-label">Barcode TTD: <strong class="toggle-status-text" id="statusHideBarcode">Tampil</strong></span>
+                  </label>
+
+                  <!-- Toggle 3: Sembunyikan Kop Surat (Kertas Blanko Ber-Kop) -->
+                  <label class="sppd-custom-toggle" title="Sembunyikan kop jika mencetak pada kertas fisik yang sudah ada kop surat Puskesmas">
+                    <input type="checkbox" id="toggleHideKop">
+                    <span class="custom-toggle-slider"></span>
+                    <span class="custom-toggle-label">Kop Surat: <strong class="toggle-status-text" id="statusHideKop">Tampil</strong></span>
+                  </label>
+
+                  <!-- Kontrol Warna Font -->
+                  <div class="sppd-custom-group" title="Pilih warna font seluruh dokumen">
+                    <span class="custom-group-label">Warna Font:</span>
+                    <div class="sppd-color-pill-group">
+                      <button type="button" class="sppd-color-dot active" data-color="#000000" title="Hitam Standar"></button>
+                      <button type="button" class="sppd-color-dot" data-color="#1e3a8a" title="Biru Navy Resmi"></button>
+                      <button type="button" class="sppd-color-dot" data-color="#334155" title="Slate Gelap"></button>
+                      <label class="sppd-color-picker-label" title="Warna Kustom">
+                        <input type="color" id="inputSppdFontColor" value="#000000">
+                        <span class="color-picker-icon">🎨</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- Kontrol Jenis Huruf -->
+                  <div class="sppd-custom-group">
+                    <span class="custom-group-label">Jenis Font:</span>
+                    <select id="selectSppdFontFamily" class="sppd-custom-select" title="Pilih jenis huruf dokumen">
+                      <option value="arial" selected>Arial (Standar)</option>
+                      <option value="times">Times New Roman</option>
+                      <option value="calibri">Calibri</option>
+                    </select>
+                  </div>
+
+                  <!-- Tombol Reset -->
+                  <button type="button" id="btnResetSppdCustomizer" class="sppd-btn-reset-custom" title="Kembalikan format ke pengaturan standar">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                    <span>Reset</span>
+                  </button>
+                </div>
+              </div>
+
               <!-- Preview Sheets Container -->
               <div class="sppd-preview-sheet-wrapper">
                 
@@ -1328,7 +1418,7 @@
                   
                   <!-- Kop Surat Resmi -->
                   <div class="sppd-kop-container">
-                    <img src="SPPD dan LPT/kabbandung.png" alt="Logo Kab Bandung" class="sppd-kop-logo">
+                    <img src="kabbandung.png" onerror="if(window.SPPD_ASSETS&&window.SPPD_ASSETS.logoKabBandung){this.src=window.SPPD_ASSETS.logoKabBandung;}else{this.src='SPPD%20dan%20LPT/kabbandung.png';}" alt="Logo Kab Bandung" class="sppd-kop-logo">
                     <div class="sppd-kop-text">
                       <div class="sppd-kop-line1">PEMERINTAH KABUPATEN BANDUNG</div>
                       <div class="sppd-kop-line2">DINAS KESEHATAN</div>
@@ -1501,7 +1591,7 @@
                       </div>
 
                       <div class="sppd-sig-barcode-wrap" style="text-align: center; margin: 4px 0 2px 0;">
-                        <img src="SPPD dan LPT/barcode_rina.png" alt="Barcode TTD" class="sppd-barcode-img" style="width: 50px; height: 50px; margin: 0 auto;">
+                        <img src="barcode_rina.png" onerror="if(window.SPPD_ASSETS&&window.SPPD_ASSETS.barcodeRina){this.src=window.SPPD_ASSETS.barcodeRina;}else{this.src='SPPD%20dan%20LPT/barcode_rina.png';}" alt="Barcode TTD" class="sppd-barcode-img" style="width: 50px; height: 50px; margin: 0 auto;">
                       </div>
 
                       <div style="text-align: center;">
@@ -1550,7 +1640,7 @@
                             </table>
                             <div style="text-align: center; margin-top: auto; padding-top: 2px;">
                               <p style="margin: 0; font-weight: bold; font-size: 10.5px; line-height: 1.15;">Kepala Puskesmas Banjaran Kota</p>
-                              <img src="SPPD dan LPT/barcode_rina.png" alt="Barcode TTD" class="sppd-barcode-img" style="width: 44px; height: 44px; margin: 1px auto;">
+                              <img src="barcode_rina.png" onerror="if(window.SPPD_ASSETS&&window.SPPD_ASSETS.barcodeRina){this.src=window.SPPD_ASSETS.barcodeRina;}else{this.src='SPPD%20dan%20LPT/barcode_rina.png';}" alt="Barcode TTD" class="sppd-barcode-img" style="width: 44px; height: 44px; margin: 1px auto;">
                               <p class="sppd-sig-name" style="font-weight: bold; text-decoration: underline; font-size: 11px; margin: 0; line-height: 1.15;">dr. Rina Indriati</p>
                               <p class="sppd-sig-nip" style="font-weight: bold; font-size: 10px; margin: 1px 0 0 0; line-height: 1.15;">NIP. 19740404 201411 2 001</p>
                             </div>
@@ -1821,7 +1911,7 @@
                             </table>
                             <div style="text-align: center; margin-top: auto; padding-top: 2px;">
                               <p style="margin: 0; font-weight: bold; font-size: 10.5px; line-height: 1.15;">Kepala Puskesmas Banjaran Kota</p>
-                              <img src="SPPD dan LPT/barcode_rina.png" alt="Barcode TTD" class="sppd-barcode-img" style="width: 44px; height: 44px; margin: 1px auto;">
+                              <img src="barcode_rina.png" onerror="if(window.SPPD_ASSETS&&window.SPPD_ASSETS.barcodeRina){this.src=window.SPPD_ASSETS.barcodeRina;}else{this.src='SPPD%20dan%20LPT/barcode_rina.png';}" alt="Barcode TTD" class="sppd-barcode-img" style="width: 44px; height: 44px; margin: 1px auto;">
                               <p class="sppd-sig-name" style="font-weight: bold; text-decoration: underline; font-size: 11px; margin: 0; line-height: 1.15;">dr. Rina Indriati</p>
                               <p class="sppd-sig-nip" style="font-weight: bold; font-size: 10px; margin: 1px 0 0 0; line-height: 1.15;">NIP. 19740404 201411 2 001</p>
                             </div>
@@ -1866,7 +1956,7 @@
                         Puskesmas Banjaran Kota
                       </p>
                       <div style="margin: 4px auto 2px auto;">
-                        <img src="SPPD dan LPT/barcode_rina.png" alt="Barcode TTD" class="sppd-barcode-img" style="width: 46px; height: 46px; margin: 0 auto;">
+                        <img src="barcode_rina.png" onerror="if(window.SPPD_ASSETS&&window.SPPD_ASSETS.barcodeRina){this.src=window.SPPD_ASSETS.barcodeRina;}else{this.src='SPPD%20dan%20LPT/barcode_rina.png';}" alt="Barcode TTD" class="sppd-barcode-img" style="width: 46px; height: 46px; margin: 0 auto;">
                       </div>
                       <p class="sppd-sig-name" style="font-weight: bold; text-decoration: underline; font-size: 12px; margin: 0; line-height: 1.15;">dr. Rina Indriati</p>
                       <p class="sppd-sig-nip" style="font-weight: bold; font-size: 10.5px; margin: 1px 0 0 0; line-height: 1.15;">NIP. 19740404 201411 2 001</p>
@@ -1880,7 +1970,7 @@
                   
                   <!-- LPT Kop Surat -->
                   <div class="sppd-kop-container">
-                    <img src="SPPD dan LPT/kabbandung.png" alt="Logo Kab Bandung" class="sppd-kop-logo">
+                    <img src="kabbandung.png" onerror="if(window.SPPD_ASSETS&&window.SPPD_ASSETS.logoKabBandung){this.src=window.SPPD_ASSETS.logoKabBandung;}else{this.src='SPPD%20dan%20LPT/kabbandung.png';}" alt="Logo Kab Bandung" class="sppd-kop-logo">
                     <div class="sppd-kop-text">
                       <div class="sppd-kop-line1">PEMERINTAH KABUPATEN BANDUNG</div>
                       <div class="sppd-kop-line2">DINAS KESEHATAN</div>
@@ -2851,6 +2941,14 @@
                       <span>🗑️ Hapus</span>
                     </button>
                   </div>
+
+                  <!-- Log & Riwayat Upload R2 Button -->
+                  <button type="button" class="sppd-btn-reset-dates dok-btn-log-trigger" id="dokBtnOpenUploadLog" title="Buka Riwayat & Log Upload Foto ke Cloudflare R2">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    <span>Log Upload R2</span>
+                    <span id="dokUploadLogCountBadge" class="dok-log-count-badge">0</span>
+                  </button>
+
 
                   <!-- Section 4: Template Foto Dokumentasi (Cloud D1) -->
                   <div class="sppd-section-label" style="margin-top: 18px;">
@@ -4421,6 +4519,76 @@
   </div>
 
   <!-- ==========================================================================
+       MODAL 13: LOG & RIWAYAT UPLOAD FOTO KEGIATAN (CLOUDFLARE R2 BUCKET)
+       ========================================================================== -->
+  <div class="modal-overlay-dok-log" id="modalFotoUploadLog">
+    <div class="modal-card-dok-log">
+      <!-- Modal Header -->
+      <div class="dok-log-header">
+        <div class="dok-log-header-left">
+          <div class="dok-log-header-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+          </div>
+          <div>
+            <h3 class="dok-log-title">Log Upload &amp; Cloud Storage Foto Kegiatan</h3>
+            <p class="dok-log-subtitle">
+              Pustaka media Cloudflare R2 (sicekas-storage). Foto dapat langsung disisipkan ke form lembar kegiatan saat ini.
+            </p>
+          </div>
+        </div>
+        <button type="button" class="dok-log-btn-close" id="btnCloseFotoUploadLog" title="Tutup Log Upload">&times;</button>
+      </div>
+
+      <!-- Toolbar: Search, Refresh & Counter -->
+      <div class="dok-log-toolbar">
+        <div class="dok-log-search-wrap">
+          <svg class="dok-log-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="dokLogSearchInput" class="dok-log-search-input" placeholder="Cari nama file, pengunggah, atau tanggal...">
+        </div>
+        <div class="dok-log-stats-bar">
+          <span class="dok-log-counter-pill" id="dokLogCounterText">0 Foto di Cloud</span>
+          <button type="button" class="dok-log-btn-refresh" id="dokLogBtnRefresh" title="Muat Ulang Log dari Cloudflare D1">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            <span>Muat Ulang</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Table Body -->
+      <div class="dok-log-body">
+        <table class="dok-log-table">
+          <thead>
+            <tr>
+              <th class="dok-log-col-thumb">Foto</th>
+              <th>Nama File &amp; Info R2</th>
+              <th class="dok-log-col-size">Ukuran</th>
+              <th class="dok-log-col-time">Waktu Upload</th>
+              <th class="dok-log-col-user">Pengunggah</th>
+              <th class="dok-log-col-actions">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="dokLogTableBody">
+            <!-- Will be populated dynamically by JavaScript -->
+          </tbody>
+        </table>
+        <div id="dokLogEmptyState" class="dok-log-empty dok-log-hidden">
+          <div class="dok-log-empty-icon">☁️</div>
+          <div class="dok-log-empty-title">Belum Ada Riwayat Upload Foto</div>
+          <div class="dok-log-empty-desc">Foto yang Anda unggah di formulir Dokumentasi Kegiatan akan otomatis tersimpan di sini.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ==========================================================================
        MODAL 9: IN-APP BROWSER WINDOW (CKG BANKOT)
        ========================================================================== -->
   <div class="browser-window-backdrop" id="modalBrowserCkg">
@@ -4526,6 +4694,7 @@
     </div>
   </div>
 
+  <script src="sppd_assets.js"></script>
   <script src="dashboard.js?v=84"></script>
 </body>
 </html>
