@@ -1768,10 +1768,16 @@ async function handleApiRequest(request, env, ctx) {
       });
     }
 
-    // Serve Image from R2
-    if (pathname.startsWith('/api/foto/') && method === 'GET' && !pathname.startsWith('/api/foto/logs')) {
+    // Serve Image from R2 (Support nested folder paths)
+    if (pathname.startsWith('/api/foto/') && method === 'GET' && pathname !== '/api/foto/logs') {
       const bucket = env.BUCKET;
-      const fileKey = pathname.replace('/api/foto/', '').trim();
+      const rawKey = pathname.replace('/api/foto/', '').trim();
+      let fileKey = rawKey;
+      try {
+        fileKey = decodeURIComponent(rawKey);
+      } catch (e) {
+        fileKey = rawKey;
+      }
 
       if (!bucket) {
         return jsonResponse({ success: false, error: 'R2 Bucket tidak tersedia.' }, 503);
@@ -1789,8 +1795,21 @@ async function handleApiRequest(request, env, ctx) {
       object.writeHttpMetadata(headers);
       headers.set('Access-Control-Allow-Origin', '*');
       headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-      if (!headers.get('Content-Type')) {
-        headers.set('Content-Type', 'image/jpeg');
+      headers.set('Content-Disposition', 'inline');
+
+      const currentCt = headers.get('Content-Type');
+      if (!currentCt || currentCt === 'application/octet-stream') {
+        const ext = fileKey.split('.').pop()?.toLowerCase() || '';
+        const mimeMap = {
+          jpg: 'image/jpeg',
+          jpeg: 'image/jpeg',
+          png: 'image/png',
+          webp: 'image/webp',
+          gif: 'image/gif',
+          svg: 'image/svg+xml',
+          pdf: 'application/pdf'
+        };
+        headers.set('Content-Type', mimeMap[ext] || 'image/jpeg');
       }
 
       return new Response(object.body, { headers });
@@ -1823,7 +1842,8 @@ async function handleApiRequest(request, env, ctx) {
     // Delete Image from R2 & Remove from foto_upload_logs
     if ((pathname.startsWith('/api/foto/') && method === 'DELETE') || (pathname === '/api/foto/delete' && method === 'POST')) {
       const bucket = env.BUCKET;
-      let fileKey = pathname.startsWith('/api/foto/') ? pathname.replace('/api/foto/', '').trim() : '';
+      let rawKey = pathname.startsWith('/api/foto/') ? pathname.replace('/api/foto/', '').trim() : '';
+      let fileKey = decodeURIComponent(rawKey);
 
       if (method === 'POST') {
         const body = await request.json();
@@ -1847,6 +1867,547 @@ async function handleApiRequest(request, env, ctx) {
       }
 
       return jsonResponse({ success: true, message: `Foto [${fileKey}] berhasil dihapus dari Cloudflare R2.` });
+    }
+
+    // ------------------------------------------------------------------------
+    // 7e. CLOUDFLARE R2 FILE MANAGER & BUCKET EXPLORER APIS (/api/r2/*)
+    // ------------------------------------------------------------------------
+
+    // 1. LIST FOLDERS & FILES IN CURRENT DIRECTORY (/api/r2/list)
+    if (pathname === '/api/r2/list' && method === 'GET') {
+      const bucket = env.BUCKET;
+      if (!bucket) {
+        return jsonResponse({ success: false, error: 'R2 Bucket [BUCKET] tidak ditemukan pada binding.' }, 503);
+      }
+
+      const prefix = url.searchParams.get('prefix') || '';
+      const delimiterParam = url.searchParams.get('delimiter');
+      const delimiter = delimiterParam === 'none' ? undefined : (delimiterParam !== null ? delimiterParam : '/');
+      const cursor = url.searchParams.get('cursor') || undefined;
+
+      // Fetch from R2 bucket
+      const listRes = await bucket.list({
+        prefix,
+        delimiter,
+        cursor,
+        limit: 500
+      });
+
+      // Prepare Folders list (combine delimitedPrefixes and explicit folder objects ending with '/')
+      const folderSet = new Set(listRes.delimitedPrefixes || []);
+      (listRes.objects || []).forEach(obj => {
+        if (obj.key.endsWith('/') && obj.key !== prefix) {
+          folderSet.add(obj.key);
+        }
+      });
+
+      const folders = Array.from(folderSet).map(p => {
+        const relativeName = p.slice(prefix.length).replace(/\/$/, '');
+        return {
+          prefix: p,
+          name: relativeName,
+          type: 'folder'
+        };
+      }).filter(f => f.name.length > 0);
+
+      // Query D1 for metadata enrichment if table exists
+      let d1LogsMap = new Map();
+      try {
+        const logs = await db.prepare('SELECT file_key, file_name, uploaded_by, uploaded_at FROM foto_upload_logs').all();
+        if (logs && logs.results) {
+          logs.results.forEach(l => d1LogsMap.set(l.file_key, l));
+        }
+      } catch (e) {}
+
+      // Prepare Files list (exclude folder marker objects)
+      const files = (listRes.objects || [])
+        .filter(obj => !obj.key.endsWith('/') && obj.key !== prefix)
+        .map(obj => {
+          const d1Info = d1LogsMap.get(obj.key);
+          const rawName = obj.key.slice(prefix.length);
+          const originalName = obj.customMetadata?.originalName ? decodeURIComponent(obj.customMetadata.originalName) : (d1Info?.file_name || rawName);
+          const uploadedBy = obj.customMetadata?.uploadedBy ? decodeURIComponent(obj.customMetadata.uploadedBy) : (d1Info?.uploaded_by || 'Petugas');
+          const ext = rawName.split('.').pop()?.toLowerCase() || '';
+          const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
+
+          return {
+            key: obj.key,
+            name: originalName || rawName,
+            rawName,
+            size: obj.size,
+            uploaded: obj.uploaded ? obj.uploaded.toISOString() : (d1Info?.uploaded_at || new Date().toISOString()),
+            httpMetadata: obj.httpMetadata,
+            customMetadata: obj.customMetadata,
+            mimeType: obj.httpMetadata?.contentType || (isImage ? `image/${ext === 'jpg' ? 'jpeg' : ext}` : 'application/octet-stream'),
+            isImage,
+            url: `/api/foto/${encodeURIComponent(obj.key)}`,
+            uploadedBy
+          };
+        });
+
+      return jsonResponse({
+        success: true,
+        bucket: 'sicekas-storage',
+        currentPrefix: prefix,
+        folders,
+        files,
+        truncated: listRes.truncated,
+        cursor: listRes.cursor,
+        totalItems: folders.length + files.length
+      });
+    }
+
+    // 2. CREATE FOLDER (/api/r2/create-folder)
+    if (pathname === '/api/r2/create-folder' && method === 'POST') {
+      const bucket = env.BUCKET;
+      if (!bucket) {
+        return jsonResponse({ success: false, error: 'R2 Bucket tidak tersedia.' }, 503);
+      }
+
+      const body = await request.json();
+      const parentPrefix = body.parentPrefix || '';
+      let folderName = (body.folderName || '').trim();
+
+      // Clean folder name
+      folderName = folderName.replace(/[\\:*?"<>|]/g, '').replace(/^\/+|\/+$/g, '');
+      if (!folderName) {
+        return jsonResponse({ success: false, error: 'Nama folder tidak valid.' }, 400);
+      }
+
+      const folderKey = `${parentPrefix}${folderName}/`;
+
+      // Create zero-byte object marker
+      await bucket.put(folderKey, new Uint8Array(0), {
+        httpMetadata: { contentType: 'application/x-directory' },
+        customMetadata: {
+          isFolder: 'true',
+          createdAt: new Date().toISOString()
+        }
+      });
+
+      return jsonResponse({
+        success: true,
+        message: `Folder [${folderName}] berhasil dibuat di Cloudflare R2.`,
+        key: folderKey,
+        name: folderName
+      });
+    }
+
+    // 3. UPLOAD FILE DIRECTLY TO TARGET FOLDER (/api/r2/upload)
+    if (pathname === '/api/r2/upload' && method === 'POST') {
+      const bucket = env.BUCKET;
+      if (!bucket) {
+        return jsonResponse({ success: false, error: 'R2 Bucket tidak tersedia.' }, 503);
+      }
+
+      const contentType = request.headers.get('content-type') || '';
+      let fileBuffer;
+      let originalName = 'file';
+      let mimeType = 'application/octet-stream';
+      let uploadedBy = 'Admin';
+      let targetPrefix = '';
+
+      if (contentType.includes('multipart/form-data')) {
+        const formData = await request.formData();
+        const file = formData.get('file');
+        if (!file) {
+          return jsonResponse({ success: false, error: 'File tidak ditemukan dalam form-data' }, 400);
+        }
+        originalName = file.name || 'file';
+        mimeType = file.type || 'application/octet-stream';
+        uploadedBy = formData.get('uploaded_by') || 'Admin';
+        targetPrefix = formData.get('prefix') || '';
+        fileBuffer = await file.arrayBuffer();
+      } else if (contentType.includes('application/json')) {
+        const body = await request.json();
+        originalName = body.name || 'file';
+        uploadedBy = body.uploaded_by || 'Admin';
+        targetPrefix = body.prefix || '';
+        
+        let pureBase64 = body.base64 || '';
+        if (pureBase64.includes(',')) {
+          const parts = pureBase64.split(',');
+          const match = parts[0].match(/:(.*?);/);
+          if (match) mimeType = match[1];
+          pureBase64 = parts[1];
+        }
+        
+        const binaryStr = atob(pureBase64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+        fileBuffer = bytes.buffer;
+      } else {
+        fileBuffer = await request.arrayBuffer();
+        originalName = url.searchParams.get('name') || 'file';
+        targetPrefix = url.searchParams.get('prefix') || '';
+      }
+
+      // Format safe key inside target prefix
+      const ext = originalName.split('.').pop() || 'bin';
+      const cleanExt = ext.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'bin';
+      const cleanBaseName = originalName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const fileKey = `${targetPrefix}${cleanBaseName}-${Date.now().toString().slice(-6)}.${cleanExt}`;
+      const logId = `r2-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+      const fileUrl = `/api/foto/${encodeURIComponent(fileKey)}`;
+
+      await bucket.put(fileKey, fileBuffer, {
+        httpMetadata: {
+          contentType: mimeType,
+          cacheControl: 'public, max-age=31536000, immutable'
+        },
+        customMetadata: {
+          originalName: encodeURIComponent(originalName),
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: encodeURIComponent(uploadedBy)
+        }
+      });
+
+      // Insert into D1 log
+      try {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS foto_upload_logs (
+            id TEXT PRIMARY KEY,
+            file_key TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            file_size INTEGER DEFAULT 0,
+            mime_type TEXT DEFAULT 'image/jpeg',
+            url TEXT NOT NULL,
+            uploaded_by TEXT DEFAULT 'Petugas',
+            uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+        `).run();
+
+        await db.prepare(`
+          INSERT INTO foto_upload_logs (id, file_key, file_name, file_size, mime_type, url, uploaded_by, uploaded_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `).bind(logId, fileKey, originalName, fileBuffer.byteLength, mimeType, fileUrl, uploadedBy).run();
+      } catch (e) {}
+
+      return jsonResponse({
+        success: true,
+        message: 'File berhasil diunggah ke R2!',
+        key: fileKey,
+        name: originalName,
+        size: fileBuffer.byteLength,
+        url: fileUrl
+      });
+    }
+
+    // 4. MOVE / RENAME FILE (/api/r2/move)
+    if (pathname === '/api/r2/move' && method === 'POST') {
+      const bucket = env.BUCKET;
+      if (!bucket) return jsonResponse({ success: false, error: 'R2 Bucket tidak tersedia.' }, 503);
+
+      const body = await request.json();
+      const sourceKey = body.sourceKey;
+      let destinationKey = body.destinationKey;
+
+      if (!sourceKey || !destinationKey) {
+        return jsonResponse({ success: false, error: 'sourceKey dan destinationKey wajib diisi.' }, 400);
+      }
+
+      if (sourceKey === destinationKey) {
+        return jsonResponse({ success: true, message: 'Nama dan tujuan sama, tidak ada perubahan.' });
+      }
+
+      const srcObj = await bucket.get(sourceKey);
+      if (!srcObj) {
+        return jsonResponse({ success: false, error: `File sumber [${sourceKey}] tidak ditemukan di R2.` }, 404);
+      }
+
+      // Copy to new destination key
+      await bucket.put(destinationKey, srcObj.body, {
+        httpMetadata: srcObj.httpMetadata,
+        customMetadata: srcObj.customMetadata
+      });
+
+      // Delete source
+      await bucket.delete(sourceKey);
+
+      // Update D1 log if exists
+      try {
+        const newUrl = `/api/foto/${encodeURIComponent(destinationKey)}`;
+        const newName = destinationKey.split('/').pop();
+        await db.prepare(`
+          UPDATE foto_upload_logs 
+          SET file_key = ?, url = ?, file_name = ? 
+          WHERE file_key = ?
+        `).bind(destinationKey, newUrl, newName, sourceKey).run();
+      } catch (e) {}
+
+      return jsonResponse({
+        success: true,
+        message: `Objek berhasil dipindahkan dari [${sourceKey}] ke [${destinationKey}].`,
+        newKey: destinationKey,
+        newUrl: `/api/foto/${encodeURIComponent(destinationKey)}`
+      });
+    }
+
+    // 5. COPY / DUPLICATE FILE (/api/r2/copy)
+    if (pathname === '/api/r2/copy' && method === 'POST') {
+      const bucket = env.BUCKET;
+      if (!bucket) return jsonResponse({ success: false, error: 'R2 Bucket tidak tersedia.' }, 503);
+
+      const body = await request.json();
+      const sourceKey = body.sourceKey;
+      let destinationKey = body.destinationKey;
+
+      if (!sourceKey) return jsonResponse({ success: false, error: 'sourceKey wajib diisi.' }, 400);
+
+      // If no destinationKey provided, make a duplicate name (e.g. name-copy.jpg)
+      if (!destinationKey) {
+        const parts = sourceKey.split('/');
+        const fileName = parts.pop();
+        const dir = parts.length > 0 ? `${parts.join('/')}/` : '';
+        const extMatch = fileName.match(/(\.[^.]+)$/);
+        const ext = extMatch ? extMatch[1] : '';
+        const base = extMatch ? fileName.slice(0, -ext.length) : fileName;
+        destinationKey = `${dir}${base}-copy-${Date.now().toString().slice(-4)}${ext}`;
+      }
+
+      const srcObj = await bucket.get(sourceKey);
+      if (!srcObj) {
+        return jsonResponse({ success: false, error: `File sumber [${sourceKey}] tidak ditemukan.` }, 404);
+      }
+
+      await bucket.put(destinationKey, srcObj.body, {
+        httpMetadata: srcObj.httpMetadata,
+        customMetadata: srcObj.customMetadata
+      });
+
+      // Insert into D1 log
+      try {
+        const logId = `r2copy-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+        const newUrl = `/api/foto/${encodeURIComponent(destinationKey)}`;
+        const newName = destinationKey.split('/').pop();
+        await db.prepare(`
+          INSERT INTO foto_upload_logs (id, file_key, file_name, file_size, mime_type, url, uploaded_by, uploaded_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `).bind(logId, destinationKey, newName, srcObj.size, srcObj.httpMetadata?.contentType || 'image/jpeg', newUrl, 'Admin (Copy)').run();
+      } catch (e) {}
+
+      return jsonResponse({
+        success: true,
+        message: `File berhasil disalin ke [${destinationKey}].`,
+        newKey: destinationKey,
+        newUrl: `/api/foto/${encodeURIComponent(destinationKey)}`
+      });
+    }
+
+    // 6. RENAME FILE OR FOLDER (/api/r2/rename)
+    if (pathname === '/api/r2/rename' && method === 'POST') {
+      const bucket = env.BUCKET;
+      if (!bucket) return jsonResponse({ success: false, error: 'R2 Bucket tidak tersedia.' }, 503);
+
+      const body = await request.json();
+      const oldKey = body.oldKey;
+      let newName = (body.newName || '').trim();
+      const isFolder = body.isFolder || oldKey.endsWith('/');
+
+      if (!oldKey || !newName) {
+        return jsonResponse({ success: false, error: 'oldKey dan newName wajib diisi.' }, 400);
+      }
+
+      newName = newName.replace(/[\\:*?"<>|]/g, '').replace(/^\/+|\/+$/g, '');
+
+      if (isFolder) {
+        // Renaming a folder in R2 requires moving all objects with that prefix
+        const folderPrefix = oldKey.endsWith('/') ? oldKey : `${oldKey}/`;
+        const parts = folderPrefix.slice(0, -1).split('/');
+        parts.pop();
+        const parentPath = parts.length > 0 ? `${parts.join('/')}/` : '';
+        const newPrefix = `${parentPath}${newName}/`;
+
+        const listed = await bucket.list({ prefix: folderPrefix });
+        for (const obj of (listed.objects || [])) {
+          const suffix = obj.key.slice(folderPrefix.length);
+          const targetKey = `${newPrefix}${suffix}`;
+          const current = await bucket.get(obj.key);
+          if (current) {
+            await bucket.put(targetKey, current.body, {
+              httpMetadata: current.httpMetadata,
+              customMetadata: current.customMetadata
+            });
+            await bucket.delete(obj.key);
+          }
+        }
+
+        // Update D1 database records for all files inside the renamed folder
+        try {
+          const { results } = await db.prepare('SELECT file_key FROM foto_upload_logs WHERE file_key LIKE ?').bind(`${folderPrefix}%`).all();
+          if (results && results.length > 0) {
+            for (const r of results) {
+              const newKey = `${newPrefix}${r.file_key.slice(folderPrefix.length)}`;
+              const newUrl = `/api/foto/${encodeURIComponent(newKey)}`;
+              await db.prepare('UPDATE foto_upload_logs SET file_key = ?, url = ? WHERE file_key = ?')
+                .bind(newKey, newUrl, r.file_key).run();
+            }
+          }
+        } catch (e) {}
+
+        return jsonResponse({
+          success: true,
+          message: `Folder berhasil diubah namanya menjadi [${newName}].`,
+          newPrefix
+        });
+      } else {
+        const parts = oldKey.split('/');
+        parts.pop();
+        const dir = parts.length > 0 ? `${parts.join('/')}/` : '';
+        const destinationKey = `${dir}${newName}`;
+
+        const srcObj = await bucket.get(oldKey);
+        if (!srcObj) return jsonResponse({ success: false, error: 'File tidak ditemukan.' }, 404);
+
+        await bucket.put(destinationKey, srcObj.body, {
+          httpMetadata: srcObj.httpMetadata,
+          customMetadata: srcObj.customMetadata
+        });
+        await bucket.delete(oldKey);
+
+        try {
+          const newUrl = `/api/foto/${encodeURIComponent(destinationKey)}`;
+          await db.prepare('UPDATE foto_upload_logs SET file_key = ?, url = ?, file_name = ? WHERE file_key = ?')
+            .bind(destinationKey, newUrl, newName, oldKey).run();
+        } catch (e) {}
+
+        return jsonResponse({
+          success: true,
+          message: `File berhasil diubah namanya menjadi [${newName}].`,
+          newKey: destinationKey,
+          newUrl: `/api/foto/${encodeURIComponent(destinationKey)}`
+        });
+      }
+    }
+
+    // 7. DELETE SINGLE OR BATCH / DELETE FOLDER RECURSIVELY (/api/r2/delete)
+    if (pathname === '/api/r2/delete' && method === 'POST') {
+      const bucket = env.BUCKET;
+      if (!bucket) return jsonResponse({ success: false, error: 'R2 Bucket tidak tersedia.' }, 503);
+
+      const body = await request.json();
+      const keys = Array.isArray(body.keys) ? body.keys : (body.key ? [body.key] : []);
+      const isFolder = body.isFolder || false;
+
+      if (keys.length === 0) {
+        return jsonResponse({ success: false, error: 'Daftar key untuk dihapus kosong.' }, 400);
+      }
+
+      let deletedCount = 0;
+
+      for (const k of keys) {
+        if (isFolder || k.endsWith('/')) {
+          const prefix = k.endsWith('/') ? k : `${k}/`;
+          const listed = await bucket.list({ prefix });
+          const allKeys = (listed.objects || []).map(o => o.key);
+          if (allKeys.length > 0) {
+            await bucket.delete(allKeys);
+            deletedCount += allKeys.length;
+          }
+          await bucket.delete(prefix);
+          deletedCount++;
+        } else {
+          await bucket.delete(k);
+          deletedCount++;
+        }
+
+        // Clean up from D1
+        try {
+          await db.prepare('DELETE FROM foto_upload_logs WHERE file_key = ? OR file_key LIKE ?')
+            .bind(k, `${k}%`).run();
+        } catch (e) {}
+      }
+
+      return jsonResponse({
+        success: true,
+        message: `${deletedCount} item berhasil dihapus dari Cloudflare R2.`,
+        deletedCount
+      });
+    }
+
+    // 8. BIDIRECTIONAL SYNC R2 TO D1 DATABASE (/api/r2/sync-d1)
+    if (pathname === '/api/r2/sync-d1' && method === 'POST') {
+      const bucket = env.BUCKET;
+      if (!bucket) return jsonResponse({ success: false, error: 'R2 Bucket tidak tersedia.' }, 503);
+
+      try {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS foto_upload_logs (
+            id TEXT PRIMARY KEY,
+            file_key TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            file_size INTEGER DEFAULT 0,
+            mime_type TEXT DEFAULT 'image/jpeg',
+            url TEXT NOT NULL,
+            uploaded_by TEXT DEFAULT 'Petugas',
+            uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+        `).run();
+
+        // List all objects in bucket
+        const listed = await bucket.list({ limit: 1000 });
+        const objects = listed.objects || [];
+
+        // Existing keys in D1
+        const { results } = await db.prepare('SELECT file_key FROM foto_upload_logs').all();
+        const existingKeys = new Set((results || []).map(r => r.file_key));
+
+        let syncedCount = 0;
+        for (const obj of objects) {
+          if (obj.key.endsWith('/')) continue; // skip folder marker
+
+          if (!existingKeys.has(obj.key)) {
+            const fileName = obj.key.split('/').pop();
+            const ext = fileName.split('.').pop()?.toLowerCase() || '';
+            const isImg = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext);
+            const mimeType = obj.httpMetadata?.contentType || (isImg ? `image/${ext === 'jpg' ? 'jpeg' : ext}` : 'application/octet-stream');
+            const fileUrl = `/api/foto/${encodeURIComponent(obj.key)}`;
+            const uploadedAt = obj.uploaded ? obj.uploaded.toISOString() : new Date().toISOString();
+            const logId = `sync-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+
+            await db.prepare(`
+              INSERT INTO foto_upload_logs (id, file_key, file_name, file_size, mime_type, url, uploaded_by, uploaded_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(logId, obj.key, fileName, obj.size, mimeType, fileUrl, 'Cloudflare R2 Direct Sync', uploadedAt).run();
+
+            syncedCount++;
+          }
+        }
+
+        return jsonResponse({
+          success: true,
+          message: `Sinkronisasi selesai! ${syncedCount} file baru dari Cloudflare R2 berhasil didaftarkan ke database D1.`,
+          syncedCount,
+          totalR2Objects: objects.length
+        });
+      } catch (syncErr) {
+        return jsonResponse({ success: false, error: syncErr.message }, 500);
+      }
+    }
+
+    // 9. R2 STORAGE STATS (/api/r2/stats)
+    if (pathname === '/api/r2/stats' && method === 'GET') {
+      const bucket = env.BUCKET;
+      if (!bucket) return jsonResponse({ success: false, error: 'R2 Bucket tidak tersedia.' }, 503);
+
+      const listed = await bucket.list({ limit: 1000 });
+      const objects = listed.objects || [];
+      const totalBytes = objects.reduce((acc, o) => acc + (o.size || 0), 0);
+      const totalFiles = objects.filter(o => !o.key.endsWith('/')).length;
+      const totalFolders = (listed.delimitedPrefixes || []).length;
+
+      return jsonResponse({
+        success: true,
+        bucket_name: 'sicekas-storage',
+        total_files: totalFiles,
+        total_bytes: totalBytes,
+        total_folders: totalFolders,
+        formatted_size: totalBytes < 1024 * 1024 
+          ? `${(totalBytes / 1024).toFixed(2)} KB` 
+          : `${(totalBytes / (1024 * 1024)).toFixed(2)} MB`
+      });
     }
 
     // ------------------------------------------------------------------------

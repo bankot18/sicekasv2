@@ -294,6 +294,20 @@
                 <span class="nav-glow-pill"></span>
               </a>
             </li>
+
+            <!-- 8. Menu Khusus R2 Storage & File Manager -->
+            <li class="nav-item nav-item-admin" id="navItemR2Storage">
+              <a href="#" class="nav-link nav-link-admin" data-view="developer-web" data-subtab="r2storage" data-tooltip="Cloudflare R2 File Manager (Super Admin)" id="navR2Storage">
+                <div class="nav-icon dev-icon" style="background: rgba(244, 63, 94, 0.15); color: #f43f5e; border-color: rgba(244, 63, 94, 0.25);">
+                  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                  </svg>
+                </div>
+                <span class="nav-label">R2 File Manager</span>
+                <span class="sidebar-badge-counter" style="background: rgba(244, 63, 94, 0.2); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.4); font-size: 8.5px; font-weight: 800; padding: 1px 5px; border-radius: 4px;">R2</span>
+                <span class="nav-glow-pill"></span>
+              </a>
+            </li>
           </ul>
         </nav>
       </div>
@@ -3367,6 +3381,17 @@
                 <span class="kpi-sub">Mochamad Fauzie, S.Gz</span>
               </div>
             </div>
+
+            <div class="kpi-card">
+              <div class="kpi-icon-box" style="background: rgba(244, 63, 94, 0.15); color: #f43f5e;">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              </div>
+              <div class="kpi-info">
+                <span class="kpi-label">Cloudflare R2 Bucket</span>
+                <div class="kpi-value" id="devR2Count">sicekas-storage <span class="kpi-badge positive">Live</span></div>
+                <span class="kpi-sub" id="devR2Size">S3 Object Storage File Manager</span>
+              </div>
+            </div>
           </div>
 
           <!-- 3. INTERACTIVE DEVELOPER NAVIGATION TABS -->
@@ -3379,6 +3404,10 @@
               <button type="button" class="dev-tab-btn" data-devtab="d1studio">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
                 <span>D1 Database Studio (Live Table Manager)</span>
+              </button>
+              <button type="button" class="dev-tab-btn" data-devtab="r2storage">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span>R2 Cloud Storage &amp; File Manager</span>
               </button>
               <button type="button" class="dev-tab-btn" data-devtab="users">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
@@ -3763,15 +3792,207 @@
                   </button>
                 </div>
 
-                <div class="dash-card dev-m-card">
-                  <div class="m-card-icon rose">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            <div class="dev-tab-panel" id="devTabR2storage" style="display: none;">
+              <div class="dash-card dev-card">
+                <!-- 1. Card Header & Live Controls -->
+                <div class="card-header" style="flex-wrap: wrap; gap: 14px;">
+                  <div class="card-title-group">
+                    <div class="header-icon-box" style="background: rgba(244, 63, 94, 0.15); color: #f43f5e;">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 class="card-title">Cloudflare R2 Object Storage &amp; File Manager</h3>
+                      <p class="card-subtitle">Eksplorasi folder, upload foto kegiatan, pindahkan, salin, ubah nama, hapus, dan sinkronkan dengan database D1 secara realtime</p>
+                    </div>
                   </div>
-                  <h4>Bersihkan Cache &amp; Storage</h4>
-                  <p>Hapus seluruh data cache lokal browser untuk memastikan aplikasi berjalan dari state bersih.</p>
-                  <button type="button" class="btn-dev-action delete w-full" id="btnDevWipeStorage">
-                    <span>🗑 Bersihkan Cache Browser</span>
-                  </button>
+
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span class="status-indicator-badge live" id="r2BucketBadge" title="Status Cloudflare R2">
+                      <span class="live-dot" style="background: #10b981;"></span> sicekas-storage (Connected)
+                    </span>
+                    <button type="button" class="btn-dev-action" id="btnR2SyncLive" title="Sinkronkan data live langsung dari Cloudflare R2 Bucket">
+                      <span id="btnR2SyncLiveText">🔄 Sync R2 Live</span>
+                    </button>
+                    <button type="button" class="btn-dev-action" id="btnR2SyncD1" title="Daftarkan seluruh file R2 ke tabel database D1 foto_upload_logs">
+                      <span id="btnR2SyncD1Text">🔁 Sync ke Database D1</span>
+                    </button>
+                    <button type="button" class="btn-dev-action" id="btnR2CreateFolder" title="Buat folder baru di Cloudflare R2">
+                      <span>➕ Tambah Folder</span>
+                    </button>
+                    <button type="button" class="btn-dev-action primary" id="btnR2UploadTrigger" title="Unggah file foto / dokumen ke folder aktif">
+                      <span>⬆️ Unggah File</span>
+                    </button>
+                    <input type="file" id="r2FileInput" multiple accept="image/*,application/pdf" style="display: none;">
+                  </div>
+                </div>
+
+                <!-- Deployment Info Banner (Shown if API route is not yet deployed) -->
+                <div id="r2PendingDeployNotice" style="display: none; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 10px; padding: 12px 16px; margin: 16px 20px 0; align-items: center; gap: 12px;">
+                  <div style="font-size: 20px;">ℹ️</div>
+                  <div style="flex: 1; font-size: 12.5px; color: #fde68a; line-height: 1.5;">
+                    <strong>Mode Kompatibilitas D1 Aktif:</strong> Menampilkan berkas foto yang tersimpan di database. Untuk mengaktifkan fitur manajemen live R2 (buat folder, pindah, salin, ubah nama, batch delete), silakan deploy perubahan terbaru ke Cloudflare Pages.
+                  </div>
+                  <button type="button" class="btn-dev-action" onclick="document.getElementById('r2PendingDeployNotice').style.display='none';" style="font-size: 11px; padding: 4px 8px;">✕ Tutup</button>
+                </div>
+
+                <!-- 2. Bucket Quick KPI Pills -->
+                <div class="r2-stats-banner">
+                  <div class="r2-stat-pill">
+                    <span class="r2-stat-icon">📁</span>
+                    <div class="r2-stat-data">
+                      <span class="r2-stat-label">Subfolder</span>
+                      <strong class="r2-stat-val" id="r2StatsFolderCount">0 Folder</strong>
+                    </div>
+                  </div>
+                  <div class="r2-stat-pill">
+                    <span class="r2-stat-icon">🖼️</span>
+                    <div class="r2-stat-data">
+                      <span class="r2-stat-label">Total File Aktif</span>
+                      <strong class="r2-stat-val" id="r2StatsFileCount">0 File</strong>
+                    </div>
+                  </div>
+                  <div class="r2-stat-pill">
+                    <span class="r2-stat-icon">💾</span>
+                    <div class="r2-stat-data">
+                      <span class="r2-stat-label">Kapasitas Folder</span>
+                      <strong class="r2-stat-val" id="r2StatsTotalSize">0 KB</strong>
+                    </div>
+                  </div>
+                  <div class="r2-stat-pill">
+                    <span class="r2-stat-icon">⚡</span>
+                    <div class="r2-stat-data">
+                      <span class="r2-stat-label">Arsitektur S3 Edge</span>
+                      <strong class="r2-stat-val" style="color: #10b981;">0 Egress Fee (Standard)</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 3. Breadcrumb & Explorer Toolbar -->
+                <div class="r2-toolbar-row">
+                  <div class="r2-breadcrumb-bar">
+                    <button type="button" class="r2-crumb-root" id="btnR2CrumbRoot" title="Kembali ke Root Direktori">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                      </svg>
+                      <span>sicekas-storage</span>
+                    </button>
+                    <div class="r2-crumb-trail" id="r2CrumbTrail"></div>
+                    <button type="button" class="r2-btn-up" id="btnR2UpLevel" style="display: none;" title="Naik satu level folder">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                      <span>Naik</span>
+                    </button>
+                  </div>
+
+                  <div class="r2-toolbar-actions">
+                    <div class="r2-search-box">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                      </svg>
+                      <input type="text" id="r2SearchInput" placeholder="Cari nama file / format..." autocomplete="off">
+                      <button type="button" id="btnR2ClearSearch" style="display: none;" title="Hapus pencarian">&times;</button>
+                    </div>
+
+                    <!-- Batch Delete Trigger -->
+                    <button type="button" class="btn-dev-action delete" id="btnR2BatchDelete" style="display: none;" title="Hapus item yang dipilih">
+                      <span id="r2BatchDeleteCount">🗑️ Hapus (0)</span>
+                    </button>
+
+                    <!-- View Switcher -->
+                    <div class="r2-view-switcher">
+                      <button type="button" class="r2-view-btn active" id="btnR2ViewGrid" title="Tampilan Grid Thumbnail">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                      </button>
+                      <button type="button" class="r2-view-btn" id="btnR2ViewList" title="Tampilan Tabel List">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 4. Drag & Drop Upload Zone -->
+                <div class="r2-dropzone" id="r2DropZone">
+                  <div class="r2-dropzone-content">
+                    <div class="r2-dropzone-icon">
+                      <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.75">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                      </svg>
+                    </div>
+                    <div class="r2-dropzone-text">
+                      <span class="r2-dz-main">Tarik &amp; Lepaskan foto ke sini, atau <label for="r2FileInput" class="r2-dz-browse">Pilih Berkas</label></span>
+                      <span class="r2-dz-sub">Otomatis diunggah langsung ke folder aktif di Cloudflare R2</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 5. Main Explorer Content Area -->
+                <div class="r2-explorer-body" id="r2ExplorerBody">
+                  <!-- Loading Indicator -->
+                  <div class="r2-loading-state" id="r2LoadingState" style="display: none;">
+                    <div class="r2-spinner"></div>
+                    <span>Memuat objek dari Cloudflare R2...</span>
+                  </div>
+
+                  <!-- Empty State -->
+                  <div class="r2-empty-state" id="r2EmptyState" style="display: none;">
+                    <div class="r2-empty-icon">📂</div>
+                    <h4>Folder ini Masih Kosong</h4>
+                    <p>Belum ada file atau subfolder di direktori ini. Anda dapat mengunggah file foto atau membuat subfolder baru.</p>
+                    <button type="button" class="btn-dev-action primary" onclick="document.getElementById('r2FileInput').click();">
+                      <span>⬆️ Unggah File Pertama</span>
+                    </button>
+                  </div>
+
+                  <!-- Grid Mode -->
+                  <div class="r2-grid-view" id="r2GridContainer">
+                    <!-- Folders Section -->
+                    <div class="r2-section-heading" id="r2HeadingFolders" style="display: none;">
+                      <span>Folder</span>
+                      <span class="r2-count-badge" id="r2BadgeFolders">0</span>
+                    </div>
+                    <div class="r2-folders-grid" id="r2FolderGrid"></div>
+
+                    <!-- Files Section -->
+                    <div class="r2-section-heading" id="r2HeadingFiles" style="display: none;">
+                      <span>Berkas File &amp; Foto</span>
+                      <span class="r2-count-badge" id="r2BadgeFiles">0</span>
+                    </div>
+                    <div class="r2-files-grid" id="r2FileGrid"></div>
+                  </div>
+
+                  <!-- List Table Mode -->
+                  <div class="r2-list-view" id="r2TableContainer" style="display: none;">
+                    <table class="dev-table r2-table">
+                      <thead>
+                        <tr>
+                          <th style="width: 38px; text-align: center;">
+                            <input type="checkbox" id="r2SelectAllCheckbox" title="Pilih Semua">
+                          </th>
+                          <th style="width: 54px;">Tipe</th>
+                          <th>Nama File / Folder</th>
+                          <th>Ukuran</th>
+                          <th>Terakhir Diubah</th>
+                          <th>Pengunggah</th>
+                          <th style="width: 170px; text-align: right;">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody id="r2TableBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Footer Summary Bar -->
+                <div class="r2-footer-bar">
+                  <div class="r2-footer-left" id="r2FooterInfo">
+                    <span>Memuat berkas Cloudflare R2...</span>
+                  </div>
+                  <div class="r2-footer-right">
+                    <span class="badge-system-live"><span class="live-dot"></span> SICEKAS R2 File Engine v2.0</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -4714,7 +4935,37 @@
     </div>
   </div>
 
+  <!-- ==========================================================================
+       MODAL: CLOUDFLARE R2 IMAGE LIGHTBOX PREVIEW & ACTIONS
+       ========================================================================== -->
+  <div class="r2-lightbox-overlay" id="r2LightboxModal" style="display: none;">
+    <div class="r2-lightbox-backdrop" id="r2LightboxBackdrop"></div>
+    <div class="r2-lightbox-dialog">
+      <div class="r2-lightbox-header">
+        <div class="r2-lightbox-title-wrap">
+          <div class="r2-lightbox-badge">CLOUDFLARE R2 PREVIEW</div>
+          <h3 class="r2-lightbox-filename" id="r2LightboxTitle">foto.jpg</h3>
+          <span class="r2-lightbox-sub" id="r2LightboxSub">0 KB • Standard Storage</span>
+        </div>
+        <div class="r2-lightbox-controls">
+          <button type="button" class="r2-lb-btn" id="btnR2LbCopyLink" title="Salin URL Foto">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+            <span>Salin URL</span>
+          </button>
+          <a href="#" class="r2-lb-btn" id="btnR2LbDownload" download target="_blank" title="Unduh File Asli">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>Unduh</span>
+          </a>
+          <button type="button" class="r2-lb-close" id="btnR2LbClose" title="Tutup Pratinjau">&times;</button>
+        </div>
+      </div>
+      <div class="r2-lightbox-body">
+        <img src="" alt="Pratinjau Foto" class="r2-lightbox-img" id="r2LightboxImg">
+      </div>
+    </div>
+  </div>
+
   <script src="sppd_assets.js"></script>
-  <script src="dashboard.js?v=84"></script>
+  <script src="dashboard.js?v=85"></script>
 </body>
 </html>

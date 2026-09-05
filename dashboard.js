@@ -1779,6 +1779,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (viewAttr) {
         switchView(viewAttr);
+        if (link.getAttribute('data-subtab') === 'r2storage') {
+          setTimeout(() => {
+            const tabBtn = document.querySelector('.dev-tab-btn[data-devtab="r2storage"]');
+            if (tabBtn) tabBtn.click();
+          }, 150);
+        }
       } else {
         const label = link.querySelector('.nav-label')?.textContent || 'Menu';
         alert(`Membuka halaman ${label}...`);
@@ -5472,7 +5478,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const escapeHtmlHelper = (str) => {
     if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   };
 
   const renderMaksudDropdown = (filterText = '') => {
@@ -12433,8 +12439,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const isSuperAdmin = !!(u && (u.role === 'Super Admin' || u.username === 'ozie' || u.role === 'Admin'));
       const navItem = document.getElementById('navItemDevWeb');
+      const navItemR2 = document.getElementById('navItemR2Storage');
       const navSec = document.getElementById('navSectionGodMode');
       if (navItem) navItem.style.display = isSuperAdmin ? 'block' : 'none';
+      if (navItemR2) navItemR2.style.display = isSuperAdmin ? 'block' : 'none';
       if (navSec) navSec.style.display = isSuperAdmin ? 'block' : 'none';
       return isSuperAdmin;
     },
@@ -12444,6 +12452,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const panels = {
         api: document.getElementById('devTabApi'),
         d1studio: document.getElementById('devTabD1studio'),
+        r2storage: document.getElementById('devTabR2storage'),
         users: document.getElementById('devTabUsers'),
         logs: document.getElementById('devTabLogs'),
         maintenance: document.getElementById('devTabMaintenance')
@@ -12467,6 +12476,12 @@ document.addEventListener('DOMContentLoaded', () => {
                   this.loadD1Table(this.activeD1Table || 'users', false);
                   this.refreshAllTableCounts();
                   this.startLiveAutoSync();
+                } else if (tabKey === 'r2storage') {
+                  this.stopLiveAutoSync();
+                  if (window.R2FileManager) {
+                    window.R2FileManager.init();
+                    window.R2FileManager.loadCurrentFolder();
+                  }
                 } else {
                   this.stopLiveAutoSync();
                   if (tabKey === 'users') {
@@ -13505,6 +13520,10 @@ document.addEventListener('DOMContentLoaded', () => {
           devDbCount.innerHTML = `Cloud D1 <span class="kpi-badge positive">Live</span>`;
         }
       }
+
+      if (window.R2FileManager && typeof window.R2FileManager.fetchStats === 'function') {
+        window.R2FileManager.fetchStats();
+      }
     }
   };
 
@@ -13831,6 +13850,1089 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   };
+
+  // ==========================================================================
+  // 15. CLOUDFLARE R2 OBJECT STORAGE & FILE MANAGER CONTROLLER
+  // ==========================================================================
+  const R2FileManager = {
+    isInitialized: false,
+    currentPrefix: '',
+    folders: [],
+    files: [],
+    currentFilteredFolders: [],
+    currentFilteredFiles: [],
+    allFoldersCache: [],
+    selectedKeys: new Set(),
+    viewMode: 'grid',
+    searchQuery: '',
+    activeLightboxUrl: '',
+
+    init() {
+      if (this.isInitialized) return;
+      this.isInitialized = true;
+
+      const btnSync = document.getElementById('btnR2SyncLive');
+      const btnSyncD1 = document.getElementById('btnR2SyncD1');
+      const btnNewFolder = document.getElementById('btnR2CreateFolder');
+      const btnUpload = document.getElementById('btnR2UploadTrigger');
+      const fileInput = document.getElementById('r2FileInput');
+      const btnBatchDel = document.getElementById('btnR2BatchDelete');
+      const btnRoot = document.getElementById('btnR2CrumbRoot');
+      const btnUp = document.getElementById('btnR2UpLevel');
+      const searchInput = document.getElementById('r2SearchInput');
+      const btnClearSearch = document.getElementById('btnR2ClearSearch');
+      const btnGrid = document.getElementById('btnR2ViewGrid');
+      const btnList = document.getElementById('btnR2ViewList');
+      const selectAll = document.getElementById('r2SelectAllCheckbox');
+      const dropZone = document.getElementById('r2DropZone');
+      const lbClose = document.getElementById('btnR2LbClose');
+      const lbBackdrop = document.getElementById('r2LightboxBackdrop');
+      const lbCopy = document.getElementById('btnR2LbCopyLink');
+
+      if (btnSync) btnSync.addEventListener('click', () => this.loadCurrentFolder(true));
+      if (btnSyncD1) btnSyncD1.addEventListener('click', () => this.syncToD1());
+      if (btnNewFolder) btnNewFolder.addEventListener('click', () => this.promptCreateFolder());
+      if (btnUpload && fileInput) btnUpload.addEventListener('click', () => fileInput.click());
+      if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            this.handleUploadFiles(e.target.files);
+            fileInput.value = '';
+          }
+        });
+      }
+      if (btnBatchDel) btnBatchDel.addEventListener('click', () => this.batchDelete());
+      if (btnRoot) btnRoot.addEventListener('click', () => this.navigateTo(''));
+      if (btnUp) btnUp.addEventListener('click', () => this.navigateUp());
+
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          this.searchQuery = (e.target.value || '').trim().toLowerCase();
+          if (btnClearSearch) btnClearSearch.style.display = this.searchQuery ? 'inline-block' : 'none';
+          this.renderContent();
+        });
+      }
+      if (btnClearSearch && searchInput) {
+        btnClearSearch.addEventListener('click', () => {
+          searchInput.value = '';
+          this.searchQuery = '';
+          btnClearSearch.style.display = 'none';
+          this.renderContent();
+        });
+      }
+
+      if (btnGrid) {
+        btnGrid.addEventListener('click', () => {
+          this.viewMode = 'grid';
+          btnGrid.classList.add('active');
+          if (btnList) btnList.classList.remove('active');
+          this.renderContent();
+        });
+      }
+      if (btnList) {
+        btnList.addEventListener('click', () => {
+          this.viewMode = 'list';
+          btnList.classList.add('active');
+          if (btnGrid) btnGrid.classList.remove('active');
+          this.renderContent();
+        });
+      }
+
+      if (selectAll) {
+        selectAll.addEventListener('change', (e) => this.toggleSelectAll(e.target.checked));
+      }
+
+      // Drag & Drop Upload Zone
+      if (dropZone) {
+        ['dragenter', 'dragover'].forEach(name => {
+          dropZone.addEventListener(name, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('dragover');
+          });
+        });
+
+        ['dragleave', 'drop'].forEach(name => {
+          dropZone.addEventListener(name, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('dragover');
+          });
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+          const files = e.dataTransfer?.files;
+          if (files && files.length > 0) {
+            this.handleUploadFiles(files);
+          }
+        });
+      }
+
+      // Lightbox listeners
+      if (lbClose) lbClose.addEventListener('click', () => this.closeLightbox());
+      if (lbBackdrop) lbBackdrop.addEventListener('click', () => this.closeLightbox());
+      if (lbCopy) {
+        lbCopy.addEventListener('click', () => {
+          if (this.activeLightboxUrl) this.copyLink(this.activeLightboxUrl);
+        });
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          this.closeLightbox();
+        }
+      });
+
+      this.fetchStats();
+    },
+
+    formatBytes(bytes) {
+      if (!bytes || bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    },
+
+    async fetchStats() {
+      try {
+        const res = await fetch('/api/r2/stats');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            const devR2Count = document.getElementById('devR2Count');
+            const devR2Size = document.getElementById('devR2Size');
+            if (devR2Count) {
+              devR2Count.innerHTML = `${data.total_files} File <span class="kpi-badge positive">Live</span>`;
+            }
+            if (devR2Size) {
+              devR2Size.innerHTML = `sicekas-storage (${data.formatted_size})`;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Gagal memuat statistik R2:', e);
+      }
+    },
+
+    async loadCurrentFolder(isManualSync = false) {
+      const loading = document.getElementById('r2LoadingState');
+      const emptyState = document.getElementById('r2EmptyState');
+      const grid = document.getElementById('r2GridContainer');
+      const table = document.getElementById('r2TableContainer');
+      const syncBtnText = document.getElementById('btnR2SyncLiveText');
+      const deployNotice = document.getElementById('r2PendingDeployNotice');
+
+      if (loading) loading.style.display = 'flex';
+      if (emptyState) emptyState.style.display = 'none';
+      if (grid) grid.style.opacity = '0.35';
+      if (table) table.style.opacity = '0.35';
+      if (syncBtnText) syncBtnText.innerHTML = '⏳ Menyinkronkan...';
+
+      try {
+        const url = `/api/r2/list?prefix=${encodeURIComponent(this.currentPrefix)}`;
+        const res = await fetch(url);
+        let data = null;
+        try {
+          data = await res.json();
+        } catch (je) {}
+
+        // Fallback detection: If endpoint is not yet deployed on live Cloudflare Pages
+        if (!res.ok || (data && !data.success && data.error && (data.error.includes('tidak ditemukan') || res.status === 404))) {
+          console.warn('R2 API /api/r2/list belum terdeploy di Cloudflare edge. Mengaktifkan fallback D1 foto_upload_logs.');
+          const logs = await CloudflareDB.fetchFotoLogs();
+          this.folders = [];
+          this.files = logs.map(l => ({
+            key: l.file_key,
+            name: l.file_name || l.file_key,
+            rawName: l.file_name || l.file_key,
+            size: l.file_size || 0,
+            uploaded: l.uploaded_at || new Date().toISOString(),
+            mimeType: l.mime_type || 'image/jpeg',
+            isImage: true,
+            url: l.url || `/api/foto/${encodeURIComponent(l.file_key)}`,
+            uploadedBy: l.uploaded_by || 'Petugas'
+          }));
+          this.selectedKeys.clear();
+          this.updateBatchDeleteUI();
+
+          const statsFolders = document.getElementById('r2StatsFolderCount');
+          const statsFiles = document.getElementById('r2StatsFileCount');
+          const statsSize = document.getElementById('r2StatsTotalSize');
+          const folderBytes = this.files.reduce((acc, f) => acc + (f.size || 0), 0);
+
+          if (statsFolders) statsFolders.textContent = '0 Folder';
+          if (statsFiles) statsFiles.textContent = `${this.files.length} File`;
+          if (statsSize) statsSize.textContent = this.formatBytes(folderBytes);
+
+          this.renderBreadcrumbs();
+          this.renderContent();
+
+          if (deployNotice) deployNotice.style.display = 'flex';
+          return;
+        }
+
+        if (data && data.success) {
+          if (deployNotice) deployNotice.style.display = 'none';
+          this.folders = data.folders || [];
+          this.files = data.files || [];
+          this.selectedKeys.clear();
+          this.updateBatchDeleteUI();
+
+          // Update stats pills
+          const statsFolders = document.getElementById('r2StatsFolderCount');
+          const statsFiles = document.getElementById('r2StatsFileCount');
+          const statsSize = document.getElementById('r2StatsTotalSize');
+
+          const folderBytes = this.files.reduce((acc, f) => acc + (f.size || 0), 0);
+
+          if (statsFolders) statsFolders.textContent = `${this.folders.length} Folder`;
+          if (statsFiles) statsFiles.textContent = `${this.files.length} File`;
+          if (statsSize) statsSize.textContent = this.formatBytes(folderBytes);
+
+          this.renderBreadcrumbs();
+          this.renderContent();
+
+          // Refresh full folder tree in background for move destination choices
+          this.scanAllFolders();
+
+          if (isManualSync) {
+            showToast('✅ Cloudflare R2 berhasil disinkronkan!', 'success');
+          }
+        } else {
+          throw new Error(data?.error || 'Gagal memuat isi bucket');
+        }
+      } catch (err) {
+        console.error('Error loadCurrentFolder R2:', err);
+        showToast('Gagal memuat data dari Cloudflare R2: ' + err.message, 'error');
+      } finally {
+        if (loading) loading.style.display = 'none';
+        if (grid) grid.style.opacity = '1';
+        if (table) table.style.opacity = '1';
+        if (syncBtnText) syncBtnText.innerHTML = '🔄 Sync R2 Live';
+      }
+    },
+
+    async scanAllFolders() {
+      try {
+        const res = await fetch('/api/r2/list?prefix=&delimiter=');
+        if (res.ok) {
+          const data = await res.json();
+          const folderSet = new Set(['']); // '' is root
+          (data.folders || []).forEach(f => folderSet.add(f.prefix));
+          (data.files || []).forEach(f => {
+            if (f.key.includes('/')) {
+              const parts = f.key.split('/');
+              parts.pop();
+              folderSet.add(`${parts.join('/')}/`);
+            }
+          });
+          this.allFoldersCache = Array.from(folderSet);
+        }
+      } catch (e) {}
+    },
+
+    renderBreadcrumbs() {
+      const trail = document.getElementById('r2CrumbTrail');
+      const btnUp = document.getElementById('btnR2UpLevel');
+      if (!trail) return;
+
+      trail.innerHTML = '';
+      const prefix = this.currentPrefix.replace(/\/$/, '');
+
+      if (!prefix) {
+        if (btnUp) btnUp.style.display = 'none';
+        return;
+      }
+
+      if (btnUp) btnUp.style.display = 'inline-flex';
+
+      const parts = prefix.split('/');
+      let accumulated = '';
+
+      parts.forEach((part, idx) => {
+        accumulated += `${part}/`;
+        const isLast = idx === parts.length - 1;
+
+        const sep = document.createElement('span');
+        sep.className = 'r2-crumb-separator';
+        sep.textContent = '/';
+        trail.appendChild(sep);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `r2-crumb-item ${isLast ? 'active' : ''}`;
+        btn.textContent = part;
+        if (!isLast) {
+          const targetPath = accumulated;
+          btn.addEventListener('click', () => this.navigateTo(targetPath));
+        }
+        trail.appendChild(btn);
+      });
+    },
+
+    navigateTo(prefix) {
+      this.currentPrefix = prefix;
+      this.searchQuery = '';
+      const input = document.getElementById('r2SearchInput');
+      const clearBtn = document.getElementById('btnR2ClearSearch');
+      if (input) input.value = '';
+      if (clearBtn) clearBtn.style.display = 'none';
+      this.loadCurrentFolder();
+    },
+
+    navigateUp() {
+      if (!this.currentPrefix) return;
+      const clean = this.currentPrefix.replace(/\/$/, '');
+      const parts = clean.split('/');
+      parts.pop();
+      const newPrefix = parts.length > 0 ? `${parts.join('/')}/` : '';
+      this.navigateTo(newPrefix);
+    },
+
+    // Index-based action delegators (prevents quote/special character injection in HTML attributes)
+    openFolder(idx) {
+      const f = this.currentFilteredFolders[idx];
+      if (f) this.navigateTo(f.prefix);
+    },
+    renameFolderByIdx(idx) {
+      const f = this.currentFilteredFolders[idx];
+      if (f) this.promptRename(f.prefix, f.name, true);
+    },
+    deleteFolderByIdx(idx) {
+      const f = this.currentFilteredFolders[idx];
+      if (f) this.promptDelete(f.prefix, f.name, true);
+    },
+    previewFileByIdx(idx) {
+      const file = this.currentFilteredFiles[idx];
+      if (file) this.previewLightbox(file);
+    },
+    copyLinkByIdx(idx) {
+      const file = this.currentFilteredFiles[idx];
+      if (file) this.copyLink(file.url);
+    },
+    copyFileByIdx(idx) {
+      const file = this.currentFilteredFiles[idx];
+      if (file) this.promptCopy(file.key, file.name);
+    },
+    moveFileByIdx(idx) {
+      const file = this.currentFilteredFiles[idx];
+      if (file) this.promptMove(file.key, file.name);
+    },
+    renameFileByIdx(idx) {
+      const file = this.currentFilteredFiles[idx];
+      if (file) this.promptRename(file.key, file.name, false);
+    },
+    deleteFileByIdx(idx) {
+      const file = this.currentFilteredFiles[idx];
+      if (file) this.promptDelete(file.key, file.name, false);
+    },
+    toggleSelectFileByIdx(idx) {
+      const file = this.currentFilteredFiles[idx];
+      if (file) this.toggleSelect(file.key);
+    },
+
+    renderContent() {
+      const q = this.searchQuery;
+      const filteredFolders = this.folders.filter(f => !q || f.name.toLowerCase().includes(q));
+      const filteredFiles = this.files.filter(f => !q || f.name.toLowerCase().includes(q) || f.key.toLowerCase().includes(q) || (f.uploadedBy && f.uploadedBy.toLowerCase().includes(q)));
+
+      this.currentFilteredFolders = filteredFolders;
+      this.currentFilteredFiles = filteredFiles;
+
+      const emptyState = document.getElementById('r2EmptyState');
+      const grid = document.getElementById('r2GridContainer');
+      const table = document.getElementById('r2TableContainer');
+      const headingFolders = document.getElementById('r2HeadingFolders');
+      const badgeFolders = document.getElementById('r2BadgeFolders');
+      const headingFiles = document.getElementById('r2HeadingFiles');
+      const badgeFiles = document.getElementById('r2BadgeFiles');
+      const folderGrid = document.getElementById('r2FolderGrid');
+      const fileGrid = document.getElementById('r2FileGrid');
+      const tableBody = document.getElementById('r2TableBody');
+      const footerInfo = document.getElementById('r2FooterInfo');
+
+      const totalItems = filteredFolders.length + filteredFiles.length;
+
+      if (totalItems === 0) {
+        if (emptyState) emptyState.style.display = 'flex';
+        if (grid) grid.style.display = 'none';
+        if (table) table.style.display = 'none';
+        if (footerInfo) footerInfo.textContent = 'Tidak ada objek yang sesuai kriteria.';
+        return;
+      }
+
+      if (emptyState) emptyState.style.display = 'none';
+
+      if (this.viewMode === 'grid') {
+        if (grid) grid.style.display = 'block';
+        if (table) table.style.display = 'none';
+
+        // Render Folder Section
+        if (filteredFolders.length > 0) {
+          if (headingFolders) headingFolders.style.display = 'flex';
+          if (badgeFolders) badgeFolders.textContent = filteredFolders.length;
+          if (folderGrid) {
+            folderGrid.innerHTML = filteredFolders.map((f, idx) => {
+              const escName = escapeHtmlHelper(f.name);
+              const escPrefix = escapeHtmlHelper(f.prefix);
+              return `
+                <div class="r2-folder-card" data-prefix="${escPrefix}">
+                  <div class="r2-folder-left" onclick="window.R2FileManager.openFolder(${idx})">
+                    <div class="r2-folder-icon-box">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                      </svg>
+                    </div>
+                    <div class="r2-folder-info">
+                      <span class="r2-folder-name" title="${escName}">${escName}</span>
+                      <span class="r2-folder-meta">Subdirektori R2</span>
+                    </div>
+                  </div>
+                  <div class="r2-folder-actions">
+                    <button type="button" class="r2-action-btn-mini" title="Ubah Nama Folder" onclick="window.R2FileManager.renameFolderByIdx(${idx})">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                    </button>
+                    <button type="button" class="r2-action-btn-mini delete" title="Hapus Folder Beserta Isinya" onclick="window.R2FileManager.deleteFolderByIdx(${idx})">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+        } else {
+          if (headingFolders) headingFolders.style.display = 'none';
+          if (folderGrid) folderGrid.innerHTML = '';
+        }
+
+        // Render File Section
+        if (filteredFiles.length > 0) {
+          if (headingFiles) headingFiles.style.display = 'flex';
+          if (badgeFiles) badgeFiles.textContent = filteredFiles.length;
+          if (fileGrid) {
+            fileGrid.innerHTML = filteredFiles.map((file, idx) => {
+              const escKey = escapeHtmlHelper(file.key);
+              const escName = escapeHtmlHelper(file.name);
+              const escUrl = escapeHtmlHelper(file.url);
+              const sizeStr = this.formatBytes(file.size);
+              const dateStr = file.uploaded ? new Date(file.uploaded).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+              const isChecked = this.selectedKeys.has(file.key);
+
+              return `
+                <div class="r2-file-card ${isChecked ? 'selected' : ''}" data-key="${escKey}">
+                  <input type="checkbox" class="r2-file-check" ${isChecked ? 'checked' : ''} onchange="window.R2FileManager.toggleSelectFileByIdx(${idx})">
+                  <span class="r2-file-badge">R2 Standard</span>
+                  
+                  <div class="r2-file-thumb-wrap" onclick="window.R2FileManager.previewFileByIdx(${idx})">
+                    ${file.isImage ? `
+                      <img src="${escUrl}" class="r2-file-thumb-img" alt="${escName}" loading="lazy">
+                    ` : `
+                      <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="#94a3b8" stroke-width="1.5">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                      </svg>
+                    `}
+                    <div class="r2-file-overlay">
+                      <button type="button" class="r2-overlay-btn">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        <span>Lihat</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="r2-file-body">
+                    <div class="r2-file-title" title="${escName}">${escName}</div>
+                    <div class="r2-file-meta-row">
+                      <span>${sizeStr}</span>
+                      <span>${dateStr}</span>
+                    </div>
+                  </div>
+
+                  <div class="r2-file-actions-bar">
+                    <button type="button" class="r2-action-icon-btn" title="Salin URL" onclick="window.R2FileManager.copyLinkByIdx(${idx})">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                    </button>
+                    <button type="button" class="r2-action-icon-btn" title="Duplikat / Salin File" onclick="window.R2FileManager.copyFileByIdx(${idx})">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </button>
+                    <button type="button" class="r2-action-icon-btn" title="Pindahkan ke Folder Lain" onclick="window.R2FileManager.moveFileByIdx(${idx})">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 10 20 15 15 20"></polyline><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg>
+                    </button>
+                    <button type="button" class="r2-action-icon-btn" title="Ubah Nama" onclick="window.R2FileManager.renameFileByIdx(${idx})">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                    </button>
+                    <a href="${escUrl}" download="${escName}" target="_blank" class="r2-action-icon-btn" title="Unduh File">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </a>
+                    <button type="button" class="r2-action-icon-btn delete" title="Hapus File" onclick="window.R2FileManager.deleteFileByIdx(${idx})">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+        } else {
+          if (headingFiles) headingFiles.style.display = 'none';
+          if (fileGrid) fileGrid.innerHTML = '';
+        }
+
+      } else {
+        // Table List Mode
+        if (grid) grid.style.display = 'none';
+        if (table) table.style.display = 'block';
+
+        let rowsHtml = '';
+
+        // Folder rows
+        filteredFolders.forEach((f, idx) => {
+          const escName = escapeHtmlHelper(f.name);
+          rowsHtml += `
+            <tr style="cursor: pointer;" onclick="window.R2FileManager.openFolder(${idx})">
+              <td style="text-align: center;">-</td>
+              <td>
+                <span style="font-size: 16px;">📁</span>
+              </td>
+              <td>
+                <strong style="color: #ffd166;">${escName}/</strong>
+                <span style="color: #64748b; font-size: 11px; margin-left: 6px;">(Folder Direktori)</span>
+              </td>
+              <td><span style="color: #64748b;">-</span></td>
+              <td><span style="color: #64748b;">-</span></td>
+              <td><span style="color: #94a3b8;">System</span></td>
+              <td style="text-align: right;" onclick="event.stopPropagation()">
+                <div style="display: flex; gap: 4px; justify-content: flex-end;">
+                  <button type="button" class="r2-action-btn-mini" title="Ubah Nama" onclick="window.R2FileManager.renameFolderByIdx(${idx})">✏️</button>
+                  <button type="button" class="r2-action-btn-mini delete" title="Hapus Folder" onclick="window.R2FileManager.deleteFolderByIdx(${idx})">🗑️</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+
+        // File rows
+        filteredFiles.forEach((file, idx) => {
+          const escKey = escapeHtmlHelper(file.key);
+          const escName = escapeHtmlHelper(file.name);
+          const escUrl = escapeHtmlHelper(file.url);
+          const sizeStr = this.formatBytes(file.size);
+          const dateStr = file.uploaded ? new Date(file.uploaded).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+          const isChecked = this.selectedKeys.has(file.key);
+
+          rowsHtml += `
+            <tr>
+              <td style="text-align: center;">
+                <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="window.R2FileManager.toggleSelectFileByIdx(${idx})">
+              </td>
+              <td>
+                ${file.isImage ? `
+                  <img src="${escUrl}" style="width: 32px; height: 32px; object-fit: cover; border-radius: 6px; cursor: pointer;" onclick="window.R2FileManager.previewFileByIdx(${idx})">
+                ` : `
+                  <span style="font-size: 18px;">📄</span>
+                `}
+              </td>
+              <td>
+                <div style="color: #f1f5f9; font-weight: 600; cursor: pointer;" onclick="window.R2FileManager.previewFileByIdx(${idx})">${escName}</div>
+                <span style="color: #64748b; font-size: 10.5px;">${escKey}</span>
+              </td>
+              <td><span style="color: #cbd5e1; font-weight: 600;">${sizeStr}</span></td>
+              <td><span style="color: #94a3b8; font-size: 11px;">${dateStr}</span></td>
+              <td><span style="color: #e2e8f0;">${escapeHtmlHelper(file.uploadedBy)}</span></td>
+              <td style="text-align: right;">
+                <div style="display: flex; gap: 4px; justify-content: flex-end;">
+                  <button type="button" class="r2-action-btn-mini" title="Salin Link" onclick="window.R2FileManager.copyLinkByIdx(${idx})">🔗</button>
+                  <button type="button" class="r2-action-btn-mini" title="Duplikat" onclick="window.R2FileManager.copyFileByIdx(${idx})">📋</button>
+                  <button type="button" class="r2-action-btn-mini" title="Pindahkan" onclick="window.R2FileManager.moveFileByIdx(${idx})">🚚</button>
+                  <button type="button" class="r2-action-btn-mini" title="Ubah Nama" onclick="window.R2FileManager.renameFileByIdx(${idx})">✏️</button>
+                  <button type="button" class="r2-action-btn-mini delete" title="Hapus" onclick="window.R2FileManager.deleteFileByIdx(${idx})">🗑️</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+
+        if (tableBody) tableBody.innerHTML = rowsHtml;
+      }
+
+      if (footerInfo) {
+        footerInfo.innerHTML = `Menampilkan <strong>${filteredFolders.length} folder</strong> &amp; <strong>${filteredFiles.length} file</strong> di <code>/${this.currentPrefix}</code>`;
+      }
+    },
+
+    toggleSelect(key) {
+      if (this.selectedKeys.has(key)) {
+        this.selectedKeys.delete(key);
+      } else {
+        this.selectedKeys.add(key);
+      }
+      this.updateBatchDeleteUI();
+      const card = document.querySelector(`.r2-file-card[data-key="${key}"]`);
+      if (card) {
+        if (this.selectedKeys.has(key)) card.classList.add('selected');
+        else card.classList.remove('selected');
+      }
+    },
+
+    toggleSelectAll(checked) {
+      this.files.forEach(f => {
+        if (checked) this.selectedKeys.add(f.key);
+        else this.selectedKeys.delete(f.key);
+      });
+      this.updateBatchDeleteUI();
+      this.renderContent();
+    },
+
+    updateBatchDeleteUI() {
+      const btn = document.getElementById('btnR2BatchDelete');
+      const countSpan = document.getElementById('r2BatchDeleteCount');
+      const selectAll = document.getElementById('r2SelectAllCheckbox');
+
+      if (!btn) return;
+      const count = this.selectedKeys.size;
+
+      if (count > 0) {
+        btn.style.display = 'inline-flex';
+        if (countSpan) countSpan.textContent = `🗑️ Hapus (${count})`;
+      } else {
+        btn.style.display = 'none';
+      }
+
+      if (selectAll) {
+        selectAll.checked = this.files.length > 0 && count === this.files.length;
+      }
+    },
+
+    async promptCreateFolder() {
+      const { value: folderName } = await Swal.fire({
+        title: 'Buat Folder Baru di R2',
+        text: `Direktori saat ini: /${this.currentPrefix}`,
+        input: 'text',
+        inputPlaceholder: 'Misal: Foto Kegiatan 2026',
+        showCancelButton: true,
+        confirmButtonText: '📁 Buat Folder',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#f43f5e',
+        background: '#0f172a',
+        color: '#f8fafc',
+        inputValidator: (value) => {
+          if (!value || !value.trim()) return 'Nama folder tidak boleh kosong!';
+          if (/[\\:*?"<>|]/.test(value)) return 'Nama folder tidak boleh mengandung karakter khusus \\/:*?"<>|';
+        }
+      });
+
+      if (folderName) {
+        try {
+          const res = await fetch('/api/r2/create-folder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              parentPrefix: this.currentPrefix,
+              folderName: folderName.trim()
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(`📁 Folder [${folderName}] berhasil dibuat!`, 'success');
+            await this.loadCurrentFolder();
+            this.fetchStats();
+          } else {
+            Swal.fire('Gagal Membuat Folder', data.error || 'Terjadi kesalahan sistem.', 'error');
+          }
+        } catch (e) {
+          Swal.fire('Gagal', e.message, 'error');
+        }
+      }
+    },
+
+    async handleUploadFiles(fileList) {
+      if (!fileList || fileList.length === 0) return;
+
+      const total = fileList.length;
+      let successCount = 0;
+
+      Swal.fire({
+        title: 'Mengunggah Berkas ke R2',
+        html: `Sedang mengunggah <b>${total}</b> file ke folder <code>/${this.currentPrefix}</code>...`,
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+        background: '#0f172a',
+        color: '#f8fafc'
+      });
+
+      const u = window.CURRENT_USER || {};
+      const uploader = u.nama || u.username || 'Admin';
+
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        try {
+          // Convert file to Base64 Data URL for robust proxy & edge support
+          const base64Data = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Gagal membaca file'));
+            reader.readAsDataURL(file);
+          });
+
+          const res = await fetch('/api/r2/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: file.name,
+              base64: base64Data,
+              prefix: this.currentPrefix,
+              uploaded_by: uploader
+            })
+          });
+          const data = await res.json();
+          if (data && data.success) successCount++;
+        } catch (e) {
+          console.warn('Upload file fail:', file.name, e);
+        }
+      }
+
+      await this.loadCurrentFolder();
+      this.fetchStats();
+
+      Swal.fire({
+        icon: successCount === total ? 'success' : 'warning',
+        title: 'Proses Unggah Selesai',
+        text: `${successCount} dari ${total} file berhasil diunggah ke Cloudflare R2.`,
+        confirmButtonColor: '#f43f5e',
+        background: '#0f172a',
+        color: '#f8fafc'
+      });
+    },
+
+    async promptRename(oldKey, oldName, isFolder) {
+      const { value: newName } = await Swal.fire({
+        title: isFolder ? 'Ubah Nama Folder' : 'Ubah Nama Berkas',
+        input: 'text',
+        inputValue: oldName,
+        showCancelButton: true,
+        confirmButtonText: 'Simpan Nama Baru',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#f43f5e',
+        background: '#0f172a',
+        color: '#f8fafc',
+        inputValidator: (value) => {
+          if (!value || !value.trim()) return 'Nama tidak boleh kosong!';
+          if (value.trim() === oldName) return 'Nama baru sama dengan nama lama!';
+        }
+      });
+
+      if (newName) {
+        try {
+          const res = await fetch('/api/r2/rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              oldKey,
+              newName: newName.trim(),
+              isFolder
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast('✓ Berhasil mengubah nama!', 'success');
+            await this.loadCurrentFolder();
+          } else {
+            Swal.fire('Gagal Mengubah Nama', data.error || 'Terjadi kesalahan.', 'error');
+          }
+        } catch (e) {
+          Swal.fire('Error', e.message, 'error');
+        }
+      }
+    },
+
+    async promptCopy(sourceKey, fileName) {
+      const extMatch = fileName.match(/(\.[^.]+)$/);
+      const ext = extMatch ? extMatch[1] : '';
+      const base = extMatch ? fileName.slice(0, -ext.length) : fileName;
+      const defaultNewName = `${base}-salinan${ext}`;
+
+      const { value: newName } = await Swal.fire({
+        title: 'Duplikat Berkas di R2',
+        text: `Salin file [${fileName}] ke nama baru:`,
+        input: 'text',
+        inputValue: defaultNewName,
+        showCancelButton: true,
+        confirmButtonText: '📋 Duplikat File',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#ffd166',
+        background: '#0f172a',
+        color: '#f8fafc',
+        inputValidator: (value) => {
+          if (!value || !value.trim()) return 'Nama file salinan tidak boleh kosong!';
+        }
+      });
+
+      if (newName) {
+        try {
+          const destinationKey = `${this.currentPrefix}${newName.trim()}`;
+          const res = await fetch('/api/r2/copy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sourceKey,
+              destinationKey
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast('✓ File berhasil disalin!', 'success');
+            await this.loadCurrentFolder();
+            this.fetchStats();
+          } else {
+            Swal.fire('Gagal Duplikat', data.error, 'error');
+          }
+        } catch (e) {
+          Swal.fire('Error', e.message, 'error');
+        }
+      }
+    },
+
+    async promptMove(sourceKey, fileName) {
+      const choices = {
+        '': '📁 / (Root Direktori)'
+      };
+
+      this.allFoldersCache.forEach(f => {
+        if (f) choices[f] = `📁 /${f}`;
+      });
+
+      const { value: targetFolder } = await Swal.fire({
+        title: 'Pindahkan File ke Folder Lain',
+        text: `Pilih folder tujuan untuk [${fileName}]:`,
+        input: 'select',
+        inputOptions: choices,
+        inputValue: this.currentPrefix,
+        showCancelButton: true,
+        confirmButtonText: '🚚 Pindahkan Sekarang',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#38bdf8',
+        background: '#0f172a',
+        color: '#f8fafc'
+      });
+
+      if (targetFolder !== undefined) {
+        if (targetFolder === this.currentPrefix) {
+          showToast('File sudah berada di folder ini.', 'info');
+          return;
+        }
+
+        const destinationKey = `${targetFolder}${fileName}`;
+
+        try {
+          const res = await fetch('/api/r2/move', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sourceKey,
+              destinationKey
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(`✓ File dipindahkan ke /${targetFolder}!`, 'success');
+            await this.loadCurrentFolder();
+          } else {
+            Swal.fire('Gagal Memindahkan', data.error, 'error');
+          }
+        } catch (e) {
+          Swal.fire('Error', e.message, 'error');
+        }
+      }
+    },
+
+    async promptDelete(key, name, isFolder) {
+      const confirm = await Swal.fire({
+        title: isFolder ? `Hapus Folder [${name}]?` : `Hapus File [${name}]?`,
+        text: isFolder 
+          ? 'PERINGATAN: Seluruh file dan subdirektori di dalam folder ini akan dihapus permanen dari Cloudflare R2!'
+          : 'File ini akan dihapus secara permanen dari Cloudflare R2 bucket.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#475569',
+        confirmButtonText: 'Ya, Hapus Sekarang',
+        cancelButtonText: 'Batal',
+        background: '#0f172a',
+        color: '#f8fafc'
+      });
+
+      if (confirm.isConfirmed) {
+        try {
+          const res = await fetch('/api/r2/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              key,
+              isFolder
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast('✓ Objek berhasil dihapus dari Cloudflare R2!', 'success');
+            await this.loadCurrentFolder();
+            this.fetchStats();
+          } else {
+            Swal.fire('Gagal Menghapus', data.error, 'error');
+          }
+        } catch (e) {
+          Swal.fire('Error', e.message, 'error');
+        }
+      }
+    },
+
+    async batchDelete() {
+      const keys = Array.from(this.selectedKeys);
+      if (keys.length === 0) return;
+
+      const confirm = await Swal.fire({
+        title: `Hapus ${keys.length} File Terpilih?`,
+        text: 'File-file yang dipilih akan dihapus secara permanen dari Cloudflare R2.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#475569',
+        confirmButtonText: `Ya, Hapus ${keys.length} File`,
+        cancelButtonText: 'Batal',
+        background: '#0f172a',
+        color: '#f8fafc'
+      });
+
+      if (confirm.isConfirmed) {
+        try {
+          const res = await fetch('/api/r2/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keys })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(`✓ ${keys.length} file berhasil dihapus!`, 'success');
+            this.selectedKeys.clear();
+            await this.loadCurrentFolder();
+            this.fetchStats();
+          } else {
+            Swal.fire('Gagal Menghapus', data.error, 'error');
+          }
+        } catch (e) {
+          Swal.fire('Error', e.message, 'error');
+        }
+      }
+    },
+
+    async syncToD1() {
+      const syncBtnText = document.getElementById('btnR2SyncD1Text');
+      if (syncBtnText) syncBtnText.textContent = '⏳ Menyinkronkan...';
+
+      Swal.fire({
+        title: 'Sinkronisasi R2 ke Database D1',
+        html: 'Membaca seluruh isi Cloudflare R2 bucket dan mendaftarkan berkas ke tabel <code>foto_upload_logs</code>...',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+        background: '#0f172a',
+        color: '#f8fafc'
+      });
+
+      try {
+        const res = await fetch('/api/r2/sync-d1', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Sinkronisasi D1 Berhasil!',
+            text: data.message,
+            confirmButtonColor: '#f43f5e',
+            background: '#0f172a',
+            color: '#f8fafc'
+          });
+          await this.loadCurrentFolder();
+          this.fetchStats();
+        } else {
+          Swal.fire('Gagal Sinkron', data.error || 'Terjadi kesalahan.', 'error');
+        }
+      } catch (e) {
+        Swal.fire('Error', e.message, 'error');
+      } finally {
+        if (syncBtnText) syncBtnText.textContent = '🔁 Sync ke Database D1';
+      }
+    },
+
+    previewLightbox(file) {
+      const modal = document.getElementById('r2LightboxModal');
+      const title = document.getElementById('r2LightboxTitle');
+      const sub = document.getElementById('r2LightboxSub');
+      const img = document.getElementById('r2LightboxImg');
+      const dl = document.getElementById('btnR2LbDownload');
+
+      if (!modal) return;
+
+      this.activeLightboxUrl = file.url;
+      if (title) title.textContent = file.name;
+      if (sub) sub.textContent = `${this.formatBytes(file.size)} • Diunggah oleh ${file.uploadedBy || 'Petugas'}`;
+      if (img) img.src = file.url;
+      if (dl) {
+        dl.href = file.url;
+        dl.download = file.name;
+      }
+
+      modal.style.display = 'flex';
+      gsap.fromTo('.r2-lightbox-dialog', 
+        { opacity: 0, scale: 0.92, y: 15 }, 
+        { opacity: 1, scale: 1, y: 0, duration: 0.3, ease: 'power2.out' }
+      );
+    },
+
+    closeLightbox() {
+      const modal = document.getElementById('r2LightboxModal');
+      if (modal) {
+        gsap.to('.r2-lightbox-dialog', {
+          opacity: 0,
+          scale: 0.95,
+          duration: 0.2,
+          ease: 'power2.in',
+          onComplete: () => {
+            modal.style.display = 'none';
+            const img = document.getElementById('r2LightboxImg');
+            if (img) img.src = '';
+            this.activeLightboxUrl = '';
+          }
+        });
+      }
+    },
+
+    copyLink(url) {
+      const fullUrl = url.startsWith('http') ? url : window.location.origin + url;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(fullUrl).then(() => {
+          showToast('🔗 URL foto berhasil disalin ke clipboard!', 'success');
+        }).catch(() => {
+          this.fallbackCopyText(fullUrl);
+        });
+      } else {
+        this.fallbackCopyText(fullUrl);
+      }
+    },
+
+    fallbackCopyText(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('🔗 URL foto berhasil disalin!', 'success');
+    }
+  };
+
+  window.R2FileManager = R2FileManager;
 
   window.InAppBrowser = InAppBrowser;
   InAppBrowser.init();
