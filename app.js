@@ -10744,44 +10744,89 @@ function renderSekolahView() {
 // 🩺 POP-UP PEMERIKSAAN & IDENTITAS SISWA (MULTI-USER ISOLATED)
 // --------------------------------------------------------------------------
 
-function switchSekolahModalTab(tabKey) {
-  const tabs = ['menu', 'identitas', 'antro', 'vital', 'lab', 'organ', 'kesimpulan', 'semua'];
-  
-  tabs.forEach(t => {
-    const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
-    const panel = document.getElementById(`panelPemeriksaan${t.charAt(0).toUpperCase() + t.slice(1)}`);
-    
-    if (btn) {
-      if (t === tabKey) {
-        btn.classList.add('active');
-        btn.style.background = 'linear-gradient(135deg, #059669, #047857)';
-        btn.style.color = '#ffffff';
-        btn.style.borderColor = '#047857';
-        btn.style.boxShadow = '0 4px 12px rgba(5, 150, 105, 0.25)';
-      } else {
-        btn.classList.remove('active');
-        btn.style.background = '#f0fdf4';
-        btn.style.color = '#065f46';
-        btn.style.borderColor = '#a7f3d0';
-        btn.style.boxShadow = 'none';
-      }
-    }
-    
-    if (panel) {
-      if (tabKey === 'semua') {
-        // Show all format panels 1-6 simultaneously, hide the menu Hub
-        panel.style.display = (t === 'menu') ? 'none' : 'block';
-      } else if (t === tabKey) {
-        panel.style.display = 'block';
-      } else {
-        panel.style.display = 'none';
-      }
-    }
+function openFormPosPopup(posKey) {
+  const siswaId = document.getElementById('periksaSiswaId')?.value;
+  const siswa = sekolahRecords.find(r => r.id === siswaId);
+  if (!siswa) {
+    showToast('Data siswa tidak ditemukan.', 'warning');
+    return;
+  }
+
+  // Set student banner inside form popup
+  const titleEl = document.getElementById('formPosModalTitle');
+  const namaEl = document.getElementById('formPosNamaSiswa');
+  const subInfoEl = document.getElementById('formPosSubInfo');
+  const avatarEl = document.getElementById('formPosAvatar');
+
+  if (namaEl) namaEl.textContent = siswa.nama || 'Nama Siswa';
+  if (subInfoEl) {
+    const safeJk = siswa.jk === 'P' ? 'Perempuan' : 'Laki-laki';
+    subInfoEl.textContent = `${siswa.sekolah || 'Nama Sekolah'} • KELAS ${siswa.kelas || '-'} • ${safeJk}`;
+  }
+  if (avatarEl) avatarEl.textContent = (siswa.nama || 'S').charAt(0).toUpperCase();
+
+  const titleMap = {
+    identitas: '<i class="bi bi-person-vcard-fill" style="color: #10b981;"></i> Format 1: Identitas & Domisili Siswa',
+    antro: '<i class="bi bi-person-arms-up" style="color: #0284c7;"></i> Format 2: Antropometri & Status Gizi',
+    vital: '<i class="bi bi-heart-pulse-fill" style="color: #ef4444;"></i> Format 3: Tanda Vital (Tekanan Darah)',
+    lab: '<i class="bi bi-droplet-fill" style="color: #d946ef;"></i> Format 4: Pemeriksaan Laboratorium Sederhana',
+    organ: '<i class="bi bi-eye-fill" style="color: #0d9488;"></i> Format 5: Organ Indera & Spesifik UKS',
+    kesimpulan: '<i class="bi bi-clipboard2-check-fill" style="color: #f59e0b;"></i> Format 6: Kesimpulan & Catatan Rujukan',
+    semua: '<i class="bi bi-card-checklist" style="color: #059669;"></i> Pemeriksaan Lengkap (Semua Format Sekaligus)'
+  };
+
+  if (titleEl) titleEl.innerHTML = titleMap[posKey] || '<i class="bi bi-pencil-square"></i> Format Pemeriksaan';
+
+  // Toggle form panels
+  const panels = ['identitas', 'antro', 'vital', 'lab', 'organ', 'kesimpulan'];
+  panels.forEach(p => {
+    const el = document.getElementById(`panelPemeriksaan${p.charAt(0).toUpperCase() + p.slice(1)}`);
+    if (el) el.style.display = (posKey === 'semua' || posKey === p) ? 'block' : 'none';
   });
 
   const globalFooter = document.getElementById('panelPemeriksaanSemuaFooter');
   if (globalFooter) {
-    globalFooter.style.display = (tabKey === 'semua') ? 'flex' : 'none';
+    globalFooter.style.display = (posKey === 'semua') ? 'flex' : 'none';
+  }
+
+  // Hide Menu Popup, Show Form Popup
+  const mMenu = document.getElementById('modalPemeriksaanSiswa');
+  if (mMenu) {
+    mMenu.classList.remove('active', 'open');
+    mMenu.style.display = 'none';
+  }
+
+  const mForm = document.getElementById('modalFormPosSiswa');
+  if (mForm) {
+    mForm.classList.add('active', 'open');
+    mForm.style.display = 'flex';
+  }
+}
+
+function closeFormPosPopup() {
+  // Hide Form Popup, Re-open Menu Popup
+  const mForm = document.getElementById('modalFormPosSiswa');
+  if (mForm) {
+    mForm.classList.remove('active', 'open');
+    mForm.style.display = 'none';
+  }
+
+  const mMenu = document.getElementById('modalPemeriksaanSiswa');
+  if (mMenu) {
+    mMenu.classList.add('active', 'open');
+    mMenu.style.display = 'flex';
+  }
+
+  const siswaId = document.getElementById('periksaSiswaId')?.value;
+  const siswa = sekolahRecords.find(r => r.id === siswaId);
+  if (siswa) updateSekolahMenuBadges(siswa);
+}
+
+function switchSekolahModalTab(tabKey) {
+  if (tabKey === 'menu') {
+    closeFormPosPopup();
+  } else {
+    openFormPosPopup(tabKey);
   }
 }
 
@@ -10795,62 +10840,96 @@ function updateSekolahMenuBadges(siswa) {
   const hasKesimpulan = !!(siswa.kesimpulan_done || (siswa.catatan_rujukan && siswa.catatan_rujukan !== '-' && String(siswa.catatan_rujukan).trim() !== ''));
 
   // 1. Identitas
-  const elIdentitas = document.getElementById('menuBadgeIdentitas');
-  if (elIdentitas) {
-    elIdentitas.innerHTML = `<span class="badge badge-pos-done"><i class="bi bi-check-circle-fill"></i> Terisi</span>`;
+  const bIdentitas = document.getElementById('badgePosMenuIdentitas');
+  if (bIdentitas) {
+    bIdentitas.innerHTML = `<span class="badge badge-pos-done"><i class="bi bi-check-circle-fill"></i> Terisi</span>`;
   }
+  document.getElementById('btnPosMenuIdentitas')?.classList.add('is-done');
 
   // 2. Antropometri
-  const elAntro = document.getElementById('menuBadgeAntro');
-  if (elAntro) {
+  const bAntro = document.getElementById('badgePosMenuAntro');
+  const btnAntro = document.getElementById('btnPosMenuAntro');
+  if (bAntro) {
     if (hasAntro) {
-      elAntro.innerHTML = `<span class="badge badge-pos-done"><i class="bi bi-check-circle-fill"></i> Terisi (${siswa.bb || 0}kg / ${siswa.tb || 0}cm)</span>`;
+      bAntro.innerHTML = `<span class="badge badge-pos-done"><i class="bi bi-check-circle-fill"></i> Terisi (${siswa.bb || 0}kg/${siswa.tb || 0}cm)</span>`;
+      btnAntro?.classList.add('is-done');
     } else {
-      elAntro.innerHTML = `<span class="badge badge-pos-pending"><i class="bi bi-hourglass-split"></i> Belum Diisi</span>`;
+      bAntro.innerHTML = `<span class="badge badge-pos-pending"><i class="bi bi-hourglass-split"></i> Belum</span>`;
+      btnAntro?.classList.remove('is-done');
     }
   }
 
   // 3. Tanda Vital
-  const elVital = document.getElementById('menuBadgeVital');
-  if (elVital) {
+  const bVital = document.getElementById('badgePosMenuVital');
+  const btnVital = document.getElementById('btnPosMenuVital');
+  if (bVital) {
     if (hasVital) {
-      elVital.innerHTML = `<span class="badge badge-pos-done"><i class="bi bi-check-circle-fill"></i> Terisi (${siswa.td_sistolik}/${siswa.td_diastolik || 0} mmHg)</span>`;
+      bVital.innerHTML = `<span class="badge badge-pos-done"><i class="bi bi-check-circle-fill"></i> Terisi (${siswa.td_sistolik}/${siswa.td_diastolik || 0})</span>`;
+      btnVital?.classList.add('is-done');
     } else {
-      elVital.innerHTML = `<span class="badge badge-pos-pending"><i class="bi bi-hourglass-split"></i> Belum Diisi</span>`;
+      bVital.innerHTML = `<span class="badge badge-pos-pending"><i class="bi bi-hourglass-split"></i> Belum</span>`;
+      btnVital?.classList.remove('is-done');
     }
   }
 
   // 4. Lab
-  const elLab = document.getElementById('menuBadgeLab');
-  if (elLab) {
+  const bLab = document.getElementById('badgePosMenuLab');
+  const btnLab = document.getElementById('btnPosMenuLab');
+  if (bLab) {
     if (hasLab) {
       const parts = [];
       if (siswa.hb && siswa.hb !== '-') parts.push(`Hb ${siswa.hb}`);
       if (siswa.gula_darah && siswa.gula_darah !== '-') parts.push(`GDS ${siswa.gula_darah}`);
-      elLab.innerHTML = `<span class="badge badge-pos-done"><i class="bi bi-check-circle-fill"></i> Terisi ${parts.length ? `(${parts.join(', ')})` : ''}</span>`;
+      bLab.innerHTML = `<span class="badge badge-pos-done"><i class="bi bi-check-circle-fill"></i> Terisi ${parts.length ? `(${parts.join(', ')})` : ''}</span>`;
+      btnLab?.classList.add('is-done');
     } else {
-      elLab.innerHTML = `<span class="badge badge-pos-pending"><i class="bi bi-hourglass-split"></i> Belum Diisi</span>`;
+      bLab.innerHTML = `<span class="badge badge-pos-pending"><i class="bi bi-hourglass-split"></i> Belum</span>`;
+      btnLab?.classList.remove('is-done');
     }
   }
 
   // 5. Organ Indera
-  const elOrgan = document.getElementById('menuBadgeOrgan');
-  if (elOrgan) {
+  const bOrgan = document.getElementById('badgePosMenuOrgan');
+  const btnOrgan = document.getElementById('btnPosMenuOrgan');
+  if (bOrgan) {
     if (hasOrgan) {
-      elOrgan.innerHTML = `<span class="badge badge-pos-done"><i class="bi bi-check-circle-fill"></i> Terisi (Selesai)</span>`;
+      bOrgan.innerHTML = `<span class="badge badge-pos-done"><i class="bi bi-check-circle-fill"></i> Terisi (Selesai)</span>`;
+      btnOrgan?.classList.add('is-done');
     } else {
-      elOrgan.innerHTML = `<span class="badge badge-pos-pending"><i class="bi bi-hourglass-split"></i> Belum Diisi</span>`;
+      bOrgan.innerHTML = `<span class="badge badge-pos-pending"><i class="bi bi-hourglass-split"></i> Belum</span>`;
+      btnOrgan?.classList.remove('is-done');
     }
   }
 
   // 6. Kesimpulan
-  const elKesimpulan = document.getElementById('menuBadgeKesimpulan');
-  if (elKesimpulan) {
+  const bKesimpulan = document.getElementById('badgePosMenuKesimpulan');
+  const btnKesimpulan = document.getElementById('btnPosMenuKesimpulan');
+  if (bKesimpulan) {
     if (hasKesimpulan) {
-      elKesimpulan.innerHTML = `<span class="badge badge-pos-done"><i class="bi bi-check-circle-fill"></i> Terisi (${siswa.status_kesehatan || 'Sehat'})</span>`;
+      bKesimpulan.innerHTML = `<span class="badge badge-pos-done"><i class="bi bi-check-circle-fill"></i> Terisi (${siswa.status_kesehatan || 'Sehat'})</span>`;
+      btnKesimpulan?.classList.add('is-done');
     } else {
-      elKesimpulan.innerHTML = `<span class="badge badge-pos-pending"><i class="bi bi-hourglass-split"></i> Belum Diisi</span>`;
+      bKesimpulan.innerHTML = `<span class="badge badge-pos-pending"><i class="bi bi-hourglass-split"></i> Belum</span>`;
+      btnKesimpulan?.classList.remove('is-done');
     }
+  }
+
+  // Ringkasan hasil pemeriksaan yang sudah terisi
+  const elRingkasan = document.getElementById('modalMenuHasilRingkasan');
+  if (elRingkasan) {
+    const chips = [];
+    if (hasAntro) chips.push(`<span class="status-check-badge antro"><i class="bi bi-check-circle-fill" style="color:#10b981;"></i> Antro: ${siswa.bb || '-'}kg / ${siswa.tb || '-'}cm</span>`);
+    if (hasVital) chips.push(`<span class="status-check-badge vital"><i class="bi bi-check-circle-fill" style="color:#3b82f6;"></i> TD: ${siswa.td_sistolik || '-'}/${siswa.td_diastolik || '-'}</span>`);
+    if (hasLab) {
+      if (siswa.hb && siswa.hb !== '-') chips.push(`<span class="status-check-badge lab"><i class="bi bi-check-circle-fill" style="color:#ec4899;"></i> Hb: ${siswa.hb}</span>`);
+      if (siswa.gula_darah && siswa.gula_darah !== '-') chips.push(`<span class="status-check-badge lab"><i class="bi bi-check-circle-fill" style="color:#ec4899;"></i> Gula: ${siswa.gula_darah}</span>`);
+    }
+    if (hasOrgan) chips.push(`<span class="status-check-badge organ"><i class="bi bi-check-circle-fill" style="color:#0d9488;"></i> Organ Indera (Selesai)</span>`);
+    if (hasKesimpulan) chips.push(`<span class="status-check-badge kesimpulan"><i class="bi bi-check-circle-fill" style="color:#eab308;"></i> Status: ${siswa.status_kesehatan || 'Sehat'}</span>`);
+
+    elRingkasan.innerHTML = chips.length > 0 
+      ? `<div style="display: flex; gap: 6px; flex-wrap: wrap;">${chips.join('')}</div>`
+      : `<span style="color: #94a3b8; font-style: italic;">Belum ada pos pemeriksaan yang diisi.</span>`;
   }
 }
 
@@ -10930,13 +11009,24 @@ function openPemeriksaanModal(siswaId, defaultTab = 'menu') {
 
   calculateSiswaIMT();
   updateSekolahMenuBadges(siswa);
-  switchSekolahModalTab(defaultTab);
 
+  // Close form modal if previously open
+  const mForm = document.getElementById('modalFormPosSiswa');
+  if (mForm) {
+    mForm.classList.remove('active', 'open');
+    mForm.style.display = 'none';
+  }
+
+  // Open the Menu Buttons Modal
   const modal = document.getElementById('modalPemeriksaanSiswa');
   if (modal) {
-    modal.classList.add('active');
-    modal.classList.add('open');
+    modal.classList.add('active', 'open');
     modal.style.display = 'flex';
+  }
+
+  // If a specific tab was explicitly requested other than 'menu', open that form
+  if (defaultTab && defaultTab !== 'menu') {
+    openFormPosPopup(defaultTab);
   }
 
   // Multi-user concurrency: Fetch fresh single student record from Cloud in background
@@ -10966,11 +11056,15 @@ function openPemeriksaanModal(siswaId, defaultTab = 'menu') {
 }
 
 function closePemeriksaanModal() {
-  const modal = document.getElementById('modalPemeriksaanSiswa');
-  if (modal) {
-    modal.classList.remove('active');
-    modal.classList.remove('open');
-    modal.style.display = 'none';
+  const m1 = document.getElementById('modalPemeriksaanSiswa');
+  if (m1) {
+    m1.classList.remove('active', 'open');
+    m1.style.display = 'none';
+  }
+  const m2 = document.getElementById('modalFormPosSiswa');
+  if (m2) {
+    m2.classList.remove('active', 'open');
+    m2.style.display = 'none';
   }
 }
 

@@ -5933,3 +5933,78 @@ body.dark-mode .cat-card-desc {
   color: #94a3b8;
 }
 
+/* =================================================================== */
+/* POS MENU BUTTONS GRID (MATCHING GAMBAR 1 TOMBOL FORMAT)             */
+/* =================================================================== */
+.sekolah-pos-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .sekolah-pos-buttons-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .sekolah-pos-buttons-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pos-menu-button {
+  width: 100%;
+  padding: 13px 15px !important;
+  font-size: 13px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  border: 1.5px solid #a7f3d0 !important;
+  background: #f0fdf4 !important;
+  color: #065f46 !important;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.06);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.pos-menu-button:hover {
+  border-color: #059669 !important;
+  background: #ecfdf5 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(5, 150, 105, 0.15) !important;
+}
+
+.pos-menu-button.is-done {
+  border-color: #10b981 !important;
+  background: #f0fdf4 !important;
+}
+
+.pos-btn-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.pos-btn-badge .badge {
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+body.dark-mode .pos-menu-button {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode .pos-menu-button:hover {
+  background: #0f172a !important;
+  border-color: #10b981 !important;
+}
+
+
