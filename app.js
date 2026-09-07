@@ -11335,22 +11335,22 @@ async function savePemeriksaanSiswa(event) {
     td_diastolik: parseInt(document.getElementById('periksaDiastol')?.value, 10) || 0,
     gula_darah: document.getElementById('periksaGula')?.value.trim() || '-',
     hb: document.getElementById('periksaHb')?.value.trim() || '-',
-    telinga: document.getElementById('periksaTelinga')?.value || 'Tidak ada serumen',
-    gigi: document.getElementById('periksaGigi')?.value || 'Tidak ada',
-    mata: document.getElementById('periksaMata')?.value || 'Normal',
-    kebugaran: kebugaran,
-    menstruasi: menstruasi,
-    status_kesehatan: statusKesehatan,
-    catatan_rujukan: catatanRujukan,
+    telinga: document.getElementById('periksaTelinga')?.value || sekolahRecords[idx].telinga || 'Tidak ada serumen',
+    gigi: document.getElementById('periksaGigi')?.value || sekolahRecords[idx].gigi || 'Tidak ada',
+    mata: document.getElementById('periksaMata')?.value || sekolahRecords[idx].mata || 'Normal',
+    kebugaran: kebugaran || sekolahRecords[idx].kebugaran || 'Baik',
+    menstruasi: menstruasi || sekolahRecords[idx].menstruasi || 'Belum',
+    status_kesehatan: statusKesehatan || sekolahRecords[idx].status_kesehatan || 'Sehat',
+    catatan_rujukan: (catatanRujukan && catatanRujukan !== '-') ? catatanRujukan : (sekolahRecords[idx].catatan_rujukan || '-'),
     is_examined: true,
     petugas_entry: currentUserName,
     tanggal_entry: new Date().toISOString().substring(0, 10),
     antro_done: (bbVal > 0 && tbVal > 0) ? 1 : (sekolahRecords[idx].antro_done || 0),
     vital_done: (parseInt(document.getElementById('periksaSistol')?.value, 10) > 0) ? 1 : (sekolahRecords[idx].vital_done || 0),
     lab_done: ((document.getElementById('periksaHb')?.value.trim() && document.getElementById('periksaHb')?.value.trim() !== '-') || (document.getElementById('periksaGula')?.value.trim() && document.getElementById('periksaGula')?.value.trim() !== '-')) ? 1 : (sekolahRecords[idx].lab_done || 0),
-    organ_done: 1,
-    kesimpulan_done: 1,
-    identitas_done: 1
+    organ_done: (sekolahRecords[idx].organ_done || 0),
+    kesimpulan_done: (statusKesehatan && statusKesehatan !== 'Sehat' && statusKesehatan !== '') || (catatanRujukan && catatanRujukan !== '-' && catatanRujukan.trim() !== '') ? 1 : (sekolahRecords[idx].kesimpulan_done || 0),
+    identitas_done: (sekolahRecords[idx].identitas_done || 1)
   };
 
   // Directly POST to Cloud Database
