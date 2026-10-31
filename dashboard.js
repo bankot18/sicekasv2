@@ -5388,23 +5388,33 @@ document.addEventListener('DOMContentLoaded', () => {
       if (lptSigPetugasNip1) lptSigPetugasNip1.textContent = 'NIP. ...........................................';
     }
 
-    // Sync SPPD Pengikut 1 & 2 to LPT Petugas 2 & 3
-    const pengikutSelect1 = document.getElementById('sppdPengikutSelect1');
-    const lptTogglePetugas2 = document.getElementById('lptTogglePetugas2');
-    const lptSelectPetugas2 = document.getElementById('lptSelectPetugas2');
-    if (pengikutSelect1 && pengikutSelect1.value && pengikutSelect1.value !== 'CUSTOM' && pengikutSelect1.value !== '') {
-      if (lptTogglePetugas2) lptTogglePetugas2.checked = true;
-      if (lptSelectPetugas2) lptSelectPetugas2.value = pengikutSelect1.value;
-      if (typeof syncLptOfficer === 'function') syncLptOfficer(2);
-    }
+    // Sync SPPD Pengikut 1..4 to LPT Petugas 2..5 (Maks. 5 Petugas)
+    for (let pIdx = 1; pIdx <= 4; pIdx++) {
+      const petNum = pIdx + 1;
+      const pengikutSelect = document.getElementById(`sppdPengikutSelect${pIdx}`);
+      const lptToggle = document.getElementById(`lptTogglePetugas${petNum}`);
+      const lptSelect = document.getElementById(`lptSelectPetugas${petNum}`);
+      const inputNama = document.getElementById(`sppdPengikutInputNama${pIdx}`);
+      const inputNip = document.getElementById(`sppdPengikutInputNip${pIdx}`);
+      const lptCustomNama = document.getElementById(`lptInputCustomNama${petNum}`);
+      const lptCustomNip = document.getElementById(`lptInputCustomNip${petNum}`);
+      const lptCustomWrap = document.getElementById(`lptCustomWrap${petNum}`);
 
-    const pengikutSelect2 = document.getElementById('sppdPengikutSelect2');
-    const lptTogglePetugas3 = document.getElementById('lptTogglePetugas3');
-    const lptSelectPetugas3 = document.getElementById('lptSelectPetugas3');
-    if (pengikutSelect2 && pengikutSelect2.value && pengikutSelect2.value !== 'CUSTOM' && pengikutSelect2.value !== '') {
-      if (lptTogglePetugas3) lptTogglePetugas3.checked = true;
-      if (lptSelectPetugas3) lptSelectPetugas3.value = pengikutSelect2.value;
-      if (typeof syncLptOfficer === 'function') syncLptOfficer(3);
+      if (pengikutSelect && pengikutSelect.value && pengikutSelect.value !== '') {
+        if (lptToggle && (!lptSelect || !lptSelect.dataset.userEdited)) {
+          lptToggle.checked = true;
+          if (pengikutSelect.value === 'CUSTOM') {
+            if (lptSelect) lptSelect.value = 'CUSTOM';
+            if (lptCustomWrap) lptCustomWrap.style.display = 'grid';
+            if (lptCustomNama && inputNama) lptCustomNama.value = inputNama.value;
+            if (lptCustomNip && inputNip) lptCustomNip.value = inputNip.value;
+          } else {
+            if (lptSelect) lptSelect.value = pengikutSelect.value;
+            if (lptCustomWrap) lptCustomWrap.style.display = 'none';
+          }
+          if (typeof syncLptOfficer === 'function') syncLptOfficer(petNum);
+        }
+      }
     }
 
     if (typeof updateLptPetugasVisibility === 'function') {
@@ -5702,30 +5712,62 @@ document.addEventListener('DOMContentLoaded', () => {
   const lptValKesimpulan = document.getElementById('lptValKesimpulan');
   const lptSigDate = document.getElementById('lptSigDate');
 
+  // LPT 5 Officers References
   const lptSelectPetugas1 = document.getElementById('lptSelectPetugas1');
   const lptSelectPetugas2 = document.getElementById('lptSelectPetugas2');
   const lptSelectPetugas3 = document.getElementById('lptSelectPetugas3');
+  const lptSelectPetugas4 = document.getElementById('lptSelectPetugas4');
+  const lptSelectPetugas5 = document.getElementById('lptSelectPetugas5');
 
   const lptTogglePetugas2 = document.getElementById('lptTogglePetugas2');
   const lptTogglePetugas3 = document.getElementById('lptTogglePetugas3');
+  const lptTogglePetugas4 = document.getElementById('lptTogglePetugas4');
+  const lptTogglePetugas5 = document.getElementById('lptTogglePetugas5');
+
   const lptBadgePetugas2 = document.getElementById('lptBadgePetugas2');
   const lptBadgePetugas3 = document.getElementById('lptBadgePetugas3');
-  const lptWrapSelectPetugas2 = document.getElementById('lptWrapSelectPetugas2');
-  const lptWrapSelectPetugas3 = document.getElementById('lptWrapSelectPetugas3');
+  const lptBadgePetugas4 = document.getElementById('lptBadgePetugas4');
+  const lptBadgePetugas5 = document.getElementById('lptBadgePetugas5');
 
-  const lptSigCol1 = document.getElementById('lptSigCol1');
-  const lptSigCol2 = document.getElementById('lptSigCol2');
-  const lptSigCol3 = document.getElementById('lptSigCol3');
-  const lptSignaturesRow = document.getElementById('lptSignaturesRow');
+  const lptCardPetugas2 = document.getElementById('lptCardPetugas2');
+  const lptCardPetugas3 = document.getElementById('lptCardPetugas3');
+  const lptCardPetugas4 = document.getElementById('lptCardPetugas4');
+  const lptCardPetugas5 = document.getElementById('lptCardPetugas5');
 
-  const lptSigPetugasName1 = document.getElementById('lptSigPetugasName1');
-  const lptSigPetugasNip1 = document.getElementById('lptSigPetugasNip1');
-  const lptSigPetugasName2 = document.getElementById('lptSigPetugasName2');
-  const lptSigPetugasNip2 = document.getElementById('lptSigPetugasNip2');
-  const lptSigPetugasName3 = document.getElementById('lptSigPetugasName3');
-  const lptSigPetugasNip3 = document.getElementById('lptSigPetugasNip3');
+  const lptBtnAddPetugas = document.getElementById('lptBtnAddPetugas');
+  const lptPetugasSummaryBadge = document.getElementById('lptPetugasSummaryBadge');
 
+  const lptSigRow1 = document.getElementById('lptSigRow1');
+  const lptSigRow2 = document.getElementById('lptSigRow2');
+  const lptSigRow3 = document.getElementById('lptSigRow3');
+  const lptSigRow4 = document.getElementById('lptSigRow4');
+  const lptSigRow5 = document.getElementById('lptSigRow5');
+
+  const lptOfficersListContainer = document.getElementById('lptOfficersListContainer');
   const btnToggleLptHighlight = document.getElementById('btnToggleLptHighlight');
+
+  // LPT Dynamic Table References & State (Sesuai Gambar 1)
+  const lptToggleTable = document.getElementById('lptToggleTable');
+  const lptBadgeTable = document.getElementById('lptBadgeTable');
+  const lptTableControlsWrap = document.getElementById('lptTableControlsWrap');
+  const lptTableWrapper = document.getElementById('lptTableWrapper');
+  const lptDynamicTable = document.getElementById('lptDynamicTable');
+  const lptTableThead = document.getElementById('lptTableThead');
+  const lptTableTbody = document.getElementById('lptTableTbody');
+  const lptSidebarTableEditor = document.getElementById('lptSidebarTableEditor');
+  const lptBtnPresetUks = document.getElementById('lptBtnPresetUks');
+  const lptBtnAddRow = document.getElementById('lptBtnAddRow');
+  const lptBtnDelRow = document.getElementById('lptBtnDelRow');
+  const lptBtnAddCol = document.getElementById('lptBtnAddCol');
+  const lptBtnDelCol = document.getElementById('lptBtnDelCol');
+
+  const lptTableState = {
+    enabled: false,
+    headers: ['Total Siswa di periksa', 'Sehat', 'Perlu Perhatian', 'Perlu dirujuk'],
+    rows: [
+      ['500', '109', '1', '390']
+    ]
+  };
 
   // Convert text newlines to HTML br
   const textToHtml = (str) => {
@@ -5733,18 +5775,257 @@ document.addEventListener('DOMContentLoaded', () => {
     return escapeHtmlHelper(str).replace(/\n/g, '<br>');
   };
 
-  // Sync LPT Officers
+  // ==========================================================================
+  // LPT DYNAMIC TABLE CONTROLLER (Fitur Tabel Hasil Kegiatan Sesuai Gambar 1)
+  // ==========================================================================
+  const renderLptTable = () => {
+    const isEnabled = !!lptTableState.enabled;
+
+    if (lptTableWrapper) lptTableWrapper.style.display = isEnabled ? 'block' : 'none';
+    if (lptTableControlsWrap) lptTableControlsWrap.style.display = isEnabled ? 'block' : 'none';
+    if (lptBadgeTable) {
+      lptBadgeTable.textContent = isEnabled ? 'Aktif' : 'Tidak Aktif';
+      lptBadgeTable.style.color = isEnabled ? '#10b981' : '#94a3b8';
+    }
+
+    if (!isEnabled) return;
+
+    // 1. Render Preview Table inside LPT Document Sheet
+    if (lptTableThead && lptTableTbody) {
+      let theadHtml = '<tr style="background: rgba(0,0,0,0.02);">';
+      lptTableState.headers.forEach((h, colIdx) => {
+        theadHtml += `
+          <th contenteditable="true" data-col="${colIdx}" class="lpt-th-editable" 
+              style="border: 1px solid #000000; padding: 5px 8px; font-weight: bold; font-size: 11px; text-align: center; color: #000000; outline: none; line-height: 1.25;">
+            ${escapeHtmlHelper(h)}
+          </th>
+        `;
+      });
+      theadHtml += '</tr>';
+      lptTableThead.innerHTML = theadHtml;
+
+      let tbodyHtml = '';
+      lptTableState.rows.forEach((row, rowIdx) => {
+        tbodyHtml += '<tr>';
+        lptTableState.headers.forEach((_, colIdx) => {
+          const val = row && typeof row[colIdx] !== 'undefined' ? row[colIdx] : '';
+          tbodyHtml += `
+            <td contenteditable="true" data-row="${rowIdx}" data-col="${colIdx}" class="lpt-td-editable" 
+                style="border: 1px solid #000000; padding: 5px 8px; font-size: 11px; text-align: center; color: #000000; outline: none; line-height: 1.25;">
+              ${escapeHtmlHelper(val)}
+            </td>
+          `;
+        });
+        tbodyHtml += '</tr>';
+      });
+      lptTableTbody.innerHTML = tbodyHtml;
+
+      // Listen for direct typing in Document Preview cells
+      lptTableThead.querySelectorAll('.lpt-th-editable').forEach(th => {
+        th.addEventListener('input', () => {
+          const col = parseInt(th.getAttribute('data-col'), 10);
+          if (!isNaN(col)) {
+            lptTableState.headers[col] = th.innerText.trim();
+            updateSidebarTableInputs();
+          }
+        });
+      });
+
+      lptTableTbody.querySelectorAll('.lpt-td-editable').forEach(td => {
+        td.addEventListener('input', () => {
+          const r = parseInt(td.getAttribute('data-row'), 10);
+          const c = parseInt(td.getAttribute('data-col'), 10);
+          if (!isNaN(r) && !isNaN(c)) {
+            if (!lptTableState.rows[r]) lptTableState.rows[r] = [];
+            lptTableState.rows[r][c] = td.innerText.trim();
+            updateSidebarTableInputs();
+          }
+        });
+      });
+    }
+
+    // 2. Render Sidebar Table Editor
+    renderSidebarTableEditor();
+  };
+
+  const renderSidebarTableEditor = () => {
+    if (!lptSidebarTableEditor) return;
+    const colCount = lptTableState.headers.length;
+
+    let html = `
+      <div style="display: grid; grid-template-columns: repeat(${colCount}, minmax(95px, 1fr)); gap: 4px; margin-bottom: 6px;">
+    `;
+
+    // Headers Row in Sidebar
+    lptTableState.headers.forEach((h, cIdx) => {
+      html += `
+        <div>
+          <label style="font-size: 9.5px; color: #38bdf8; font-weight: 700; margin-bottom: 2px; display: block;">Header ${cIdx + 1}</label>
+          <input type="text" class="sppd-input-styled lpt-side-th" data-col="${cIdx}" 
+                 value="${escapeHtmlHelper(h)}" style="font-size: 11px; padding: 4px 6px; text-align: center; font-weight: 600;">
+        </div>
+      `;
+    });
+    html += `</div>`;
+
+    // Data Rows in Sidebar
+    lptTableState.rows.forEach((row, rIdx) => {
+      html += `<div style="display: grid; grid-template-columns: repeat(${colCount}, minmax(95px, 1fr)); gap: 4px; margin-bottom: 4px;">`;
+      lptTableState.headers.forEach((_, cIdx) => {
+        const val = row && typeof row[cIdx] !== 'undefined' ? row[cIdx] : '';
+        html += `
+          <div>
+            <input type="text" class="sppd-input-styled lpt-side-td" data-row="${rIdx}" data-col="${cIdx}" 
+                   value="${escapeHtmlHelper(val)}" placeholder="Nilai..." style="font-size: 11px; padding: 4px 6px; text-align: center;">
+          </div>
+        `;
+      });
+      html += `</div>`;
+    });
+
+    lptSidebarTableEditor.innerHTML = html;
+
+    // Attach listeners on Sidebar inputs
+    lptSidebarTableEditor.querySelectorAll('.lpt-side-th').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const c = parseInt(input.getAttribute('data-col'), 10);
+        if (!isNaN(c)) {
+          lptTableState.headers[c] = e.target.value;
+          const th = lptTableThead ? lptTableThead.querySelector(`.lpt-th-editable[data-col="${c}"]`) : null;
+          if (th) th.textContent = e.target.value;
+        }
+      });
+    });
+
+    lptSidebarTableEditor.querySelectorAll('.lpt-side-td').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const r = parseInt(input.getAttribute('data-row'), 10);
+        const c = parseInt(input.getAttribute('data-col'), 10);
+        if (!isNaN(r) && !isNaN(c)) {
+          if (!lptTableState.rows[r]) lptTableState.rows[r] = [];
+          lptTableState.rows[r][c] = e.target.value;
+          const td = lptTableTbody ? lptTableTbody.querySelector(`.lpt-td-editable[data-row="${r}"][data-col="${c}"]`) : null;
+          if (td) td.textContent = e.target.value;
+        }
+      });
+    });
+  };
+
+  const updateSidebarTableInputs = () => {
+    if (!lptSidebarTableEditor) return;
+    lptTableState.headers.forEach((h, c) => {
+      const inTh = lptSidebarTableEditor.querySelector(`.lpt-side-th[data-col="${c}"]`);
+      if (inTh && inTh.value !== h) inTh.value = h;
+    });
+    lptTableState.rows.forEach((row, r) => {
+      row.forEach((val, c) => {
+        const inTd = lptSidebarTableEditor.querySelector(`.lpt-side-td[data-row="${r}"][data-col="${c}"]`);
+        if (inTd && inTd.value !== val) inTd.value = val;
+      });
+    });
+  };
+
+  // Toggle Table Listener
+  if (lptToggleTable) {
+    lptToggleTable.addEventListener('change', () => {
+      lptTableState.enabled = lptToggleTable.checked;
+      renderLptTable();
+      if (typeof showToast === 'function') {
+        showToast(lptTableState.enabled ? '✓ Tabel hasil kegiatan diaktifkan pada pratinjau LPT.' : 'Tabel hasil kegiatan dinonaktifkan.', 'info');
+      }
+    });
+  }
+
+  // Preset UKS / Skrining Button (Sesuai Gambar 1)
+  if (lptBtnPresetUks) {
+    lptBtnPresetUks.addEventListener('click', () => {
+      lptTableState.enabled = true;
+      if (lptToggleTable) lptToggleTable.checked = true;
+      lptTableState.headers = ['Total Siswa di periksa', 'Sehat', 'Perlu Perhatian', 'Perlu dirujuk'];
+      lptTableState.rows = [
+        ['500', '109', '1', '390']
+      ];
+      renderLptTable();
+      if (typeof showToast === 'function') {
+        showToast('✓ Format tabel skrining UKS (Gambar 1) berhasil dimuat!', 'success');
+      }
+    });
+  }
+
+  // Row & Column Operations
+  if (lptBtnAddRow) {
+    lptBtnAddRow.addEventListener('click', () => {
+      lptTableState.rows.push(new Array(lptTableState.headers.length).fill(''));
+      renderLptTable();
+    });
+  }
+  if (lptBtnDelRow) {
+    lptBtnDelRow.addEventListener('click', () => {
+      if (lptTableState.rows.length > 1) {
+        lptTableState.rows.pop();
+        renderLptTable();
+      } else {
+        if (typeof showToast === 'function') showToast('Minimal harus ada 1 baris data.', 'warn');
+      }
+    });
+  }
+  if (lptBtnAddCol) {
+    lptBtnAddCol.addEventListener('click', () => {
+      lptTableState.headers.push(`Kolom ${lptTableState.headers.length + 1}`);
+      lptTableState.rows.forEach(r => r.push(''));
+      renderLptTable();
+    });
+  }
+  if (lptBtnDelCol) {
+    lptBtnDelCol.addEventListener('click', () => {
+      if (lptTableState.headers.length > 1) {
+        lptTableState.headers.pop();
+        lptTableState.rows.forEach(r => r.pop());
+        renderLptTable();
+      } else {
+        if (typeof showToast === 'function') showToast('Minimal harus ada 1 kolom data.', 'warn');
+      }
+    });
+  }
+
+  // ==========================================================================
+  // LPT 5 PETUGAS PELAPOR & SIGNATURES CONTROLLER (Sesuai Gambar 2)
+  // ==========================================================================
+  
+  // Populate dropdown options for Petugas 2..5 from Petugas 1
+  const populateLptOfficerOptions = () => {
+    const p1Select = document.getElementById('lptSelectPetugas1');
+    if (!p1Select) return;
+    const optionsHtml = p1Select.innerHTML;
+    for (let i = 2; i <= 5; i++) {
+      const sel = document.getElementById(`lptSelectPetugas${i}`);
+      if (sel && sel.options.length <= 2) {
+        sel.innerHTML = optionsHtml;
+        if (sel.options[0]) sel.options[0].text = `-- Pilih Petugas ${i} --`;
+      }
+    }
+  };
+
+  // Sync an Officer by Index (1 to 5)
   const syncLptOfficer = (index) => {
     const select = document.getElementById(`lptSelectPetugas${index}`);
     const nameEl = document.getElementById(`lptSigPetugasName${index}`);
     const nipEl = document.getElementById(`lptSigPetugasNip${index}`);
+    const inNama = document.getElementById(`lptInputCustomNama${index}`);
+    const inNip = document.getElementById(`lptInputCustomNip${index}`);
     if (!select || !nameEl || !nipEl) return;
 
-    if (select.selectedIndex >= 0) {
+    if (select.value === 'CUSTOM') {
+      const customNama = inNama && inNama.value.trim() ? inNama.value.trim() : '...........................................';
+      const customNip = inNip && inNip.value.trim() ? inNip.value.trim() : 'NIP. ...........................................';
+      nameEl.textContent = customNama;
+      nipEl.textContent = customNip.startsWith('NIP') || customNip.startsWith('NRP') ? customNip : `NIP. ${customNip}`;
+    } else if (select.selectedIndex >= 0) {
       const opt = select.options[select.selectedIndex];
-      if (opt && opt.value) {
+      if (opt && opt.value && opt.value !== 'CUSTOM') {
         nameEl.textContent = opt.value;
-        nipEl.textContent = opt.getAttribute('data-nip') || '-';
+        const rawNip = opt.getAttribute('data-nip') || '';
+        nipEl.textContent = rawNip || 'NIP. -';
       } else {
         nameEl.textContent = '...........................................';
         nipEl.textContent = 'NIP. ...........................................';
@@ -5752,34 +6033,118 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // Sync LPT Officer Visibility & Signature Alignment (Single Officer -> Posisi KANAN)
+  // Update Officer Visibility and Stacked Layout (1 to 5)
   const updateLptPetugasVisibility = () => {
-    const show2 = lptTogglePetugas2 ? lptTogglePetugas2.checked : false;
-    const show3 = lptTogglePetugas3 ? lptTogglePetugas3.checked : false;
+    let activeCount = 1; // Petugas 1 is always active
 
-    if (lptSigCol2) lptSigCol2.style.display = show2 ? 'block' : 'none';
-    if (lptWrapSelectPetugas2) lptWrapSelectPetugas2.style.display = show2 ? 'block' : 'none';
-    if (lptBadgePetugas2) {
-      lptBadgePetugas2.textContent = show2 ? 'Ditampilkan' : 'Disembunyikan';
-      lptBadgePetugas2.style.color = show2 ? '#10b981' : '#94a3b8';
-    }
+    for (let i = 2; i <= 5; i++) {
+      const toggle = document.getElementById(`lptTogglePetugas${i}`);
+      const row = document.getElementById(`lptSigRow${i}`);
+      const card = document.getElementById(`lptCardPetugas${i}`);
+      const badge = document.getElementById(`lptBadgePetugas${i}`);
+      const isShown = toggle ? toggle.checked : false;
 
-    if (lptSigCol3) lptSigCol3.style.display = show3 ? 'block' : 'none';
-    if (lptWrapSelectPetugas3) lptWrapSelectPetugas3.style.display = show3 ? 'block' : 'none';
-    if (lptBadgePetugas3) {
-      lptBadgePetugas3.textContent = show3 ? 'Ditampilkan' : 'Disembunyikan';
-      lptBadgePetugas3.style.color = show3 ? '#10b981' : '#94a3b8';
-    }
-
-    if (lptSignaturesRow) {
-      if (!show2 && !show3) {
-        // Posisi Petugas Tunggal (Sendiri) di KANAN
-        lptSignaturesRow.style.justifyContent = 'flex-end';
-      } else {
-        lptSignaturesRow.style.justifyContent = 'space-between';
+      if (row) row.style.display = isShown ? 'flex' : 'none';
+      if (card) card.style.display = isShown ? 'block' : 'none';
+      if (badge) {
+        badge.textContent = isShown ? 'Ditampilkan' : 'Disembunyikan';
+        badge.style.color = isShown ? '#10b981' : '#94a3b8';
       }
+      if (isShown) activeCount++;
+    }
+
+    // Dynamic vertical gap depending on active officers count (fits cleanly on A4)
+    if (lptOfficersListContainer) {
+      if (activeCount <= 2) lptOfficersListContainer.style.gap = '24px';
+      else if (activeCount === 3) lptOfficersListContainer.style.gap = '20px';
+      else if (activeCount === 4) lptOfficersListContainer.style.gap = '15px';
+      else lptOfficersListContainer.style.gap = '12px';
+    }
+
+    // Update "+ Tambah Petugas" button visibility
+    if (lptBtnAddPetugas) {
+      lptBtnAddPetugas.style.display = activeCount >= 5 ? 'none' : 'inline-flex';
+    }
+
+    if (lptPetugasSummaryBadge) {
+      lptPetugasSummaryBadge.textContent = `${activeCount} / 5 Petugas Aktif`;
     }
   };
+
+  // Remove/Reset an Officer (2 to 5)
+  const removePetugas = (index) => {
+    const toggle = document.getElementById(`lptTogglePetugas${index}`);
+    const select = document.getElementById(`lptSelectPetugas${index}`);
+    const inNama = document.getElementById(`lptInputCustomNama${index}`);
+    const inNip = document.getElementById(`lptInputCustomNip${index}`);
+    const customWrap = document.getElementById(`lptCustomWrap${index}`);
+
+    if (toggle) toggle.checked = false;
+    if (select) select.value = '';
+    if (inNama) inNama.value = '';
+    if (inNip) inNip.value = '';
+    if (customWrap) customWrap.style.display = 'none';
+
+    syncLptOfficer(index);
+    updateLptPetugasVisibility();
+  };
+
+  // Initialize all 5 Officer Event Listeners
+  populateLptOfficerOptions();
+
+  for (let i = 1; i <= 5; i++) {
+    const idx = i;
+    const select = document.getElementById(`lptSelectPetugas${idx}`);
+    const toggle = document.getElementById(`lptTogglePetugas${idx}`);
+    const inNama = document.getElementById(`lptInputCustomNama${idx}`);
+    const inNip = document.getElementById(`lptInputCustomNip${idx}`);
+    const customWrap = document.getElementById(`lptCustomWrap${idx}`);
+    const delBtn = document.querySelector(`.lpt-btn-del-petugas[data-index="${idx}"]`);
+
+    if (select) {
+      select.addEventListener('change', () => {
+        select.dataset.userEdited = 'true';
+        if (select.value === 'CUSTOM') {
+          if (customWrap) customWrap.style.display = 'grid';
+          if (inNama) inNama.focus();
+        } else {
+          if (customWrap) customWrap.style.display = 'none';
+        }
+        syncLptOfficer(idx);
+      });
+    }
+
+    if (inNama) {
+      inNama.addEventListener('input', () => syncLptOfficer(idx));
+    }
+    if (inNip) {
+      inNip.addEventListener('input', () => syncLptOfficer(idx));
+    }
+
+    if (toggle) {
+      toggle.addEventListener('change', updateLptPetugasVisibility);
+    }
+
+    if (delBtn) {
+      delBtn.addEventListener('click', () => removePetugas(idx));
+    }
+  }
+
+  // "+ Tambah Petugas" button click
+  if (lptBtnAddPetugas) {
+    lptBtnAddPetugas.addEventListener('click', () => {
+      for (let i = 2; i <= 5; i++) {
+        const toggle = document.getElementById(`lptTogglePetugas${i}`);
+        if (toggle && !toggle.checked) {
+          toggle.checked = true;
+          updateLptPetugasVisibility();
+          const card = document.getElementById(`lptCardPetugas${i}`);
+          if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          break;
+        }
+      }
+    });
+  }
 
   // Wire LPT Sidebar Inputs to Preview Document
   if (lptInputDasar) {
@@ -7423,15 +7788,58 @@ document.addEventListener('DOMContentLoaded', () => {
     color: #000000 !important;
   }
   .lpt-signatures-wrapper {
+    margin-top: 25px !important;
+    display: flex !important;
+    justify-content: flex-end !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
-  .lpt-sig-col {
-    text-align: center !important;
+  .lpt-sig-stacked-block {
+    width: 270px !important;
+    color: #000000 !important;
+    text-align: left !important;
   }
-  .exact-lpt-table td {
-    padding: 5px 7px !important;
+  .lpt-officer-item {
+    display: flex !important;
+    align-items: flex-start !important;
+    font-size: 12px !important;
     line-height: 1.35 !important;
+    color: #000000 !important;
+  }
+  .lpt-officer-num {
+    width: 20px !important;
+    flex-shrink: 0 !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+  }
+  #lptTableWrapper {
+    margin-top: 8px !important;
+    margin-bottom: 10px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  #lptDynamicTable,
+  .exact-lpt-table {
+    width: 100% !important;
+    max-width: 540px !important;
+    border-collapse: collapse !important;
+    border: 1.5px solid #000000 !important;
+    font-size: 11px !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+  #lptDynamicTable th,
+  #lptDynamicTable td,
+  .exact-lpt-table th,
+  .exact-lpt-table td {
+    border: 1px solid #000000 !important;
+    padding: 5px 8px !important;
+    text-align: center !important;
+    color: #000000 !important;
+    line-height: 1.25 !important;
+  }
+  #lptDynamicTable th {
+    font-weight: bold !important;
   }
 
   /* Dokumentasi specific */
@@ -7873,10 +8281,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initial Sync & Display
   syncSppdLptData();
-  syncLptOfficer(1);
-  syncLptOfficer(2);
-  syncLptOfficer(3);
+  for (let i = 1; i <= 5; i++) syncLptOfficer(i);
   updateLptPetugasVisibility();
+  renderLptTable();
   updateFormDisplay();
   initSppdCustomizerEvents();
 
@@ -8621,7 +9028,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
 
-        // LPT Details (Termasuk Tanggal Laporan)
+        // LPT Details (Termasuk Tanggal Laporan, 5 Petugas & Dynamic Table)
         const lptData = {
           dasar: document.getElementById('lptInputDasar')?.value || '',
           tujuan: document.getElementById('lptInputTujuanPerjalanan')?.value || '',
@@ -8632,8 +9039,25 @@ document.addEventListener('DOMContentLoaded', () => {
           petugas1: document.getElementById('lptSelectPetugas1')?.value || '',
           petugas2: document.getElementById('lptSelectPetugas2')?.value || '',
           petugas3: document.getElementById('lptSelectPetugas3')?.value || '',
+          petugas4: document.getElementById('lptSelectPetugas4')?.value || '',
+          petugas5: document.getElementById('lptSelectPetugas5')?.value || '',
           toggle2: document.getElementById('lptTogglePetugas2')?.checked || false,
-          toggle3: document.getElementById('lptTogglePetugas3')?.checked || false
+          toggle3: document.getElementById('lptTogglePetugas3')?.checked || false,
+          toggle4: document.getElementById('lptTogglePetugas4')?.checked || false,
+          toggle5: document.getElementById('lptTogglePetugas5')?.checked || false,
+          customNama1: document.getElementById('lptInputCustomNama1')?.value || '',
+          customNip1: document.getElementById('lptInputCustomNip1')?.value || '',
+          customNama2: document.getElementById('lptInputCustomNama2')?.value || '',
+          customNip2: document.getElementById('lptInputCustomNip2')?.value || '',
+          customNama3: document.getElementById('lptInputCustomNama3')?.value || '',
+          customNip3: document.getElementById('lptInputCustomNip3')?.value || '',
+          customNama4: document.getElementById('lptInputCustomNama4')?.value || '',
+          customNip4: document.getElementById('lptInputCustomNip4')?.value || '',
+          customNama5: document.getElementById('lptInputCustomNama5')?.value || '',
+          customNip5: document.getElementById('lptInputCustomNip5')?.value || '',
+          table_enabled: !!(lptTableState && lptTableState.enabled),
+          table_headers: lptTableState ? [...lptTableState.headers] : [],
+          table_rows: lptTableState ? JSON.parse(JSON.stringify(lptTableState.rows)) : []
         };
 
         // Dokumentasi Details - Pastikan file gambar tersimpan di Cloudflare R2
@@ -8855,30 +9279,51 @@ document.addEventListener('DOMContentLoaded', () => {
             const docEl = document.getElementById('lptValKesimpulan');
             if (docEl) docEl.innerHTML = textToHtml(lpt.kesimpulan);
           }
-          if (lpt.petugas1) {
-            const el = document.getElementById('lptSelectPetugas1');
-            if (el) { el.value = lpt.petugas1; el.dataset.userEdited = 'true'; }
-            syncLptOfficer(1);
-          }
-          if (lpt.petugas2) {
-            const el = document.getElementById('lptSelectPetugas2');
-            if (el) { el.value = lpt.petugas2; el.dataset.userEdited = 'true'; }
-            syncLptOfficer(2);
-          }
-          if (lpt.petugas3) {
-            const el = document.getElementById('lptSelectPetugas3');
-            if (el) { el.value = lpt.petugas3; el.dataset.userEdited = 'true'; }
-            syncLptOfficer(3);
-          }
-          if (typeof lpt.toggle2 !== 'undefined') {
-            const el = document.getElementById('lptTogglePetugas2');
-            if (el) el.checked = !!lpt.toggle2;
-          }
-          if (typeof lpt.toggle3 !== 'undefined') {
-            const el = document.getElementById('lptTogglePetugas3');
-            if (el) el.checked = !!lpt.toggle3;
+          // Restore 5 Officers & Toggles
+          for (let i = 1; i <= 5; i++) {
+            const petVal = lpt[`petugas${i}`];
+            if (petVal) {
+              const el = document.getElementById(`lptSelectPetugas${i}`);
+              if (el) { el.value = petVal; el.dataset.userEdited = 'true'; }
+              const customWrap = document.getElementById(`lptCustomWrap${i}`);
+              if (customWrap) customWrap.style.display = petVal === 'CUSTOM' ? 'grid' : 'none';
+            }
+            const cNama = lpt[`customNama${i}`];
+            if (cNama) {
+              const el = document.getElementById(`lptInputCustomNama${i}`);
+              if (el) el.value = cNama;
+            }
+            const cNip = lpt[`customNip${i}`];
+            if (cNip) {
+              const el = document.getElementById(`lptInputCustomNip${i}`);
+              if (el) el.value = cNip;
+            }
+            if (i >= 2 && typeof lpt[`toggle${i}`] !== 'undefined') {
+              const el = document.getElementById(`lptTogglePetugas${i}`);
+              if (el) el.checked = !!lpt[`toggle${i}`];
+            }
+            syncLptOfficer(i);
           }
           updateLptPetugasVisibility();
+
+          // Restore Dynamic Table (Sesuai Gambar 1)
+          if (typeof lpt.table_enabled !== 'undefined' || lpt.table_data) {
+            const isTableEnabled = typeof lpt.table_enabled !== 'undefined' ? lpt.table_enabled : (lpt.table_data && lpt.table_data.enabled);
+            lptTableState.enabled = !!isTableEnabled;
+            if (Array.isArray(lpt.table_headers)) {
+              lptTableState.headers = [...lpt.table_headers];
+            } else if (lpt.table_data && Array.isArray(lpt.table_data.headers)) {
+              lptTableState.headers = [...lpt.table_data.headers];
+            }
+            if (Array.isArray(lpt.table_rows)) {
+              lptTableState.rows = JSON.parse(JSON.stringify(lpt.table_rows));
+            } else if (lpt.table_data && Array.isArray(lpt.table_data.rows)) {
+              lptTableState.rows = JSON.parse(JSON.stringify(lpt.table_data.rows));
+            }
+            const toggleEl = document.getElementById('lptToggleTable');
+            if (toggleEl) toggleEl.checked = lptTableState.enabled;
+            renderLptTable();
+          }
         }
 
       } else if (type === 'dok') {

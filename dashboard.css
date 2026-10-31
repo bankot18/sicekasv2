@@ -13583,6 +13583,83 @@ body.theme-light .empty-state-desc {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
 }
 
+/* ========================================================================== */
+/* LPT DYNAMIC TABLE & STACKED SIGNATURES (SESUAI GAMBAR 1 & 2)               */
+/* ========================================================================== */
+.exact-lpt-table {
+  width: 100%;
+  max-width: 540px;
+  border-collapse: collapse;
+  border: 1.5px solid #000000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  text-align: center;
+  color: #000000;
+  background: #ffffff;
+}
 
+.exact-lpt-table th,
+.exact-lpt-table td {
+  border: 1px solid #000000;
+  padding: 5px 8px;
+  line-height: 1.25;
+  color: #000000;
+}
 
+.exact-lpt-table th {
+  font-weight: bold;
+  background-color: rgba(0, 0, 0, 0.02);
+}
 
+.lpt-signatures-wrapper {
+  margin-top: 25px;
+  display: flex;
+  justify-content: flex-end;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.lpt-sig-stacked-block {
+  width: 270px;
+  color: #000000;
+  text-align: left;
+}
+
+.lpt-officer-item {
+  display: flex;
+  align-items: flex-start;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #000000;
+}
+
+.lpt-officer-num {
+  width: 20px;
+  flex-shrink: 0;
+  font-weight: bold;
+  color: #000000;
+}
+
+.lpt-side-th {
+  background: rgba(15, 23, 42, 0.8) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.4) !important;
+}
+
+.lpt-side-td {
+  background: rgba(15, 23, 42, 0.6) !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+}
+
+.lpt-side-th:focus,
+.lpt-side-td:focus {
+  border-color: #2dd4bf !important;
+  box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.2) !important;
+  outline: none !important;
+}
+
+.sppd-btn-table-action:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+}
