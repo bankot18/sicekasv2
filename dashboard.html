@@ -74,7 +74,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="dashboard.css?v=81">
+  <link rel="stylesheet" href="dashboard.css?v=87">
 </head>
 <body>
   <!-- Ambient Atmospheric Light Glows -->
@@ -2827,7 +2827,7 @@
                         </label>
                         <div style="display: flex; align-items: center; gap: 6px;">
                           <span id="lptBadgePetugas2" style="font-size: 10px; color: #94a3b8; font-weight: 600;">Disembunyikan</span>
-                          <button type="button" class="lpt-btn-del-petugas" data-index="2" title="Hapus Petugas 2" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; border-radius: 5px; height: 22px; width: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;">✕</button>
+                          <button type="button" class="lpt-btn-del-petugas" data-index="2" onclick="window.removePetugas ? window.removePetugas(2) : null" title="Hapus Petugas 2" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; border-radius: 5px; height: 22px; width: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;">✕</button>
                         </div>
                       </div>
                       <div class="select-wrapper" id="lptSelectWrapPetugas2">
@@ -2851,7 +2851,7 @@
                         </label>
                         <div style="display: flex; align-items: center; gap: 6px;">
                           <span id="lptBadgePetugas3" style="font-size: 10px; color: #94a3b8; font-weight: 600;">Disembunyikan</span>
-                          <button type="button" class="lpt-btn-del-petugas" data-index="3" title="Hapus Petugas 3" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; border-radius: 5px; height: 22px; width: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;">✕</button>
+                          <button type="button" class="lpt-btn-del-petugas" data-index="3" onclick="window.removePetugas ? window.removePetugas(3) : null" title="Hapus Petugas 3" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; border-radius: 5px; height: 22px; width: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;">✕</button>
                         </div>
                       </div>
                       <div class="select-wrapper" id="lptSelectWrapPetugas3">
@@ -2875,7 +2875,7 @@
                         </label>
                         <div style="display: flex; align-items: center; gap: 6px;">
                           <span id="lptBadgePetugas4" style="font-size: 10px; color: #94a3b8; font-weight: 600;">Disembunyikan</span>
-                          <button type="button" class="lpt-btn-del-petugas" data-index="4" title="Hapus Petugas 4" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; border-radius: 5px; height: 22px; width: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;">✕</button>
+                          <button type="button" class="lpt-btn-del-petugas" data-index="4" onclick="window.removePetugas ? window.removePetugas(4) : null" title="Hapus Petugas 4" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; border-radius: 5px; height: 22px; width: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;">✕</button>
                         </div>
                       </div>
                       <div class="select-wrapper" id="lptSelectWrapPetugas4">
@@ -2899,7 +2899,7 @@
                         </label>
                         <div style="display: flex; align-items: center; gap: 6px;">
                           <span id="lptBadgePetugas5" style="font-size: 10px; color: #94a3b8; font-weight: 600;">Disembunyikan</span>
-                          <button type="button" class="lpt-btn-del-petugas" data-index="5" title="Hapus Petugas 5" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; border-radius: 5px; height: 22px; width: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;">✕</button>
+                          <button type="button" class="lpt-btn-del-petugas" data-index="5" onclick="window.removePetugas ? window.removePetugas(5) : null" title="Hapus Petugas 5" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; border-radius: 5px; height: 22px; width: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;">✕</button>
                         </div>
                       </div>
                       <div class="select-wrapper" id="lptSelectWrapPetugas5">
@@ -2918,9 +2918,9 @@
 
                   <!-- Tombol Tambah Petugas (Maks. 5) -->
                   <div style="margin-top: 10px;">
-                    <button type="button" id="lptBtnAddPetugas" style="width: 100%; background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(14, 165, 233, 0.22) 100%); border: 1px dashed rgba(56, 189, 248, 0.45); color: #38bdf8; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;">
+                    <button type="button" id="lptBtnAddPetugas" onclick="window.addLptPetugas ? window.addLptPetugas() : null" style="width: 100%; background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(14, 165, 233, 0.22) 100%); border: 1px dashed rgba(56, 189, 248, 0.45); color: #38bdf8; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;">
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                      <span>+ Tambah Petugas Pelapor (Maks. 5)</span>
+                      <span>Tambah Petugas Pelapor (Maks. 5)</span>
                     </button>
                   </div>
 
@@ -5070,6 +5070,6 @@
   </div>
 
   <script src="sppd_assets.js"></script>
-  <script src="dashboard.js?v=85"></script>
+  <script src="dashboard.js?v=87"></script>
 </body>
 </html>

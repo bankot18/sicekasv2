@@ -40,6 +40,82 @@ window.toggleSicekasTheme = function() {
   if (window.showToast) window.showToast(isLight ? '☀️ Mode Terang diaktifkan' : '🌙 Mode Gelap diaktifkan', 'info');
 };
 
+// Global Early Fallbacks for LPT Officer Management
+window.addLptPetugas = function() {
+  for (let i = 2; i <= 5; i++) {
+    const card = document.getElementById('lptCardPetugas' + i);
+    const toggle = document.getElementById('lptTogglePetugas' + i);
+    const row = document.getElementById('lptSigRow' + i);
+    const isHidden = !card || card.style.display === 'none' || (toggle && !toggle.checked);
+    if (isHidden) {
+      if (toggle) toggle.checked = true;
+      if (card) card.style.display = 'block';
+      if (row) row.style.display = 'flex';
+      const badge = document.getElementById('lptBadgePetugas' + i);
+      if (badge) { badge.textContent = 'Ditampilkan'; badge.style.color = '#10b981'; }
+      let activeCount = 1;
+      for (let j = 2; j <= 5; j++) {
+        const t = document.getElementById('lptTogglePetugas' + j);
+        if (t && t.checked) activeCount++;
+      }
+      const sumBadge = document.getElementById('lptPetugasSummaryBadge');
+      if (sumBadge) sumBadge.textContent = activeCount + ' / 5 Petugas Aktif';
+      const addBtn = document.getElementById('lptBtnAddPetugas');
+      if (addBtn && activeCount >= 5) addBtn.style.display = 'none';
+      const container = document.getElementById('lptOfficersListContainer');
+      if (container) {
+        if (activeCount <= 2) container.style.gap = '24px';
+        else if (activeCount === 3) container.style.gap = '20px';
+        else if (activeCount === 4) container.style.gap = '15px';
+        else container.style.gap = '12px';
+      }
+      if (typeof syncLptOfficer === 'function') syncLptOfficer(i);
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+  }
+};
+
+window.removePetugas = function(index) {
+  const toggle = document.getElementById('lptTogglePetugas' + index);
+  const card = document.getElementById('lptCardPetugas' + index);
+  const row = document.getElementById('lptSigRow' + index);
+  const select = document.getElementById('lptSelectPetugas' + index);
+  const inNama = document.getElementById('lptInputCustomNama' + index);
+  const inNip = document.getElementById('lptInputCustomNip' + index);
+  const customWrap = document.getElementById('lptCustomWrap' + index);
+  const badge = document.getElementById('lptBadgePetugas' + index);
+
+  if (toggle) toggle.checked = false;
+  if (card) card.style.display = 'none';
+  if (row) row.style.display = 'none';
+  if (select) select.value = '';
+  if (inNama) inNama.value = '';
+  if (inNip) inNip.value = '';
+  if (customWrap) customWrap.style.display = 'none';
+  if (badge) { badge.textContent = 'Disembunyikan'; badge.style.color = '#94a3b8'; }
+
+  let activeCount = 1;
+  for (let j = 2; j <= 5; j++) {
+    const t = document.getElementById('lptTogglePetugas' + j);
+    if (t && t.checked) activeCount++;
+  }
+  const sumBadge = document.getElementById('lptPetugasSummaryBadge');
+  if (sumBadge) sumBadge.textContent = activeCount + ' / 5 Petugas Aktif';
+  const addBtn = document.getElementById('lptBtnAddPetugas');
+  if (addBtn) addBtn.style.display = 'inline-flex';
+
+  const container = document.getElementById('lptOfficersListContainer');
+  if (container) {
+    if (activeCount <= 2) container.style.gap = '24px';
+    else if (activeCount === 3) container.style.gap = '20px';
+    else if (activeCount === 4) container.style.gap = '15px';
+    else container.style.gap = '12px';
+  }
+
+  if (typeof syncLptOfficer === 'function') syncLptOfficer(index);
+};
+
 // Update labels and icon on load
 document.addEventListener('DOMContentLoaded', () => {
   const isLight = document.body.classList.contains('theme-light');
@@ -6074,20 +6150,30 @@ document.addEventListener('DOMContentLoaded', () => {
   // Remove/Reset an Officer (2 to 5)
   const removePetugas = (index) => {
     const toggle = document.getElementById(`lptTogglePetugas${index}`);
+    const card = document.getElementById(`lptCardPetugas${index}`);
+    const row = document.getElementById(`lptSigRow${index}`);
     const select = document.getElementById(`lptSelectPetugas${index}`);
     const inNama = document.getElementById(`lptInputCustomNama${index}`);
     const inNip = document.getElementById(`lptInputCustomNip${index}`);
     const customWrap = document.getElementById(`lptCustomWrap${index}`);
+    const badge = document.getElementById(`lptBadgePetugas${index}`);
 
     if (toggle) toggle.checked = false;
+    if (card) card.style.display = 'none';
+    if (row) row.style.display = 'none';
     if (select) select.value = '';
     if (inNama) inNama.value = '';
     if (inNip) inNip.value = '';
     if (customWrap) customWrap.style.display = 'none';
+    if (badge) {
+      badge.textContent = 'Disembunyikan';
+      badge.style.color = '#94a3b8';
+    }
 
     syncLptOfficer(index);
     updateLptPetugasVisibility();
   };
+  window.removePetugas = removePetugas;
 
   // Initialize all 5 Officer Event Listeners
   populateLptOfficerOptions();
@@ -6122,7 +6208,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (toggle) {
-      toggle.addEventListener('change', updateLptPetugasVisibility);
+      toggle.addEventListener('change', () => {
+        syncLptOfficer(idx);
+        updateLptPetugasVisibility();
+      });
     }
 
     if (delBtn) {
@@ -6130,20 +6219,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // "+ Tambah Petugas" button click
-  if (lptBtnAddPetugas) {
-    lptBtnAddPetugas.addEventListener('click', () => {
-      for (let i = 2; i <= 5; i++) {
-        const toggle = document.getElementById(`lptTogglePetugas${i}`);
-        if (toggle && !toggle.checked) {
-          toggle.checked = true;
-          updateLptPetugasVisibility();
-          const card = document.getElementById(`lptCardPetugas${i}`);
-          if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          break;
-        }
+  // "+ Tambah Petugas" button click & Global Window Handler
+  const addLptPetugasHandler = () => {
+    let added = false;
+    for (let i = 2; i <= 5; i++) {
+      const toggle = document.getElementById(`lptTogglePetugas${i}`);
+      const card = document.getElementById(`lptCardPetugas${i}`);
+      const row = document.getElementById(`lptSigRow${i}`);
+      const isHidden = !card || card.style.display === 'none' || (toggle && !toggle.checked);
+      if (isHidden) {
+        if (toggle) toggle.checked = true;
+        if (card) card.style.display = 'block';
+        if (row) row.style.display = 'flex';
+        syncLptOfficer(i);
+        updateLptPetugasVisibility();
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        added = true;
+        break;
       }
-    });
+    }
+    if (!added && typeof showToast === 'function') {
+      showToast('Maksimal 5 petugas sudah ditampilkan.', 'info');
+    }
+  };
+
+  window.addLptPetugas = addLptPetugasHandler;
+
+  if (lptBtnAddPetugas) {
+    lptBtnAddPetugas.onclick = addLptPetugasHandler;
   }
 
   // Wire LPT Sidebar Inputs to Preview Document
@@ -6232,28 +6335,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Wire LPT Officer Dropdowns & Toggles
-  if (lptSelectPetugas1) {
-    lptSelectPetugas1.addEventListener('change', () => {
-      lptSelectPetugas1.dataset.userEdited = 'true';
-      syncLptOfficer(1);
-    });
-  }
-  if (lptSelectPetugas2) {
-    lptSelectPetugas2.addEventListener('change', () => {
-      lptSelectPetugas2.dataset.userEdited = 'true';
-      syncLptOfficer(2);
-    });
-  }
-  if (lptSelectPetugas3) {
-    lptSelectPetugas3.addEventListener('change', () => {
-      lptSelectPetugas3.dataset.userEdited = 'true';
-      syncLptOfficer(3);
-    });
-  }
-
-  if (lptTogglePetugas2) lptTogglePetugas2.addEventListener('change', updateLptPetugasVisibility);
-  if (lptTogglePetugas3) lptTogglePetugas3.addEventListener('change', updateLptPetugasVisibility);
 
   // Wire LPT Color Highlight Switch
   if (btnToggleLptHighlight) {
