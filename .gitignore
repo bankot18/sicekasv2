@@ -3,3 +3,5 @@ server.ps1
 .DS_Store
 Thumbs.db
 *.log
+_worker.js
+_routes.json
