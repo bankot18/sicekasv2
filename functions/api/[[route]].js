@@ -2468,6 +2468,163 @@ async function handleApiRequest(request, env, ctx) {
       });
     }
 
+    // ------------------------------------------------------------------------
+    // SPPD, LPT & DOK TEMPLATES (/api/sppd/templates, /api/sppd/templates/save, /api/sppd/templates/delete)
+    // ------------------------------------------------------------------------
+    if (pathname === '/api/sppd/templates' && method === 'GET') {
+      try {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS sppd_templates (
+            id TEXT PRIMARY KEY,
+            template_type TEXT NOT NULL DEFAULT 'sppd',
+            nama_template TEXT NOT NULL,
+            username TEXT NOT NULL,
+            no_surat TEXT,
+            tgl_berangkat TEXT,
+            tgl_kembali TEXT,
+            pegawai_nama TEXT,
+            pegawai_nip TEXT,
+            maksud_kegiatan TEXT,
+            tempat_berangkat TEXT,
+            tempat_tujuan TEXT,
+            pengikut_data TEXT,
+            lpt_data TEXT,
+            dok_data TEXT,
+            is_favorite INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `).run();
+      } catch (e) {}
+
+      const usernameQuery = url.searchParams.get('username');
+      let query = 'SELECT * FROM sppd_templates ORDER BY is_favorite DESC, created_at DESC';
+      let params = [];
+
+      if (usernameQuery) {
+        query = 'SELECT * FROM sppd_templates WHERE username = ? OR username = "all" ORDER BY is_favorite DESC, created_at DESC';
+        params = [usernameQuery];
+      }
+
+      const stmt = params.length > 0 ? db.prepare(query).bind(...params) : db.prepare(query);
+      const { results } = await stmt.all();
+
+      const parsedResults = (results || []).map(row => {
+        try {
+          if (row.pengikut_data && typeof row.pengikut_data === 'string') {
+            row.pengikut_data = JSON.parse(row.pengikut_data);
+          }
+        } catch (e) {}
+        try {
+          if (row.lpt_data && typeof row.lpt_data === 'string') {
+            row.lpt_data = JSON.parse(row.lpt_data);
+          }
+        } catch (e) {}
+        try {
+          if (row.dok_data && typeof row.dok_data === 'string') {
+            row.dok_data = JSON.parse(row.dok_data);
+          }
+        } catch (e) {}
+        return row;
+      });
+
+      return jsonResponse({
+        success: true,
+        data: parsedResults
+      });
+    }
+
+    if (pathname === '/api/sppd/templates/save' && method === 'POST') {
+      try {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS sppd_templates (
+            id TEXT PRIMARY KEY,
+            template_type TEXT NOT NULL DEFAULT 'sppd',
+            nama_template TEXT NOT NULL,
+            username TEXT NOT NULL,
+            no_surat TEXT,
+            tgl_berangkat TEXT,
+            tgl_kembali TEXT,
+            pegawai_nama TEXT,
+            pegawai_nip TEXT,
+            maksud_kegiatan TEXT,
+            tempat_berangkat TEXT,
+            tempat_tujuan TEXT,
+            pengikut_data TEXT,
+            lpt_data TEXT,
+            dok_data TEXT,
+            is_favorite INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          )
+        `).run();
+      } catch (e) {}
+
+      const item = await request.json();
+      const id = item.id || `tmpl-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+      const templateType = item.template_type || 'sppd';
+      const namaTemplate = item.nama_template || 'Template ' + (item.maksud_kegiatan || '');
+      const username = item.username || 'ozie';
+      const noSurat = item.no_surat || '';
+      const tglBerangkat = item.tgl_berangkat || '';
+      const tglKembali = item.tgl_kembali || '';
+      const pegawaiNama = item.pegawai_nama || '';
+      const pegawaiNip = item.pegawai_nip || '';
+      const maksudKegiatan = item.maksud_kegiatan || '';
+      const tempatBerangkat = item.tempat_berangkat || 'Puskesmas Banjaran Kota';
+      const tempatTujuan = item.tempat_tujuan || '';
+      const pengikutData = typeof item.pengikut_data === 'object' ? JSON.stringify(item.pengikut_data) : (item.pengikut_data || '[]');
+      const lptData = typeof item.lpt_data === 'object' ? JSON.stringify(item.lpt_data) : (item.lpt_data || '{}');
+      const dokData = typeof item.dok_data === 'object' ? JSON.stringify(item.dok_data) : (item.dok_data || '{}');
+      const isFavorite = item.is_favorite ? 1 : 0;
+      const now = new Date().toISOString();
+
+      await db.prepare(`
+        INSERT INTO sppd_templates (
+          id, template_type, nama_template, username, no_surat, tgl_berangkat, tgl_kembali,
+          pegawai_nama, pegawai_nip, maksud_kegiatan, tempat_berangkat, tempat_tujuan,
+          pengikut_data, lpt_data, dok_data, is_favorite, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          nama_template = excluded.nama_template,
+          no_surat = excluded.no_surat,
+          tgl_berangkat = excluded.tgl_berangkat,
+          tgl_kembali = excluded.tgl_kembali,
+          pegawai_nama = excluded.pegawai_nama,
+          pegawai_nip = excluded.pegawai_nip,
+          maksud_kegiatan = excluded.maksud_kegiatan,
+          tempat_berangkat = excluded.tempat_berangkat,
+          tempat_tujuan = excluded.tempat_tujuan,
+          pengikut_data = excluded.pengikut_data,
+          lpt_data = excluded.lpt_data,
+          dok_data = excluded.dok_data,
+          is_favorite = excluded.is_favorite,
+          updated_at = excluded.updated_at
+      `).bind(
+        id, templateType, namaTemplate, username, noSurat, tglBerangkat, tglKembali,
+        pegawaiNama, pegawaiNip, maksudKegiatan, tempatBerangkat, tempatTujuan,
+        pengikutData, lptData, dokData, isFavorite, now, now
+      ).run();
+
+      return jsonResponse({
+        success: true,
+        message: 'Template berhasil disimpan ke Cloudflare D1',
+        id
+      });
+    }
+
+    if (pathname === '/api/sppd/templates/delete' && method === 'POST') {
+      const { id } = await request.json();
+      if (!id) {
+        return jsonResponse({ success: false, error: 'ID template wajib disertakan' }, 400);
+      }
+      await db.prepare('DELETE FROM sppd_templates WHERE id = ?').bind(id).run();
+      return jsonResponse({
+        success: true,
+        message: 'Template berhasil dihapus dari Cloudflare D1'
+      });
+    }
+
     // 404 Route Not Found
     return jsonResponse({ success: false, error: `Endpoint API tidak ditemukan: ${method} ${pathname}` }, 404);
 

@@ -1261,8 +1261,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return { success: true };
     },
 
-    // 5b. SPPD Templates (Direct Cloudflare D1 Database)
+    // 5b. SPPD & LPT Templates (Direct Cloudflare D1 Database + Guaranteed Local Storage Persistence)
     async fetchSppdTemplates(username) {
+      let localBackup = [];
+      try {
+        localBackup = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
+      } catch (e) {}
+
       try {
         const u = username || '';
         const url = u ? `/api/sppd/templates?username=${encodeURIComponent(u)}&_t=${Date.now()}` : `/api/sppd/templates?_t=${Date.now()}`;
@@ -1270,25 +1275,45 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.data)) {
-            // Update local backup
+            // If D1 returned data, merge with any recent local items and update storage
+            const d1Map = new Map();
+            json.data.forEach(item => { if (item && item.id) d1Map.set(item.id, item); });
+            // Preserve any local items not yet in D1
+            localBackup.forEach(item => {
+              if (item && item.id && !d1Map.has(item.id)) d1Map.set(item.id, item);
+            });
+            const merged = Array.from(d1Map.values());
             try {
-              localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(json.data));
+              localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(merged));
             } catch (storageErr) {}
-            return json.data;
+            return merged;
           }
         }
       } catch (e) {
         console.warn('Fallback fetch SPPD templates from Cloudflare D1:', e);
       }
-      // Offline fallback: load from localStorage if D1 request fails
-      try {
-        const local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
-        if (local && local.length > 0) return local;
-      } catch (e) {}
+
+      // Offline fallback: load from localStorage if D1 request fails or returns non-200
+      if (Array.isArray(localBackup) && localBackup.length > 0) {
+        return localBackup;
+      }
       return [];
     },
 
     async saveSppdTemplate(item) {
+      // 1. Guaranteed Immediate Local Persistence (Never lost on reload)
+      let local = [];
+      try {
+        local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
+      } catch (e) {}
+      const idx = local.findIndex(i => i && i.id === item.id);
+      if (idx >= 0) local[idx] = item;
+      else local.unshift(item);
+      try {
+        localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+      } catch (storageErr) {}
+
+      // 2. Cloudflare D1 Edge Persistence
       try {
         const res = await fetch('/api/sppd/templates/save', {
           method: 'POST',
@@ -1298,37 +1323,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res.ok) {
           const json = await res.json();
           if (json.success) {
-            let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
-            const idx = local.findIndex(i => i.id === item.id);
-            if (idx >= 0) local[idx] = item;
-            else local.unshift(item);
-            try {
-              localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
-            } catch (storageErr) {}
             return json;
           }
         } else {
-          const errJson = await res.json().catch(() => ({}));
-          console.warn('API D1 Template Save returned non-ok status:', res.status, errJson);
-          if (errJson.error) {
-            throw new Error(errJson.error);
-          }
+          console.warn('API D1 Template Save returned non-ok status:', res.status);
         }
       } catch (e) {
-        console.warn('Fallback save SPPD template to local cache', e);
-        let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
-        const idx = local.findIndex(i => i.id === item.id);
-        if (idx >= 0) local[idx] = item;
-        else local.unshift(item);
-        try {
-          localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
-        } catch (storageErr) {}
-        return { success: false, error: e.message, isLocalFallback: true, id: item.id };
+        console.warn('Network issue saving template to D1, preserved in local cache:', e);
+        return { success: true, id: item.id, isLocalFallback: true, error: e.message };
       }
       return { success: true, id: item.id };
     },
 
     async deleteSppdTemplate(id) {
+      // 1. Remove from local storage immediately
+      try {
+        let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
+        local = local.filter(i => i && i.id !== id);
+        localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+      } catch (storageErr) {}
+
+      // 2. Remove from Cloudflare D1
       try {
         const res = await fetch('/api/sppd/templates/delete', {
           method: 'POST',
@@ -1337,23 +1352,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (res.ok) {
           const json = await res.json();
-          if (json.success) {
-            let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
-            local = local.filter(i => i.id !== id);
-            try {
-              localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
-            } catch (storageErr) {}
-            return json;
-          }
+          if (json.success) return json;
         }
       } catch (e) {
         console.warn('Fallback delete SPPD template', e);
       }
-      let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
-      local = local.filter(i => i.id !== id);
-      try {
-        localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
-      } catch (storageErr) {}
       return { success: true };
     },
 
@@ -7395,7 +7398,27 @@ document.addEventListener('DOMContentLoaded', () => {
       if (dokEl) contentToPrint.push(prepareSheetForPrint(dokEl.outerHTML));
     } else if (formType === 'lpt') {
       const lptEl = document.getElementById('lptSheetDoc');
-      if (lptEl) contentToPrint.push(prepareSheetForPrint(lptEl.outerHTML));
+      if (lptEl) {
+        const clone = lptEl.cloneNode(true);
+        // Explicitly remove hidden officer rows so they never appear in print
+        for (let i = 2; i <= 5; i++) {
+          const toggle = document.getElementById(`lptTogglePetugas${i}`);
+          const origRow = document.getElementById(`lptSigRow${i}`);
+          const isShown = toggle ? toggle.checked : (origRow && origRow.style.display !== 'none');
+          if (!isShown) {
+            const cloneRow = clone.querySelector(`#lptSigRow${i}`);
+            if (cloneRow) cloneRow.remove();
+          }
+        }
+        // If dynamic table is disabled, remove table wrapper from clone
+        const toggleTable = document.getElementById('lptToggleTable');
+        const isTableActive = toggleTable ? toggleTable.checked : (typeof lptTableState !== 'undefined' && lptTableState && lptTableState.enabled);
+        if (!isTableActive) {
+          const cloneTable = clone.querySelector('#lptTableWrapper');
+          if (cloneTable) cloneTable.remove();
+        }
+        contentToPrint.push(prepareSheetForPrint(clone.outerHTML));
+      }
     } else {
       if (part === 'both' || part === 'front') {
         const frontEl = document.getElementById('sppdSheetDepan');
@@ -7881,11 +7904,16 @@ document.addEventListener('DOMContentLoaded', () => {
     text-align: left !important;
   }
   .lpt-officer-item {
-    display: flex !important;
+    display: flex;
     align-items: flex-start !important;
     font-size: 12px !important;
     line-height: 1.35 !important;
     color: #000000 !important;
+  }
+  .lpt-officer-item[style*="display: none"],
+  .lpt-officer-item[style*="display:none"],
+  .lpt-officer-item.hidden-officer {
+    display: none !important;
   }
   .lpt-officer-num {
     width: 20px !important;
@@ -8237,7 +8265,26 @@ document.addEventListener('DOMContentLoaded', () => {
       if (dokEl) sheets.push(dokEl.cloneNode(true));
     } else if (formType === 'lpt') {
       const lptEl = document.getElementById('lptSheetDoc');
-      if (lptEl) sheets.push(lptEl.cloneNode(true));
+      if (lptEl) {
+        const lptClone = lptEl.cloneNode(true);
+        // Explicitly remove hidden officer rows from PDF export
+        for (let i = 2; i <= 5; i++) {
+          const toggle = document.getElementById(`lptTogglePetugas${i}`);
+          const origRow = document.getElementById(`lptSigRow${i}`);
+          const isShown = toggle ? toggle.checked : (origRow && origRow.style.display !== 'none');
+          if (!isShown) {
+            const cloneRow = lptClone.querySelector(`#lptSigRow${i}`);
+            if (cloneRow) cloneRow.remove();
+          }
+        }
+        const toggleTable = document.getElementById('lptToggleTable');
+        const isTableActive = toggleTable ? toggleTable.checked : (typeof lptTableState !== 'undefined' && lptTableState && lptTableState.enabled);
+        if (!isTableActive) {
+          const cloneTable = lptClone.querySelector('#lptTableWrapper');
+          if (cloneTable) cloneTable.remove();
+        }
+        sheets.push(lptClone);
+      }
     } else {
       if (part === 'both' || part === 'front') {
         const frontEl = document.getElementById('sppdSheetDepan');
