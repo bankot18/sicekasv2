@@ -40,6 +40,82 @@ window.toggleSicekasTheme = function() {
   if (window.showToast) window.showToast(isLight ? '☀️ Mode Terang diaktifkan' : '🌙 Mode Gelap diaktifkan', 'info');
 };
 
+// Global Early Fallbacks for LPT Officer Management
+window.addLptPetugas = function() {
+  for (let i = 2; i <= 5; i++) {
+    const card = document.getElementById('lptCardPetugas' + i);
+    const toggle = document.getElementById('lptTogglePetugas' + i);
+    const row = document.getElementById('lptSigRow' + i);
+    const isHidden = !card || card.style.display === 'none' || (toggle && !toggle.checked);
+    if (isHidden) {
+      if (toggle) toggle.checked = true;
+      if (card) card.style.display = 'block';
+      if (row) row.style.display = 'flex';
+      const badge = document.getElementById('lptBadgePetugas' + i);
+      if (badge) { badge.textContent = 'Ditampilkan'; badge.style.color = '#10b981'; }
+      let activeCount = 1;
+      for (let j = 2; j <= 5; j++) {
+        const t = document.getElementById('lptTogglePetugas' + j);
+        if (t && t.checked) activeCount++;
+      }
+      const sumBadge = document.getElementById('lptPetugasSummaryBadge');
+      if (sumBadge) sumBadge.textContent = activeCount + ' / 5 Petugas Aktif';
+      const addBtn = document.getElementById('lptBtnAddPetugas');
+      if (addBtn && activeCount >= 5) addBtn.style.display = 'none';
+      const container = document.getElementById('lptOfficersListContainer');
+      if (container) {
+        if (activeCount <= 2) container.style.gap = '24px';
+        else if (activeCount === 3) container.style.gap = '20px';
+        else if (activeCount === 4) container.style.gap = '15px';
+        else container.style.gap = '12px';
+      }
+      if (typeof syncLptOfficer === 'function') syncLptOfficer(i);
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+  }
+};
+
+window.removePetugas = function(index) {
+  const toggle = document.getElementById('lptTogglePetugas' + index);
+  const card = document.getElementById('lptCardPetugas' + index);
+  const row = document.getElementById('lptSigRow' + index);
+  const select = document.getElementById('lptSelectPetugas' + index);
+  const inNama = document.getElementById('lptInputCustomNama' + index);
+  const inNip = document.getElementById('lptInputCustomNip' + index);
+  const customWrap = document.getElementById('lptCustomWrap' + index);
+  const badge = document.getElementById('lptBadgePetugas' + index);
+
+  if (toggle) toggle.checked = false;
+  if (card) card.style.display = 'none';
+  if (row) row.style.display = 'none';
+  if (select) select.value = '';
+  if (inNama) inNama.value = '';
+  if (inNip) inNip.value = '';
+  if (customWrap) customWrap.style.display = 'none';
+  if (badge) { badge.textContent = 'Disembunyikan'; badge.style.color = '#94a3b8'; }
+
+  let activeCount = 1;
+  for (let j = 2; j <= 5; j++) {
+    const t = document.getElementById('lptTogglePetugas' + j);
+    if (t && t.checked) activeCount++;
+  }
+  const sumBadge = document.getElementById('lptPetugasSummaryBadge');
+  if (sumBadge) sumBadge.textContent = activeCount + ' / 5 Petugas Aktif';
+  const addBtn = document.getElementById('lptBtnAddPetugas');
+  if (addBtn) addBtn.style.display = 'inline-flex';
+
+  const container = document.getElementById('lptOfficersListContainer');
+  if (container) {
+    if (activeCount <= 2) container.style.gap = '24px';
+    else if (activeCount === 3) container.style.gap = '20px';
+    else if (activeCount === 4) container.style.gap = '15px';
+    else container.style.gap = '12px';
+  }
+
+  if (typeof syncLptOfficer === 'function') syncLptOfficer(index);
+};
+
 // Update labels and icon on load
 document.addEventListener('DOMContentLoaded', () => {
   const isLight = document.body.classList.contains('theme-light');
@@ -86,6 +162,501 @@ window.createSicekasAlert = function(title, message, variant = 'default', iconSv
     </div>
   `;
 };
+
+// ============================================================================
+// UNIVERSAL SEARCHABLE SELECT / COMBOBOX ENGINE (SICEKAS VIP THEME)
+// ============================================================================
+window.SearchableSelect = {
+  instances: new WeakMap(),
+  allInstances: [],
+
+  TARGET_IDS: [
+    'collabKegiatan',
+    'inputKegiatanBOK',
+    'bokEditCollabAddSelect',
+    'fPetugasBOK',
+    'tppolSelectJabatan',
+    'tppolKlaster',
+    'signKepala',
+    'signVerifikator',
+    'signPetugas',
+    'sppdInputPegawai',
+    'sppdLptSelectForm',
+    'sppdDisplayPart',
+    'selectSppdFontFamily',
+    'sppdPengikutSelect1',
+    'sppdPengikutSelect2',
+    'sppdPengikutSelect3',
+    'sppdPengikutSelect4',
+    'lptSelectPetugas1',
+    'lptSelectPetugas2',
+    'lptSelectPetugas3',
+    'dokSelectLayout',
+    'poaSelectOfficer',
+    'devUserRole',
+    'devUserStatus',
+    'profStatus',
+    'evidenceKeteranganSelect',
+    'poaSelectMonth',
+    'poaSelectYear',
+    'tppolYear',
+    'tppolMonth',
+    'fBulanBOK',
+    'fTahunBOK'
+  ],
+
+  closeAll() {
+    this.allInstances.forEach(inst => {
+      if (inst && typeof inst.close === 'function') {
+        inst.close();
+      }
+    });
+  },
+
+  enhance(selectEl, userConfig = {}) {
+    if (!selectEl || !(selectEl instanceof HTMLSelectElement)) return null;
+    
+    // Check if already enhanced
+    if (this.instances.has(selectEl)) {
+      const existing = this.instances.get(selectEl);
+      existing.rebuild();
+      return existing;
+    }
+
+    // Explicit exclusions (e.g. mini inline header navigator widgets)
+    if (selectEl.hasAttribute('data-no-searchable') || 
+        selectEl.classList.contains('select-beranda-month') || 
+        selectEl.classList.contains('select-beranda-year')) {
+      return null;
+    }
+
+    const config = Object.assign({
+      searchPlaceholder: 'Ketik untuk mencari...',
+      noResultsText: 'Tidak ada opsi yang cocok',
+      autoFlip: true
+    }, userConfig);
+
+    // Create wrapper
+    const wrap = document.createElement('div');
+    wrap.className = 'searchable-select-wrap';
+    if (selectEl.id) wrap.id = 'ss_wrap_' + selectEl.id;
+
+    // Create trigger button
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'searchable-select-trigger';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    const label = document.createElement('span');
+    label.className = 'searchable-select-label';
+
+    const arrow = document.createElement('span');
+    arrow.className = 'searchable-select-arrow';
+    arrow.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+
+    trigger.appendChild(label);
+    trigger.appendChild(arrow);
+
+    // Create dropdown panel
+    const dropdown = document.createElement('div');
+    dropdown.className = 'searchable-select-dropdown';
+    dropdown.style.display = 'none';
+
+    // Search box
+    const searchBox = document.createElement('div');
+    searchBox.className = 'searchable-select-search-box';
+
+    const searchIcon = document.createElement('span');
+    searchIcon.className = 'searchable-select-search-icon';
+    searchIcon.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'searchable-select-input';
+    searchInput.placeholder = config.searchPlaceholder;
+    searchInput.autocomplete = 'off';
+    searchInput.spellcheck = false;
+
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'searchable-select-clear';
+    clearBtn.innerHTML = '&times;';
+    clearBtn.title = 'Hapus pencarian';
+    clearBtn.style.display = 'none';
+
+    searchBox.appendChild(searchIcon);
+    searchBox.appendChild(searchInput);
+    searchBox.appendChild(clearBtn);
+
+    // Options list container
+    const optionsContainer = document.createElement('div');
+    optionsContainer.className = 'searchable-select-options';
+
+    // Empty state container
+    const emptyState = document.createElement('div');
+    emptyState.className = 'searchable-select-empty';
+    emptyState.style.display = 'none';
+    emptyState.innerHTML = '<div class="searchable-select-empty-icon">🔍</div><div>' + config.noResultsText + '</div><div class="searchable-select-empty-hint">Coba kata kunci lain atau periksa ejaan</div>';
+
+    dropdown.appendChild(searchBox);
+    dropdown.appendChild(optionsContainer);
+    dropdown.appendChild(emptyState);
+
+    // Insert wrap into DOM right where selectEl is
+    if (selectEl.parentNode) {
+      selectEl.parentNode.insertBefore(wrap, selectEl);
+      wrap.appendChild(trigger);
+      wrap.appendChild(dropdown);
+      wrap.appendChild(selectEl);
+    }
+
+    // Hide native select visually
+    selectEl.classList.add('searchable-select-native-hidden');
+
+    let activeIndex = -1;
+    let isOpen = false;
+
+    const syncLabel = () => {
+      const idx = selectEl.selectedIndex;
+      const selectedOpt = (idx >= 0 && idx < selectEl.options.length) ? selectEl.options[idx] : null;
+      if (selectedOpt && selectedOpt.textContent.trim()) {
+        const txt = selectedOpt.textContent.trim();
+        label.textContent = txt;
+        label.title = txt;
+        label.classList.toggle('is-placeholder', !selectedOpt.value);
+      } else {
+        const placeholderTxt = selectEl.getAttribute('placeholder') || '-- Pilih --';
+        label.textContent = placeholderTxt;
+        label.title = placeholderTxt;
+        label.classList.add('is-placeholder');
+      }
+      trigger.disabled = selectEl.disabled;
+      wrap.classList.toggle('is-disabled', selectEl.disabled);
+    };
+
+    const highlightText = (text, query) => {
+      if (!query) return text;
+      const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+      if (terms.length === 0) return text;
+      const escaped = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      const regex = new RegExp('(' + escaped.join('|') + ')', 'gi');
+      return text.replace(regex, '<span class="ss-match">$1</span>');
+    };
+
+    const filterOptions = () => {
+      const query = searchInput.value.trim().toLowerCase();
+      clearBtn.style.display = query ? 'block' : 'none';
+
+      const terms = query.split(/\s+/).filter(Boolean);
+      let visibleCount = 0;
+
+      const items = optionsContainer.querySelectorAll('.searchable-select-option');
+      items.forEach((item) => {
+        const text = item.getAttribute('data-text') || '';
+        const lower = text.toLowerCase();
+        const matches = terms.length === 0 || terms.every(t => lower.includes(t));
+
+        if (matches) {
+          item.style.display = 'flex';
+          const spanText = item.querySelector('.searchable-select-option-text');
+          if (spanText) {
+            spanText.innerHTML = highlightText(text, query);
+          }
+          visibleCount++;
+        } else {
+          item.style.display = 'none';
+        }
+      });
+
+      emptyState.style.display = visibleCount === 0 ? 'flex' : 'none';
+      activeIndex = -1;
+      updateActiveOption();
+    };
+
+    const rebuildOptions = () => {
+      optionsContainer.innerHTML = '';
+      const opts = Array.from(selectEl.options);
+
+      opts.forEach((opt, idx) => {
+        const item = document.createElement('div');
+        item.className = 'searchable-select-option';
+        item.setAttribute('data-value', opt.value);
+        item.setAttribute('data-text', opt.textContent.trim());
+        item.setAttribute('data-index', idx);
+
+        if (opt.selected) item.classList.add('is-selected');
+        if (opt.disabled) item.classList.add('is-disabled');
+        if (!opt.value && idx === 0) item.classList.add('is-placeholder-opt');
+
+        const spanText = document.createElement('span');
+        spanText.className = 'searchable-select-option-text';
+        spanText.textContent = opt.textContent.trim();
+        item.appendChild(spanText);
+
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (opt.disabled) return;
+          selectOption(idx);
+          closeDropdown();
+          trigger.focus();
+        });
+
+        optionsContainer.appendChild(item);
+      });
+
+      syncLabel();
+    };
+
+    const selectOption = (idx) => {
+      if (idx >= 0 && idx < selectEl.options.length) {
+        selectEl.selectedIndex = idx;
+        syncLabel();
+        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        selectEl.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      const items = optionsContainer.querySelectorAll('.searchable-select-option');
+      items.forEach(it => {
+        const itIdx = parseInt(it.getAttribute('data-index'), 10);
+        it.classList.toggle('is-selected', itIdx === idx);
+      });
+      trigger.classList.remove('is-invalid');
+    };
+
+    const openDropdown = () => {
+      if (selectEl.disabled) return;
+      window.SearchableSelect.closeAll();
+
+      isOpen = true;
+      wrap.classList.add('is-open');
+      dropdown.style.display = 'flex';
+      trigger.setAttribute('aria-expanded', 'true');
+
+      if (config.autoFlip) {
+        const rect = wrap.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        if (spaceBelow < 280 && spaceAbove > spaceBelow) {
+          dropdown.classList.add('dropup');
+        } else {
+          dropdown.classList.remove('dropup');
+        }
+      }
+
+      searchInput.value = '';
+      clearBtn.style.display = 'none';
+      filterOptions();
+
+      const selectedItem = optionsContainer.querySelector('.searchable-select-option.is-selected');
+      if (selectedItem) {
+        selectedItem.scrollIntoView({ block: 'nearest' });
+      }
+
+      setTimeout(() => {
+        searchInput.focus();
+      }, 30);
+    };
+
+    const closeDropdown = () => {
+      if (!isOpen) return;
+      isOpen = false;
+      wrap.classList.remove('is-open');
+      dropdown.style.display = 'none';
+      trigger.setAttribute('aria-expanded', 'false');
+      activeIndex = -1;
+      updateActiveOption();
+    };
+
+    const updateActiveOption = () => {
+      const visibleItems = Array.from(optionsContainer.querySelectorAll('.searchable-select-option'))
+        .filter(it => it.style.display !== 'none' && !it.classList.contains('is-disabled'));
+      
+      visibleItems.forEach((it, i) => {
+        it.classList.toggle('is-active', i === activeIndex);
+      });
+
+      if (activeIndex >= 0 && visibleItems[activeIndex]) {
+        visibleItems[activeIndex].scrollIntoView({ block: 'nearest' });
+      }
+    };
+
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (isOpen) {
+        closeDropdown();
+      } else {
+        openDropdown();
+      }
+    });
+
+    searchInput.addEventListener('input', () => {
+      filterOptions();
+    });
+
+    clearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      searchInput.value = '';
+      clearBtn.style.display = 'none';
+      filterOptions();
+      searchInput.focus();
+    });
+
+    wrap.addEventListener('keydown', (e) => {
+      if (!isOpen) {
+        if (['Enter', 'ArrowDown', 'ArrowUp', ' '].includes(e.key)) {
+          e.preventDefault();
+          openDropdown();
+        }
+        return;
+      }
+
+      const visibleItems = Array.from(optionsContainer.querySelectorAll('.searchable-select-option'))
+        .filter(it => it.style.display !== 'none' && !it.classList.contains('is-disabled'));
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeDropdown();
+        trigger.focus();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (visibleItems.length > 0) {
+          activeIndex = (activeIndex + 1) % visibleItems.length;
+          updateActiveOption();
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (visibleItems.length > 0) {
+          activeIndex = activeIndex <= 0 ? visibleItems.length - 1 : activeIndex - 1;
+          updateActiveOption();
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activeIndex >= 0 && visibleItems[activeIndex]) {
+          const idx = parseInt(visibleItems[activeIndex].getAttribute('data-index'), 10);
+          selectOption(idx);
+          closeDropdown();
+          trigger.focus();
+        } else if (visibleItems.length === 1) {
+          const idx = parseInt(visibleItems[0].getAttribute('data-index'), 10);
+          selectOption(idx);
+          closeDropdown();
+          trigger.focus();
+        }
+      } else if (e.key === 'Tab') {
+        closeDropdown();
+      }
+    });
+
+    // Native Select Property Overrides for reactive 2-way sync
+    try {
+      const originalValueDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+      if (originalValueDesc) {
+        Object.defineProperty(selectEl, 'value', {
+          get() {
+            return originalValueDesc.get.call(this);
+          },
+          set(val) {
+            originalValueDesc.set.call(this, val);
+            syncLabel();
+            const items = optionsContainer.querySelectorAll('.searchable-select-option');
+            items.forEach(it => {
+              it.classList.toggle('is-selected', it.getAttribute('data-value') === String(val));
+            });
+          },
+          configurable: true
+        });
+      }
+
+      const originalIdxDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'selectedIndex');
+      if (originalIdxDesc) {
+        Object.defineProperty(selectEl, 'selectedIndex', {
+          get() {
+            return originalIdxDesc.get.call(this);
+          },
+          set(idx) {
+            originalIdxDesc.set.call(this, idx);
+            syncLabel();
+            const items = optionsContainer.querySelectorAll('.searchable-select-option');
+            items.forEach(it => {
+              const itIdx = parseInt(it.getAttribute('data-index'), 10);
+              it.classList.toggle('is-selected', itIdx === idx);
+            });
+          },
+          configurable: true
+        });
+      }
+    } catch (e) {
+      console.warn('SearchableSelect property descriptor interception warning:', e);
+    }
+
+    selectEl.addEventListener('change', () => {
+      syncLabel();
+      const items = optionsContainer.querySelectorAll('.searchable-select-option');
+      items.forEach(it => {
+        const itIdx = parseInt(it.getAttribute('data-index'), 10);
+        it.classList.toggle('is-selected', itIdx === selectEl.selectedIndex);
+      });
+    });
+
+    if (selectEl.form) {
+      selectEl.form.addEventListener('reset', () => {
+        setTimeout(syncLabel, 20);
+      });
+    }
+
+    selectEl.addEventListener('invalid', () => {
+      trigger.classList.add('is-invalid');
+      trigger.classList.add('ss-shake');
+      setTimeout(() => trigger.classList.remove('ss-shake'), 500);
+    });
+
+    const observer = new MutationObserver(() => {
+      rebuildOptions();
+    });
+    observer.observe(selectEl, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+
+    rebuildOptions();
+
+    const instance = {
+      selectEl,
+      wrap,
+      trigger,
+      dropdown,
+      rebuild: rebuildOptions,
+      sync: syncLabel,
+      open: openDropdown,
+      close: closeDropdown
+    };
+
+    this.instances.set(selectEl, instance);
+    this.allInstances.push(instance);
+    return instance;
+  },
+
+  initAll() {
+    this.TARGET_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.tagName === 'SELECT') {
+        this.enhance(el);
+      }
+    });
+
+    const allSelects = document.querySelectorAll('select.poa-select, select.sppd-input-styled, select.bok-select, select.sppd-custom-select, select[data-searchable="true"]');
+    allSelects.forEach(el => {
+      this.enhance(el);
+    });
+  }
+};
+
+// Global click outside listener to close any open dropdowns
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.searchable-select-wrap')) {
+    if (window.SearchableSelect && typeof window.SearchableSelect.closeAll === 'function') {
+      window.SearchableSelect.closeAll();
+    }
+  }
+});
 
 document.addEventListener('DOMContentLoaded', () => {
   // Elements
@@ -581,14 +1152,15 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(item)
         });
-        if (res.ok) {
-          const json = await res.json();
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json.success !== false) {
           return json;
         }
+        return { success: false, error: json.error || `HTTP ${res.status}: ${res.statusText}` };
       } catch (e) {
         console.warn('Network error saving POA to Cloudflare D1:', e);
+        return { success: false, error: e.message };
       }
-      return { success: true, id: item.id };
     },
 
     async savePoaBatch(items, deletedIds = []) {
@@ -598,14 +1170,15 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ items, deletedIds })
         });
-        if (res.ok) {
-          const json = await res.json();
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json.success !== false) {
           return json;
         }
+        return { success: false, error: json.error || `HTTP ${res.status}: ${res.statusText}` };
       } catch (e) {
         console.warn('Network error saving POA batch to Cloudflare D1:', e);
+        return { success: false, error: e.message };
       }
-      return { success: true, count: items.length };
     },
 
     async deletePoa(id) {
@@ -615,14 +1188,15 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id })
         });
-        if (res.ok) {
-          const json = await res.json();
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json.success !== false) {
           return json;
         }
+        return { success: false, error: json.error || `HTTP ${res.status}: ${res.statusText}` };
       } catch (e) {
         console.warn('Network error deleting POA from Cloudflare D1:', e);
+        return { success: false, error: e.message };
       }
-      return { success: true };
     },
 
     // 4. TP POL Jaspel (Direct Cloudflare D1 Database)
@@ -687,8 +1261,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return { success: true };
     },
 
-    // 5b. SPPD Templates (Direct Cloudflare D1 Database)
+    // 5b. SPPD & LPT Templates (Direct Cloudflare D1 Database + Guaranteed Local Storage Persistence)
     async fetchSppdTemplates(username) {
+      let localBackup = [];
+      try {
+        localBackup = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
+      } catch (e) {}
+
       try {
         const u = username || '';
         const url = u ? `/api/sppd/templates?username=${encodeURIComponent(u)}&_t=${Date.now()}` : `/api/sppd/templates?_t=${Date.now()}`;
@@ -696,25 +1275,45 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.data)) {
-            // Update local backup
+            // If D1 returned data, merge with any recent local items and update storage
+            const d1Map = new Map();
+            json.data.forEach(item => { if (item && item.id) d1Map.set(item.id, item); });
+            // Preserve any local items not yet in D1
+            localBackup.forEach(item => {
+              if (item && item.id && !d1Map.has(item.id)) d1Map.set(item.id, item);
+            });
+            const merged = Array.from(d1Map.values());
             try {
-              localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(json.data));
+              localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(merged));
             } catch (storageErr) {}
-            return json.data;
+            return merged;
           }
         }
       } catch (e) {
         console.warn('Fallback fetch SPPD templates from Cloudflare D1:', e);
       }
-      // Offline fallback: load from localStorage if D1 request fails
-      try {
-        const local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
-        if (local && local.length > 0) return local;
-      } catch (e) {}
+
+      // Offline fallback: load from localStorage if D1 request fails or returns non-200
+      if (Array.isArray(localBackup) && localBackup.length > 0) {
+        return localBackup;
+      }
       return [];
     },
 
     async saveSppdTemplate(item) {
+      // 1. Guaranteed Immediate Local Persistence (Never lost on reload)
+      let local = [];
+      try {
+        local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
+      } catch (e) {}
+      const idx = local.findIndex(i => i && i.id === item.id);
+      if (idx >= 0) local[idx] = item;
+      else local.unshift(item);
+      try {
+        localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+      } catch (storageErr) {}
+
+      // 2. Cloudflare D1 Edge Persistence
       try {
         const res = await fetch('/api/sppd/templates/save', {
           method: 'POST',
@@ -724,37 +1323,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res.ok) {
           const json = await res.json();
           if (json.success) {
-            let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
-            const idx = local.findIndex(i => i.id === item.id);
-            if (idx >= 0) local[idx] = item;
-            else local.unshift(item);
-            try {
-              localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
-            } catch (storageErr) {}
             return json;
           }
         } else {
-          const errJson = await res.json().catch(() => ({}));
-          console.warn('API D1 Template Save returned non-ok status:', res.status, errJson);
-          if (errJson.error) {
-            throw new Error(errJson.error);
-          }
+          console.warn('API D1 Template Save returned non-ok status:', res.status);
         }
       } catch (e) {
-        console.warn('Fallback save SPPD template to local cache', e);
-        let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
-        const idx = local.findIndex(i => i.id === item.id);
-        if (idx >= 0) local[idx] = item;
-        else local.unshift(item);
-        try {
-          localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
-        } catch (storageErr) {}
-        return { success: false, error: e.message, isLocalFallback: true, id: item.id };
+        console.warn('Network issue saving template to D1, preserved in local cache:', e);
+        return { success: true, id: item.id, isLocalFallback: true, error: e.message };
       }
       return { success: true, id: item.id };
     },
 
     async deleteSppdTemplate(id) {
+      // 1. Remove from local storage immediately
+      try {
+        let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
+        local = local.filter(i => i && i.id !== id);
+        localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
+      } catch (storageErr) {}
+
+      // 2. Remove from Cloudflare D1
       try {
         const res = await fetch('/api/sppd/templates/delete', {
           method: 'POST',
@@ -763,23 +1352,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (res.ok) {
           const json = await res.json();
-          if (json.success) {
-            let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
-            local = local.filter(i => i.id !== id);
-            try {
-              localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
-            } catch (storageErr) {}
-            return json;
-          }
+          if (json.success) return json;
         }
       } catch (e) {
         console.warn('Fallback delete SPPD template', e);
       }
-      let local = JSON.parse(localStorage.getItem('SICEKAS_SPPD_TEMPLATES_CACHE')) || [];
-      local = local.filter(i => i.id !== id);
-      try {
-        localStorage.setItem('SICEKAS_SPPD_TEMPLATES_CACHE', JSON.stringify(local));
-      } catch (storageErr) {}
       return { success: true };
     },
 
@@ -920,6 +1497,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const currentUser = JSON.parse(rawCurrentUser);
+    window.CURRENT_USER = currentUser;
     if (currentUser) {
       const profileNameEls = document.querySelectorAll('.profile-name, .popover-user-info h4');
       const profileRoleEls = document.querySelectorAll('.profile-role');
@@ -1104,6 +1682,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewJadwalKegiatan) viewJadwalKegiatan.style.display = 'none';
     if (viewDeveloperWeb) viewDeveloperWeb.style.display = 'none';
 
+    if (targetView !== 'developer-web' && window.DeveloperWebController && window.DeveloperWebController.stopLiveAutoSync) {
+      window.DeveloperWebController.stopLiveAutoSync();
+    }
+
     if (targetView === 'poa-bulanan') {
       if (viewPoaBulanan) {
         viewPoaBulanan.style.display = 'block';
@@ -1209,6 +1791,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       setTimeout(() => {
         if (window.healthChartInstance) window.healthChartInstance.resize();
+        if (window.SearchableSelect && typeof window.SearchableSelect.initAll === 'function') {
+          window.SearchableSelect.initAll();
+        }
       }, 100);
     }
   };
@@ -1273,6 +1858,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (viewAttr) {
         switchView(viewAttr);
+        if (link.getAttribute('data-subtab') === 'r2storage') {
+          setTimeout(() => {
+            const tabBtn = document.querySelector('.dev-tab-btn[data-devtab="r2storage"]');
+            if (tabBtn) tabBtn.click();
+          }, 150);
+        }
       } else {
         const label = link.querySelector('.nav-label')?.textContent || 'Menu';
         alert(`Membuka halaman ${label}...`);
@@ -1561,13 +2152,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const itemOfficer = (it.petugas_nama || '').toLowerCase().replace(/^(dr\.|drg\.|h\.|hj\.)\s*/i, '').trim();
         const itemNipClean = (it.petugas_nip || '').replace(/[^a-zA-Z0-9]/g, '');
 
-        const isMatch = (cleanTargetNip && itemNipClean && cleanTargetNip === itemNipClean) ||
-                        (it.petugas_nip && targetNip && it.petugas_nip === targetNip) ||
-                        (itemOfficer && normSearch && (itemOfficer.includes(normSearch) || normSearch.includes(itemOfficer))) ||
-                        (itemOfficer && normObjNama && (itemOfficer.includes(normObjNama) || normObjNama.includes(itemOfficer)));
+        const isMatch = (!cleanTargetNip && !normSearch && !normObjNama) ? true : (
+          (cleanTargetNip && itemNipClean && cleanTargetNip === itemNipClean) ||
+          (it.petugas_nip && targetNip && it.petugas_nip === targetNip) ||
+          (itemOfficer && normSearch && (itemOfficer.includes(normSearch) || normSearch.includes(itemOfficer))) ||
+          (itemOfficer && normObjNama && (itemOfficer.includes(normObjNama) || normObjNama.includes(itemOfficer))) ||
+          (it.id && cleanTargetNip && it.id.includes(cleanTargetNip))
+        );
 
         if (isMatch && it.tanggal) {
-          poaActivitiesState[it.tanggal] = {
+          let dateKey = it.tanggal;
+          if (dateKey.includes('-')) {
+            const p = dateKey.split('-');
+            if (p.length === 3) {
+              dateKey = `${p[0]}-${String(p[1]).padStart(2, '0')}-${String(p[2]).padStart(2, '0')}`;
+            }
+          }
+          poaActivitiesState[dateKey] = {
             kegiatan: it.uraian_kegiatan || it.kegiatan || it.nama_kegiatan || '',
             keterangan: it.keterangan || ''
           };
@@ -1822,7 +2423,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (val || ketVal) {
           poaActivitiesState[currentActiveDateKey] = { kegiatan: val, keterangan: ketVal };
-          await CloudflareDB.savePoa({
+          const saveRes = await CloudflareDB.savePoa({
             id: poaId,
             tanggal: currentActiveDateKey,
             bulan: selectedMonth,
@@ -1836,6 +2437,14 @@ document.addEventListener('DOMContentLoaded', () => {
             lokasi_pelaksanaan: 'Puskesmas / Wilayah Kerja',
             status: 'Aktif'
           });
+          if (!saveRes || saveRes.success === false) {
+            if (typeof showToast === 'function') {
+              showToast(`❌ Gagal menyimpan ke Cloud: ${saveRes?.error || 'Kesalahan database'}`, 'error');
+            } else {
+              alert(`Gagal menyimpan ke Cloud: ${saveRes?.error || 'Kesalahan database'}`);
+            }
+            return;
+          }
           if (typeof showToast === 'function') showToast('✅ Kegiatan POA tersimpan langsung ke Cloud Database!', 'success');
         } else {
           delete poaActivitiesState[currentActiveDateKey];
@@ -1845,6 +2454,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Re-render calendar directly from Cloud DB
         await renderPoaCalendar(selectedMonth, selectedYear, officerText);
+        if (window.DeveloperWebController && window.DeveloperWebController.refreshAllTableCounts) {
+          window.DeveloperWebController.refreshAllTableCounts();
+        }
       }
       closeSingleActivityModal();
       singleActivityForm.reset();
@@ -1904,12 +2516,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const bulkModalTitle = document.getElementById('bulkModalTitle');
 
-  const openBulkModal = () => {
+  const openBulkModal = async () => {
     const selectedMonth = parseInt(poaSelectMonth ? poaSelectMonth.value : String(new Date().getMonth() + 1), 10);
     const selectedYear = parseInt(poaSelectYear ? poaSelectYear.value : String(new Date().getFullYear()), 10);
+    const officerText = getPoaOfficerName();
     if (bulkModalTitle) {
       bulkModalTitle.textContent = `📝 Isi POA ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear} Sekaligus`;
     }
+    // Sync strictly from Cloudflare D1 before displaying rows
+    await syncPoaFromCloud(selectedMonth, selectedYear, officerText);
     populateBulkTable(selectedMonth, selectedYear);
     if (bulkActivityModal) bulkActivityModal.classList.add('active');
   };
@@ -1983,11 +2598,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      // Send single atomic batch request to Cloudflare D1
-      await CloudflareDB.savePoaBatch(itemsToSave, itemsToDelete);
+      // Send single atomic batch request directly to Cloudflare D1
+      const saveRes = await CloudflareDB.savePoaBatch(itemsToSave, itemsToDelete);
+
+      if (!saveRes || saveRes.success === false) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origBtnText;
+        }
+        const errMsg = saveRes?.error || 'Gagal terhubung ke Cloud Database';
+        if (typeof showToast === 'function') {
+          showToast(`❌ Gagal menyimpan ke Cloud: ${errMsg}`, 'error');
+        } else {
+          alert(`Gagal menyimpan ke Cloud: ${errMsg}`);
+        }
+        return;
+      }
 
       // Re-render calendar live from Cloud D1
       await renderPoaCalendar(selectedMonth, selectedYear, officerText);
+
+      // Refresh table count in D1 Database Studio
+      if (window.DeveloperWebController && window.DeveloperWebController.refreshAllTableCounts) {
+        window.DeveloperWebController.refreshAllTableCounts();
+      }
 
       if (submitBtn) {
         submitBtn.disabled = false;
@@ -1995,7 +2629,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (typeof showToast === 'function') {
-        showToast(`✅ ${itemsToSave.length} agenda kegiatan POA berhasil disimpan ke Cloud Database!`, 'success');
+        showToast(`✅ ${itemsToSave.length} agenda kegiatan POA berhasil tersimpan langsung ke Cloud Database!`, 'success');
       } else {
         alert(`Semua rencana kegiatan POA berhasil disimpan ke Cloud Database!`);
       }
@@ -4833,23 +5467,33 @@ document.addEventListener('DOMContentLoaded', () => {
       if (lptSigPetugasNip1) lptSigPetugasNip1.textContent = 'NIP. ...........................................';
     }
 
-    // Sync SPPD Pengikut 1 & 2 to LPT Petugas 2 & 3
-    const pengikutSelect1 = document.getElementById('sppdPengikutSelect1');
-    const lptTogglePetugas2 = document.getElementById('lptTogglePetugas2');
-    const lptSelectPetugas2 = document.getElementById('lptSelectPetugas2');
-    if (pengikutSelect1 && pengikutSelect1.value && pengikutSelect1.value !== 'CUSTOM' && pengikutSelect1.value !== '') {
-      if (lptTogglePetugas2) lptTogglePetugas2.checked = true;
-      if (lptSelectPetugas2) lptSelectPetugas2.value = pengikutSelect1.value;
-      if (typeof syncLptOfficer === 'function') syncLptOfficer(2);
-    }
+    // Sync SPPD Pengikut 1..4 to LPT Petugas 2..5 (Maks. 5 Petugas)
+    for (let pIdx = 1; pIdx <= 4; pIdx++) {
+      const petNum = pIdx + 1;
+      const pengikutSelect = document.getElementById(`sppdPengikutSelect${pIdx}`);
+      const lptToggle = document.getElementById(`lptTogglePetugas${petNum}`);
+      const lptSelect = document.getElementById(`lptSelectPetugas${petNum}`);
+      const inputNama = document.getElementById(`sppdPengikutInputNama${pIdx}`);
+      const inputNip = document.getElementById(`sppdPengikutInputNip${pIdx}`);
+      const lptCustomNama = document.getElementById(`lptInputCustomNama${petNum}`);
+      const lptCustomNip = document.getElementById(`lptInputCustomNip${petNum}`);
+      const lptCustomWrap = document.getElementById(`lptCustomWrap${petNum}`);
 
-    const pengikutSelect2 = document.getElementById('sppdPengikutSelect2');
-    const lptTogglePetugas3 = document.getElementById('lptTogglePetugas3');
-    const lptSelectPetugas3 = document.getElementById('lptSelectPetugas3');
-    if (pengikutSelect2 && pengikutSelect2.value && pengikutSelect2.value !== 'CUSTOM' && pengikutSelect2.value !== '') {
-      if (lptTogglePetugas3) lptTogglePetugas3.checked = true;
-      if (lptSelectPetugas3) lptSelectPetugas3.value = pengikutSelect2.value;
-      if (typeof syncLptOfficer === 'function') syncLptOfficer(3);
+      if (pengikutSelect && pengikutSelect.value && pengikutSelect.value !== '') {
+        if (lptToggle && (!lptSelect || !lptSelect.dataset.userEdited)) {
+          lptToggle.checked = true;
+          if (pengikutSelect.value === 'CUSTOM') {
+            if (lptSelect) lptSelect.value = 'CUSTOM';
+            if (lptCustomWrap) lptCustomWrap.style.display = 'grid';
+            if (lptCustomNama && inputNama) lptCustomNama.value = inputNama.value;
+            if (lptCustomNip && inputNip) lptCustomNip.value = inputNip.value;
+          } else {
+            if (lptSelect) lptSelect.value = pengikutSelect.value;
+            if (lptCustomWrap) lptCustomWrap.style.display = 'none';
+          }
+          if (typeof syncLptOfficer === 'function') syncLptOfficer(petNum);
+        }
+      }
     }
 
     if (typeof updateLptPetugasVisibility === 'function') {
@@ -4923,7 +5567,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const escapeHtmlHelper = (str) => {
     if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   };
 
   const renderMaksudDropdown = (filterText = '') => {
@@ -5147,30 +5791,62 @@ document.addEventListener('DOMContentLoaded', () => {
   const lptValKesimpulan = document.getElementById('lptValKesimpulan');
   const lptSigDate = document.getElementById('lptSigDate');
 
+  // LPT 5 Officers References
   const lptSelectPetugas1 = document.getElementById('lptSelectPetugas1');
   const lptSelectPetugas2 = document.getElementById('lptSelectPetugas2');
   const lptSelectPetugas3 = document.getElementById('lptSelectPetugas3');
+  const lptSelectPetugas4 = document.getElementById('lptSelectPetugas4');
+  const lptSelectPetugas5 = document.getElementById('lptSelectPetugas5');
 
   const lptTogglePetugas2 = document.getElementById('lptTogglePetugas2');
   const lptTogglePetugas3 = document.getElementById('lptTogglePetugas3');
+  const lptTogglePetugas4 = document.getElementById('lptTogglePetugas4');
+  const lptTogglePetugas5 = document.getElementById('lptTogglePetugas5');
+
   const lptBadgePetugas2 = document.getElementById('lptBadgePetugas2');
   const lptBadgePetugas3 = document.getElementById('lptBadgePetugas3');
-  const lptWrapSelectPetugas2 = document.getElementById('lptWrapSelectPetugas2');
-  const lptWrapSelectPetugas3 = document.getElementById('lptWrapSelectPetugas3');
+  const lptBadgePetugas4 = document.getElementById('lptBadgePetugas4');
+  const lptBadgePetugas5 = document.getElementById('lptBadgePetugas5');
 
-  const lptSigCol1 = document.getElementById('lptSigCol1');
-  const lptSigCol2 = document.getElementById('lptSigCol2');
-  const lptSigCol3 = document.getElementById('lptSigCol3');
-  const lptSignaturesRow = document.getElementById('lptSignaturesRow');
+  const lptCardPetugas2 = document.getElementById('lptCardPetugas2');
+  const lptCardPetugas3 = document.getElementById('lptCardPetugas3');
+  const lptCardPetugas4 = document.getElementById('lptCardPetugas4');
+  const lptCardPetugas5 = document.getElementById('lptCardPetugas5');
 
-  const lptSigPetugasName1 = document.getElementById('lptSigPetugasName1');
-  const lptSigPetugasNip1 = document.getElementById('lptSigPetugasNip1');
-  const lptSigPetugasName2 = document.getElementById('lptSigPetugasName2');
-  const lptSigPetugasNip2 = document.getElementById('lptSigPetugasNip2');
-  const lptSigPetugasName3 = document.getElementById('lptSigPetugasName3');
-  const lptSigPetugasNip3 = document.getElementById('lptSigPetugasNip3');
+  const lptBtnAddPetugas = document.getElementById('lptBtnAddPetugas');
+  const lptPetugasSummaryBadge = document.getElementById('lptPetugasSummaryBadge');
 
+  const lptSigRow1 = document.getElementById('lptSigRow1');
+  const lptSigRow2 = document.getElementById('lptSigRow2');
+  const lptSigRow3 = document.getElementById('lptSigRow3');
+  const lptSigRow4 = document.getElementById('lptSigRow4');
+  const lptSigRow5 = document.getElementById('lptSigRow5');
+
+  const lptOfficersListContainer = document.getElementById('lptOfficersListContainer');
   const btnToggleLptHighlight = document.getElementById('btnToggleLptHighlight');
+
+  // LPT Dynamic Table References & State (Sesuai Gambar 1)
+  const lptToggleTable = document.getElementById('lptToggleTable');
+  const lptBadgeTable = document.getElementById('lptBadgeTable');
+  const lptTableControlsWrap = document.getElementById('lptTableControlsWrap');
+  const lptTableWrapper = document.getElementById('lptTableWrapper');
+  const lptDynamicTable = document.getElementById('lptDynamicTable');
+  const lptTableThead = document.getElementById('lptTableThead');
+  const lptTableTbody = document.getElementById('lptTableTbody');
+  const lptSidebarTableEditor = document.getElementById('lptSidebarTableEditor');
+  const lptBtnPresetUks = document.getElementById('lptBtnPresetUks');
+  const lptBtnAddRow = document.getElementById('lptBtnAddRow');
+  const lptBtnDelRow = document.getElementById('lptBtnDelRow');
+  const lptBtnAddCol = document.getElementById('lptBtnAddCol');
+  const lptBtnDelCol = document.getElementById('lptBtnDelCol');
+
+  const lptTableState = {
+    enabled: false,
+    headers: ['Total Siswa di periksa', 'Sehat', 'Perlu Perhatian', 'Perlu dirujuk'],
+    rows: [
+      ['500', '109', '1', '390']
+    ]
+  };
 
   // Convert text newlines to HTML br
   const textToHtml = (str) => {
@@ -5178,18 +5854,257 @@ document.addEventListener('DOMContentLoaded', () => {
     return escapeHtmlHelper(str).replace(/\n/g, '<br>');
   };
 
-  // Sync LPT Officers
+  // ==========================================================================
+  // LPT DYNAMIC TABLE CONTROLLER (Fitur Tabel Hasil Kegiatan Sesuai Gambar 1)
+  // ==========================================================================
+  const renderLptTable = () => {
+    const isEnabled = !!lptTableState.enabled;
+
+    if (lptTableWrapper) lptTableWrapper.style.display = isEnabled ? 'block' : 'none';
+    if (lptTableControlsWrap) lptTableControlsWrap.style.display = isEnabled ? 'block' : 'none';
+    if (lptBadgeTable) {
+      lptBadgeTable.textContent = isEnabled ? 'Aktif' : 'Tidak Aktif';
+      lptBadgeTable.style.color = isEnabled ? '#10b981' : '#94a3b8';
+    }
+
+    if (!isEnabled) return;
+
+    // 1. Render Preview Table inside LPT Document Sheet
+    if (lptTableThead && lptTableTbody) {
+      let theadHtml = '<tr style="background: rgba(0,0,0,0.02);">';
+      lptTableState.headers.forEach((h, colIdx) => {
+        theadHtml += `
+          <th contenteditable="true" data-col="${colIdx}" class="lpt-th-editable" 
+              style="border: 1px solid #000000; padding: 5px 8px; font-weight: bold; font-size: 11px; text-align: center; color: #000000; outline: none; line-height: 1.25;">
+            ${escapeHtmlHelper(h)}
+          </th>
+        `;
+      });
+      theadHtml += '</tr>';
+      lptTableThead.innerHTML = theadHtml;
+
+      let tbodyHtml = '';
+      lptTableState.rows.forEach((row, rowIdx) => {
+        tbodyHtml += '<tr>';
+        lptTableState.headers.forEach((_, colIdx) => {
+          const val = row && typeof row[colIdx] !== 'undefined' ? row[colIdx] : '';
+          tbodyHtml += `
+            <td contenteditable="true" data-row="${rowIdx}" data-col="${colIdx}" class="lpt-td-editable" 
+                style="border: 1px solid #000000; padding: 5px 8px; font-size: 11px; text-align: center; color: #000000; outline: none; line-height: 1.25;">
+              ${escapeHtmlHelper(val)}
+            </td>
+          `;
+        });
+        tbodyHtml += '</tr>';
+      });
+      lptTableTbody.innerHTML = tbodyHtml;
+
+      // Listen for direct typing in Document Preview cells
+      lptTableThead.querySelectorAll('.lpt-th-editable').forEach(th => {
+        th.addEventListener('input', () => {
+          const col = parseInt(th.getAttribute('data-col'), 10);
+          if (!isNaN(col)) {
+            lptTableState.headers[col] = th.innerText.trim();
+            updateSidebarTableInputs();
+          }
+        });
+      });
+
+      lptTableTbody.querySelectorAll('.lpt-td-editable').forEach(td => {
+        td.addEventListener('input', () => {
+          const r = parseInt(td.getAttribute('data-row'), 10);
+          const c = parseInt(td.getAttribute('data-col'), 10);
+          if (!isNaN(r) && !isNaN(c)) {
+            if (!lptTableState.rows[r]) lptTableState.rows[r] = [];
+            lptTableState.rows[r][c] = td.innerText.trim();
+            updateSidebarTableInputs();
+          }
+        });
+      });
+    }
+
+    // 2. Render Sidebar Table Editor
+    renderSidebarTableEditor();
+  };
+
+  const renderSidebarTableEditor = () => {
+    if (!lptSidebarTableEditor) return;
+    const colCount = lptTableState.headers.length;
+
+    let html = `
+      <div style="display: grid; grid-template-columns: repeat(${colCount}, minmax(95px, 1fr)); gap: 4px; margin-bottom: 6px;">
+    `;
+
+    // Headers Row in Sidebar
+    lptTableState.headers.forEach((h, cIdx) => {
+      html += `
+        <div>
+          <label style="font-size: 9.5px; color: #38bdf8; font-weight: 700; margin-bottom: 2px; display: block;">Header ${cIdx + 1}</label>
+          <input type="text" class="sppd-input-styled lpt-side-th" data-col="${cIdx}" 
+                 value="${escapeHtmlHelper(h)}" style="font-size: 11px; padding: 4px 6px; text-align: center; font-weight: 600;">
+        </div>
+      `;
+    });
+    html += `</div>`;
+
+    // Data Rows in Sidebar
+    lptTableState.rows.forEach((row, rIdx) => {
+      html += `<div style="display: grid; grid-template-columns: repeat(${colCount}, minmax(95px, 1fr)); gap: 4px; margin-bottom: 4px;">`;
+      lptTableState.headers.forEach((_, cIdx) => {
+        const val = row && typeof row[cIdx] !== 'undefined' ? row[cIdx] : '';
+        html += `
+          <div>
+            <input type="text" class="sppd-input-styled lpt-side-td" data-row="${rIdx}" data-col="${cIdx}" 
+                   value="${escapeHtmlHelper(val)}" placeholder="Nilai..." style="font-size: 11px; padding: 4px 6px; text-align: center;">
+          </div>
+        `;
+      });
+      html += `</div>`;
+    });
+
+    lptSidebarTableEditor.innerHTML = html;
+
+    // Attach listeners on Sidebar inputs
+    lptSidebarTableEditor.querySelectorAll('.lpt-side-th').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const c = parseInt(input.getAttribute('data-col'), 10);
+        if (!isNaN(c)) {
+          lptTableState.headers[c] = e.target.value;
+          const th = lptTableThead ? lptTableThead.querySelector(`.lpt-th-editable[data-col="${c}"]`) : null;
+          if (th) th.textContent = e.target.value;
+        }
+      });
+    });
+
+    lptSidebarTableEditor.querySelectorAll('.lpt-side-td').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const r = parseInt(input.getAttribute('data-row'), 10);
+        const c = parseInt(input.getAttribute('data-col'), 10);
+        if (!isNaN(r) && !isNaN(c)) {
+          if (!lptTableState.rows[r]) lptTableState.rows[r] = [];
+          lptTableState.rows[r][c] = e.target.value;
+          const td = lptTableTbody ? lptTableTbody.querySelector(`.lpt-td-editable[data-row="${r}"][data-col="${c}"]`) : null;
+          if (td) td.textContent = e.target.value;
+        }
+      });
+    });
+  };
+
+  const updateSidebarTableInputs = () => {
+    if (!lptSidebarTableEditor) return;
+    lptTableState.headers.forEach((h, c) => {
+      const inTh = lptSidebarTableEditor.querySelector(`.lpt-side-th[data-col="${c}"]`);
+      if (inTh && inTh.value !== h) inTh.value = h;
+    });
+    lptTableState.rows.forEach((row, r) => {
+      row.forEach((val, c) => {
+        const inTd = lptSidebarTableEditor.querySelector(`.lpt-side-td[data-row="${r}"][data-col="${c}"]`);
+        if (inTd && inTd.value !== val) inTd.value = val;
+      });
+    });
+  };
+
+  // Toggle Table Listener
+  if (lptToggleTable) {
+    lptToggleTable.addEventListener('change', () => {
+      lptTableState.enabled = lptToggleTable.checked;
+      renderLptTable();
+      if (typeof showToast === 'function') {
+        showToast(lptTableState.enabled ? '✓ Tabel hasil kegiatan diaktifkan pada pratinjau LPT.' : 'Tabel hasil kegiatan dinonaktifkan.', 'info');
+      }
+    });
+  }
+
+  // Preset UKS / Skrining Button (Sesuai Gambar 1)
+  if (lptBtnPresetUks) {
+    lptBtnPresetUks.addEventListener('click', () => {
+      lptTableState.enabled = true;
+      if (lptToggleTable) lptToggleTable.checked = true;
+      lptTableState.headers = ['Total Siswa di periksa', 'Sehat', 'Perlu Perhatian', 'Perlu dirujuk'];
+      lptTableState.rows = [
+        ['500', '109', '1', '390']
+      ];
+      renderLptTable();
+      if (typeof showToast === 'function') {
+        showToast('✓ Format tabel skrining UKS (Gambar 1) berhasil dimuat!', 'success');
+      }
+    });
+  }
+
+  // Row & Column Operations
+  if (lptBtnAddRow) {
+    lptBtnAddRow.addEventListener('click', () => {
+      lptTableState.rows.push(new Array(lptTableState.headers.length).fill(''));
+      renderLptTable();
+    });
+  }
+  if (lptBtnDelRow) {
+    lptBtnDelRow.addEventListener('click', () => {
+      if (lptTableState.rows.length > 1) {
+        lptTableState.rows.pop();
+        renderLptTable();
+      } else {
+        if (typeof showToast === 'function') showToast('Minimal harus ada 1 baris data.', 'warn');
+      }
+    });
+  }
+  if (lptBtnAddCol) {
+    lptBtnAddCol.addEventListener('click', () => {
+      lptTableState.headers.push(`Kolom ${lptTableState.headers.length + 1}`);
+      lptTableState.rows.forEach(r => r.push(''));
+      renderLptTable();
+    });
+  }
+  if (lptBtnDelCol) {
+    lptBtnDelCol.addEventListener('click', () => {
+      if (lptTableState.headers.length > 1) {
+        lptTableState.headers.pop();
+        lptTableState.rows.forEach(r => r.pop());
+        renderLptTable();
+      } else {
+        if (typeof showToast === 'function') showToast('Minimal harus ada 1 kolom data.', 'warn');
+      }
+    });
+  }
+
+  // ==========================================================================
+  // LPT 5 PETUGAS PELAPOR & SIGNATURES CONTROLLER (Sesuai Gambar 2)
+  // ==========================================================================
+  
+  // Populate dropdown options for Petugas 2..5 from Petugas 1
+  const populateLptOfficerOptions = () => {
+    const p1Select = document.getElementById('lptSelectPetugas1');
+    if (!p1Select) return;
+    const optionsHtml = p1Select.innerHTML;
+    for (let i = 2; i <= 5; i++) {
+      const sel = document.getElementById(`lptSelectPetugas${i}`);
+      if (sel && sel.options.length <= 2) {
+        sel.innerHTML = optionsHtml;
+        if (sel.options[0]) sel.options[0].text = `-- Pilih Petugas ${i} --`;
+      }
+    }
+  };
+
+  // Sync an Officer by Index (1 to 5)
   const syncLptOfficer = (index) => {
     const select = document.getElementById(`lptSelectPetugas${index}`);
     const nameEl = document.getElementById(`lptSigPetugasName${index}`);
     const nipEl = document.getElementById(`lptSigPetugasNip${index}`);
+    const inNama = document.getElementById(`lptInputCustomNama${index}`);
+    const inNip = document.getElementById(`lptInputCustomNip${index}`);
     if (!select || !nameEl || !nipEl) return;
 
-    if (select.selectedIndex >= 0) {
+    if (select.value === 'CUSTOM') {
+      const customNama = inNama && inNama.value.trim() ? inNama.value.trim() : '...........................................';
+      const customNip = inNip && inNip.value.trim() ? inNip.value.trim() : 'NIP. ...........................................';
+      nameEl.textContent = customNama;
+      nipEl.textContent = customNip.startsWith('NIP') || customNip.startsWith('NRP') ? customNip : `NIP. ${customNip}`;
+    } else if (select.selectedIndex >= 0) {
       const opt = select.options[select.selectedIndex];
-      if (opt && opt.value) {
+      if (opt && opt.value && opt.value !== 'CUSTOM') {
         nameEl.textContent = opt.value;
-        nipEl.textContent = opt.getAttribute('data-nip') || '-';
+        const rawNip = opt.getAttribute('data-nip') || '';
+        nipEl.textContent = rawNip || 'NIP. -';
       } else {
         nameEl.textContent = '...........................................';
         nipEl.textContent = 'NIP. ...........................................';
@@ -5197,34 +6112,145 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // Sync LPT Officer Visibility & Signature Alignment (Single Officer -> Posisi KANAN)
+  // Update Officer Visibility and Stacked Layout (1 to 5)
   const updateLptPetugasVisibility = () => {
-    const show2 = lptTogglePetugas2 ? lptTogglePetugas2.checked : false;
-    const show3 = lptTogglePetugas3 ? lptTogglePetugas3.checked : false;
+    let activeCount = 1; // Petugas 1 is always active
 
-    if (lptSigCol2) lptSigCol2.style.display = show2 ? 'block' : 'none';
-    if (lptWrapSelectPetugas2) lptWrapSelectPetugas2.style.display = show2 ? 'block' : 'none';
-    if (lptBadgePetugas2) {
-      lptBadgePetugas2.textContent = show2 ? 'Ditampilkan' : 'Disembunyikan';
-      lptBadgePetugas2.style.color = show2 ? '#10b981' : '#94a3b8';
-    }
+    for (let i = 2; i <= 5; i++) {
+      const toggle = document.getElementById(`lptTogglePetugas${i}`);
+      const row = document.getElementById(`lptSigRow${i}`);
+      const card = document.getElementById(`lptCardPetugas${i}`);
+      const badge = document.getElementById(`lptBadgePetugas${i}`);
+      const isShown = toggle ? toggle.checked : false;
 
-    if (lptSigCol3) lptSigCol3.style.display = show3 ? 'block' : 'none';
-    if (lptWrapSelectPetugas3) lptWrapSelectPetugas3.style.display = show3 ? 'block' : 'none';
-    if (lptBadgePetugas3) {
-      lptBadgePetugas3.textContent = show3 ? 'Ditampilkan' : 'Disembunyikan';
-      lptBadgePetugas3.style.color = show3 ? '#10b981' : '#94a3b8';
-    }
-
-    if (lptSignaturesRow) {
-      if (!show2 && !show3) {
-        // Posisi Petugas Tunggal (Sendiri) di KANAN
-        lptSignaturesRow.style.justifyContent = 'flex-end';
-      } else {
-        lptSignaturesRow.style.justifyContent = 'space-between';
+      if (row) row.style.display = isShown ? 'flex' : 'none';
+      if (card) card.style.display = isShown ? 'block' : 'none';
+      if (badge) {
+        badge.textContent = isShown ? 'Ditampilkan' : 'Disembunyikan';
+        badge.style.color = isShown ? '#10b981' : '#94a3b8';
       }
+      if (isShown) activeCount++;
+    }
+
+    // Dynamic vertical gap depending on active officers count (fits cleanly on A4)
+    if (lptOfficersListContainer) {
+      if (activeCount <= 2) lptOfficersListContainer.style.gap = '24px';
+      else if (activeCount === 3) lptOfficersListContainer.style.gap = '20px';
+      else if (activeCount === 4) lptOfficersListContainer.style.gap = '15px';
+      else lptOfficersListContainer.style.gap = '12px';
+    }
+
+    // Update "+ Tambah Petugas" button visibility
+    if (lptBtnAddPetugas) {
+      lptBtnAddPetugas.style.display = activeCount >= 5 ? 'none' : 'inline-flex';
+    }
+
+    if (lptPetugasSummaryBadge) {
+      lptPetugasSummaryBadge.textContent = `${activeCount} / 5 Petugas Aktif`;
     }
   };
+
+  // Remove/Reset an Officer (2 to 5)
+  const removePetugas = (index) => {
+    const toggle = document.getElementById(`lptTogglePetugas${index}`);
+    const card = document.getElementById(`lptCardPetugas${index}`);
+    const row = document.getElementById(`lptSigRow${index}`);
+    const select = document.getElementById(`lptSelectPetugas${index}`);
+    const inNama = document.getElementById(`lptInputCustomNama${index}`);
+    const inNip = document.getElementById(`lptInputCustomNip${index}`);
+    const customWrap = document.getElementById(`lptCustomWrap${index}`);
+    const badge = document.getElementById(`lptBadgePetugas${index}`);
+
+    if (toggle) toggle.checked = false;
+    if (card) card.style.display = 'none';
+    if (row) row.style.display = 'none';
+    if (select) select.value = '';
+    if (inNama) inNama.value = '';
+    if (inNip) inNip.value = '';
+    if (customWrap) customWrap.style.display = 'none';
+    if (badge) {
+      badge.textContent = 'Disembunyikan';
+      badge.style.color = '#94a3b8';
+    }
+
+    syncLptOfficer(index);
+    updateLptPetugasVisibility();
+  };
+  window.removePetugas = removePetugas;
+
+  // Initialize all 5 Officer Event Listeners
+  populateLptOfficerOptions();
+
+  for (let i = 1; i <= 5; i++) {
+    const idx = i;
+    const select = document.getElementById(`lptSelectPetugas${idx}`);
+    const toggle = document.getElementById(`lptTogglePetugas${idx}`);
+    const inNama = document.getElementById(`lptInputCustomNama${idx}`);
+    const inNip = document.getElementById(`lptInputCustomNip${idx}`);
+    const customWrap = document.getElementById(`lptCustomWrap${idx}`);
+    const delBtn = document.querySelector(`.lpt-btn-del-petugas[data-index="${idx}"]`);
+
+    if (select) {
+      select.addEventListener('change', () => {
+        select.dataset.userEdited = 'true';
+        if (select.value === 'CUSTOM') {
+          if (customWrap) customWrap.style.display = 'grid';
+          if (inNama) inNama.focus();
+        } else {
+          if (customWrap) customWrap.style.display = 'none';
+        }
+        syncLptOfficer(idx);
+      });
+    }
+
+    if (inNama) {
+      inNama.addEventListener('input', () => syncLptOfficer(idx));
+    }
+    if (inNip) {
+      inNip.addEventListener('input', () => syncLptOfficer(idx));
+    }
+
+    if (toggle) {
+      toggle.addEventListener('change', () => {
+        syncLptOfficer(idx);
+        updateLptPetugasVisibility();
+      });
+    }
+
+    if (delBtn) {
+      delBtn.addEventListener('click', () => removePetugas(idx));
+    }
+  }
+
+  // "+ Tambah Petugas" button click & Global Window Handler
+  const addLptPetugasHandler = () => {
+    let added = false;
+    for (let i = 2; i <= 5; i++) {
+      const toggle = document.getElementById(`lptTogglePetugas${i}`);
+      const card = document.getElementById(`lptCardPetugas${i}`);
+      const row = document.getElementById(`lptSigRow${i}`);
+      const isHidden = !card || card.style.display === 'none' || (toggle && !toggle.checked);
+      if (isHidden) {
+        if (toggle) toggle.checked = true;
+        if (card) card.style.display = 'block';
+        if (row) row.style.display = 'flex';
+        syncLptOfficer(i);
+        updateLptPetugasVisibility();
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        added = true;
+        break;
+      }
+    }
+    if (!added && typeof showToast === 'function') {
+      showToast('Maksimal 5 petugas sudah ditampilkan.', 'info');
+    }
+  };
+
+  window.addLptPetugas = addLptPetugasHandler;
+
+  if (lptBtnAddPetugas) {
+    lptBtnAddPetugas.onclick = addLptPetugasHandler;
+  }
 
   // Wire LPT Sidebar Inputs to Preview Document
   if (lptInputDasar) {
@@ -5312,28 +6338,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Wire LPT Officer Dropdowns & Toggles
-  if (lptSelectPetugas1) {
-    lptSelectPetugas1.addEventListener('change', () => {
-      lptSelectPetugas1.dataset.userEdited = 'true';
-      syncLptOfficer(1);
-    });
-  }
-  if (lptSelectPetugas2) {
-    lptSelectPetugas2.addEventListener('change', () => {
-      lptSelectPetugas2.dataset.userEdited = 'true';
-      syncLptOfficer(2);
-    });
-  }
-  if (lptSelectPetugas3) {
-    lptSelectPetugas3.addEventListener('change', () => {
-      lptSelectPetugas3.dataset.userEdited = 'true';
-      syncLptOfficer(3);
-    });
-  }
-
-  if (lptTogglePetugas2) lptTogglePetugas2.addEventListener('change', updateLptPetugasVisibility);
-  if (lptTogglePetugas3) lptTogglePetugas3.addEventListener('change', updateLptPetugasVisibility);
 
   // Wire LPT Color Highlight Switch
   if (btnToggleLptHighlight) {
@@ -6394,7 +7398,27 @@ document.addEventListener('DOMContentLoaded', () => {
       if (dokEl) contentToPrint.push(prepareSheetForPrint(dokEl.outerHTML));
     } else if (formType === 'lpt') {
       const lptEl = document.getElementById('lptSheetDoc');
-      if (lptEl) contentToPrint.push(prepareSheetForPrint(lptEl.outerHTML));
+      if (lptEl) {
+        const clone = lptEl.cloneNode(true);
+        // Explicitly remove hidden officer rows so they never appear in print
+        for (let i = 2; i <= 5; i++) {
+          const toggle = document.getElementById(`lptTogglePetugas${i}`);
+          const origRow = document.getElementById(`lptSigRow${i}`);
+          const isShown = toggle ? toggle.checked : (origRow && origRow.style.display !== 'none');
+          if (!isShown) {
+            const cloneRow = clone.querySelector(`#lptSigRow${i}`);
+            if (cloneRow) cloneRow.remove();
+          }
+        }
+        // If dynamic table is disabled, remove table wrapper from clone
+        const toggleTable = document.getElementById('lptToggleTable');
+        const isTableActive = toggleTable ? toggleTable.checked : (typeof lptTableState !== 'undefined' && lptTableState && lptTableState.enabled);
+        if (!isTableActive) {
+          const cloneTable = clone.querySelector('#lptTableWrapper');
+          if (cloneTable) cloneTable.remove();
+        }
+        contentToPrint.push(prepareSheetForPrint(clone.outerHTML));
+      }
     } else {
       if (part === 'both' || part === 'front') {
         const frontEl = document.getElementById('sppdSheetDepan');
@@ -6868,15 +7892,63 @@ document.addEventListener('DOMContentLoaded', () => {
     color: #000000 !important;
   }
   .lpt-signatures-wrapper {
+    margin-top: 25px !important;
+    display: flex !important;
+    justify-content: flex-end !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
-  .lpt-sig-col {
-    text-align: center !important;
+  .lpt-sig-stacked-block {
+    width: 270px !important;
+    color: #000000 !important;
+    text-align: left !important;
   }
-  .exact-lpt-table td {
-    padding: 5px 7px !important;
+  .lpt-officer-item {
+    display: flex;
+    align-items: flex-start !important;
+    font-size: 12px !important;
     line-height: 1.35 !important;
+    color: #000000 !important;
+  }
+  .lpt-officer-item[style*="display: none"],
+  .lpt-officer-item[style*="display:none"],
+  .lpt-officer-item.hidden-officer {
+    display: none !important;
+  }
+  .lpt-officer-num {
+    width: 20px !important;
+    flex-shrink: 0 !important;
+    font-weight: bold !important;
+    color: #000000 !important;
+  }
+  #lptTableWrapper {
+    margin-top: 8px !important;
+    margin-bottom: 10px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  #lptDynamicTable,
+  .exact-lpt-table {
+    width: 100% !important;
+    max-width: 540px !important;
+    border-collapse: collapse !important;
+    border: 1.5px solid #000000 !important;
+    font-size: 11px !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+  #lptDynamicTable th,
+  #lptDynamicTable td,
+  .exact-lpt-table th,
+  .exact-lpt-table td {
+    border: 1px solid #000000 !important;
+    padding: 5px 8px !important;
+    text-align: center !important;
+    color: #000000 !important;
+    line-height: 1.25 !important;
+  }
+  #lptDynamicTable th {
+    font-weight: bold !important;
   }
 
   /* Dokumentasi specific */
@@ -7193,7 +8265,26 @@ document.addEventListener('DOMContentLoaded', () => {
       if (dokEl) sheets.push(dokEl.cloneNode(true));
     } else if (formType === 'lpt') {
       const lptEl = document.getElementById('lptSheetDoc');
-      if (lptEl) sheets.push(lptEl.cloneNode(true));
+      if (lptEl) {
+        const lptClone = lptEl.cloneNode(true);
+        // Explicitly remove hidden officer rows from PDF export
+        for (let i = 2; i <= 5; i++) {
+          const toggle = document.getElementById(`lptTogglePetugas${i}`);
+          const origRow = document.getElementById(`lptSigRow${i}`);
+          const isShown = toggle ? toggle.checked : (origRow && origRow.style.display !== 'none');
+          if (!isShown) {
+            const cloneRow = lptClone.querySelector(`#lptSigRow${i}`);
+            if (cloneRow) cloneRow.remove();
+          }
+        }
+        const toggleTable = document.getElementById('lptToggleTable');
+        const isTableActive = toggleTable ? toggleTable.checked : (typeof lptTableState !== 'undefined' && lptTableState && lptTableState.enabled);
+        if (!isTableActive) {
+          const cloneTable = lptClone.querySelector('#lptTableWrapper');
+          if (cloneTable) cloneTable.remove();
+        }
+        sheets.push(lptClone);
+      }
     } else {
       if (part === 'both' || part === 'front') {
         const frontEl = document.getElementById('sppdSheetDepan');
@@ -7318,10 +8409,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initial Sync & Display
   syncSppdLptData();
-  syncLptOfficer(1);
-  syncLptOfficer(2);
-  syncLptOfficer(3);
+  for (let i = 1; i <= 5; i++) syncLptOfficer(i);
   updateLptPetugasVisibility();
+  renderLptTable();
   updateFormDisplay();
   initSppdCustomizerEvents();
 
@@ -8066,7 +9156,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
 
-        // LPT Details (Termasuk Tanggal Laporan)
+        // LPT Details (Termasuk Tanggal Laporan, 5 Petugas & Dynamic Table)
         const lptData = {
           dasar: document.getElementById('lptInputDasar')?.value || '',
           tujuan: document.getElementById('lptInputTujuanPerjalanan')?.value || '',
@@ -8077,8 +9167,25 @@ document.addEventListener('DOMContentLoaded', () => {
           petugas1: document.getElementById('lptSelectPetugas1')?.value || '',
           petugas2: document.getElementById('lptSelectPetugas2')?.value || '',
           petugas3: document.getElementById('lptSelectPetugas3')?.value || '',
+          petugas4: document.getElementById('lptSelectPetugas4')?.value || '',
+          petugas5: document.getElementById('lptSelectPetugas5')?.value || '',
           toggle2: document.getElementById('lptTogglePetugas2')?.checked || false,
-          toggle3: document.getElementById('lptTogglePetugas3')?.checked || false
+          toggle3: document.getElementById('lptTogglePetugas3')?.checked || false,
+          toggle4: document.getElementById('lptTogglePetugas4')?.checked || false,
+          toggle5: document.getElementById('lptTogglePetugas5')?.checked || false,
+          customNama1: document.getElementById('lptInputCustomNama1')?.value || '',
+          customNip1: document.getElementById('lptInputCustomNip1')?.value || '',
+          customNama2: document.getElementById('lptInputCustomNama2')?.value || '',
+          customNip2: document.getElementById('lptInputCustomNip2')?.value || '',
+          customNama3: document.getElementById('lptInputCustomNama3')?.value || '',
+          customNip3: document.getElementById('lptInputCustomNip3')?.value || '',
+          customNama4: document.getElementById('lptInputCustomNama4')?.value || '',
+          customNip4: document.getElementById('lptInputCustomNip4')?.value || '',
+          customNama5: document.getElementById('lptInputCustomNama5')?.value || '',
+          customNip5: document.getElementById('lptInputCustomNip5')?.value || '',
+          table_enabled: !!(lptTableState && lptTableState.enabled),
+          table_headers: lptTableState ? [...lptTableState.headers] : [],
+          table_rows: lptTableState ? JSON.parse(JSON.stringify(lptTableState.rows)) : []
         };
 
         // Dokumentasi Details - Pastikan file gambar tersimpan di Cloudflare R2
@@ -8300,30 +9407,51 @@ document.addEventListener('DOMContentLoaded', () => {
             const docEl = document.getElementById('lptValKesimpulan');
             if (docEl) docEl.innerHTML = textToHtml(lpt.kesimpulan);
           }
-          if (lpt.petugas1) {
-            const el = document.getElementById('lptSelectPetugas1');
-            if (el) { el.value = lpt.petugas1; el.dataset.userEdited = 'true'; }
-            syncLptOfficer(1);
-          }
-          if (lpt.petugas2) {
-            const el = document.getElementById('lptSelectPetugas2');
-            if (el) { el.value = lpt.petugas2; el.dataset.userEdited = 'true'; }
-            syncLptOfficer(2);
-          }
-          if (lpt.petugas3) {
-            const el = document.getElementById('lptSelectPetugas3');
-            if (el) { el.value = lpt.petugas3; el.dataset.userEdited = 'true'; }
-            syncLptOfficer(3);
-          }
-          if (typeof lpt.toggle2 !== 'undefined') {
-            const el = document.getElementById('lptTogglePetugas2');
-            if (el) el.checked = !!lpt.toggle2;
-          }
-          if (typeof lpt.toggle3 !== 'undefined') {
-            const el = document.getElementById('lptTogglePetugas3');
-            if (el) el.checked = !!lpt.toggle3;
+          // Restore 5 Officers & Toggles
+          for (let i = 1; i <= 5; i++) {
+            const petVal = lpt[`petugas${i}`];
+            if (petVal) {
+              const el = document.getElementById(`lptSelectPetugas${i}`);
+              if (el) { el.value = petVal; el.dataset.userEdited = 'true'; }
+              const customWrap = document.getElementById(`lptCustomWrap${i}`);
+              if (customWrap) customWrap.style.display = petVal === 'CUSTOM' ? 'grid' : 'none';
+            }
+            const cNama = lpt[`customNama${i}`];
+            if (cNama) {
+              const el = document.getElementById(`lptInputCustomNama${i}`);
+              if (el) el.value = cNama;
+            }
+            const cNip = lpt[`customNip${i}`];
+            if (cNip) {
+              const el = document.getElementById(`lptInputCustomNip${i}`);
+              if (el) el.value = cNip;
+            }
+            if (i >= 2 && typeof lpt[`toggle${i}`] !== 'undefined') {
+              const el = document.getElementById(`lptTogglePetugas${i}`);
+              if (el) el.checked = !!lpt[`toggle${i}`];
+            }
+            syncLptOfficer(i);
           }
           updateLptPetugasVisibility();
+
+          // Restore Dynamic Table (Sesuai Gambar 1)
+          if (typeof lpt.table_enabled !== 'undefined' || lpt.table_data) {
+            const isTableEnabled = typeof lpt.table_enabled !== 'undefined' ? lpt.table_enabled : (lpt.table_data && lpt.table_data.enabled);
+            lptTableState.enabled = !!isTableEnabled;
+            if (Array.isArray(lpt.table_headers)) {
+              lptTableState.headers = [...lpt.table_headers];
+            } else if (lpt.table_data && Array.isArray(lpt.table_data.headers)) {
+              lptTableState.headers = [...lpt.table_data.headers];
+            }
+            if (Array.isArray(lpt.table_rows)) {
+              lptTableState.rows = JSON.parse(JSON.stringify(lpt.table_rows));
+            } else if (lpt.table_data && Array.isArray(lpt.table_data.rows)) {
+              lptTableState.rows = JSON.parse(JSON.stringify(lpt.table_data.rows));
+            }
+            const toggleEl = document.getElementById('lptToggleTable');
+            if (toggleEl) toggleEl.checked = lptTableState.enabled;
+            renderLptTable();
+          }
         }
 
       } else if (type === 'dok') {
@@ -9428,18 +10556,64 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (collabStaffSearch) {
-        collabStaffSearch.addEventListener('input', (e) => {
-          const q = (e.target.value || '').toLowerCase().trim();
-          document.querySelectorAll('.collab-staff-item').forEach(item => {
+        const handleCollabSearch = () => {
+          const rawQ = (collabStaffSearch.value || '').toLowerCase().trim();
+          const items = document.querySelectorAll('.collab-staff-item');
+          const terms = rawQ.split(/\s+/).filter(Boolean);
+          let visibleCount = 0;
+
+          items.forEach(item => {
             const nama = (item.dataset.nama || '').toLowerCase();
             const jab = (item.dataset.jab || '').toLowerCase();
             const nip = (item.dataset.nip || '').toLowerCase();
-            if (!q || nama.includes(q) || jab.includes(q) || nip.includes(q)) {
-              item.style.display = 'flex';
+            const fullText = (item.textContent || '').toLowerCase();
+
+            const isMatch = terms.length === 0 || terms.every(term => 
+              nama.includes(term) || jab.includes(term) || nip.includes(term) || fullText.includes(term)
+            );
+
+            if (isMatch) {
+              item.classList.remove('is-search-hidden');
+              item.style.setProperty('display', 'flex', 'important');
+              visibleCount++;
             } else {
-              item.style.display = 'none';
+              item.classList.add('is-search-hidden');
+              item.style.setProperty('display', 'none', 'important');
             }
           });
+
+          // Empty state handling
+          const container = document.getElementById('collabStaffListContainer');
+          if (container) {
+            let emptyEl = container.querySelector('#collabStaffEmptyState');
+            if (visibleCount === 0 && rawQ) {
+              if (!emptyEl) {
+                emptyEl = document.createElement('div');
+                emptyEl.id = 'collabStaffEmptyState';
+                emptyEl.className = 'collab-no-results';
+                container.appendChild(emptyEl);
+              }
+              const safeQ = rawQ.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+              emptyEl.innerHTML = `
+                <span style="font-size: 22px;">🔍</span>
+                <div style="font-weight: 600; color: #cbd5e1;">Petugas Tidak Ditemukan</div>
+                <div style="font-size: 11.5px; color: #94a3b8;">Tidak ada rekan petugas yang cocok dengan kata kunci: <em>"${safeQ}"</em></div>
+              `;
+              emptyEl.style.display = 'flex';
+            } else if (emptyEl) {
+              emptyEl.style.display = 'none';
+            }
+          }
+        };
+
+        collabStaffSearch.addEventListener('input', handleCollabSearch);
+        collabStaffSearch.addEventListener('keyup', handleCollabSearch);
+        collabStaffSearch.addEventListener('search', handleCollabSearch);
+        collabStaffSearch.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            collabStaffSearch.value = '';
+            handleCollabSearch();
+          }
         });
       }
 
@@ -10441,6 +11615,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (uAv) uAv.textContent = CURRENT_USER.avatar;
 
       if (modal) modal.classList.add('active');
+      if (window.SearchableSelect) {
+        const kegInputEl = document.getElementById('inputKegiatanBOK');
+        if (kegInputEl) window.SearchableSelect.enhance(kegInputEl);
+      }
     },
 
     async bukaModalEdit(id) {
@@ -10921,7 +12099,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Reset visibility and classes of all staff items
       document.querySelectorAll('.collab-staff-item').forEach(item => {
-        item.style.display = 'flex';
+        item.classList.remove('is-search-hidden');
+        item.style.setProperty('display', 'flex', 'important');
         item.classList.remove('is-conflict');
         const cb = item.querySelector('.collab-staff-cb');
         if (cb) {
@@ -10934,11 +12113,17 @@ document.addEventListener('DOMContentLoaded', () => {
           conflictBox.style.display = 'none';
         }
       });
+      const emptyEl = document.getElementById('collabStaffEmptyState');
+      if (emptyEl) emptyEl.style.display = 'none';
 
       const defaultDate = datePrefill || `${this.currentYear}-${String(this.currentMonth).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
       if (tglInput) tglInput.value = defaultDate;
 
       if (modal) modal.classList.add('active');
+      if (window.SearchableSelect) {
+        const collabKegEl = document.getElementById('collabKegiatan');
+        if (collabKegEl) window.SearchableSelect.enhance(collabKegEl);
+      }
 
       // Live conflict scan for the date
       await this.updateCollabConflictUI(defaultDate);
@@ -11803,26 +12988,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     init() {
       if (!this.checkPermissions()) return;
-      this.bindTabEvents();
-      this.bindD1StudioEvents();
-      this.bindUserEvents();
+      if (!this.isInitialized) {
+        this.isInitialized = true;
+        this.bindTabEvents();
+        this.bindD1StudioEvents();
+        this.bindUserEvents();
+        this.bindApiEvents();
+        this.bindTerminalEvents();
+        this.bindMaintenanceEvents();
+        this.bootTerminal();
+      }
       this.renderUsers();
-      this.bindApiEvents();
-      this.bindTerminalEvents();
-      this.bindMaintenanceEvents();
-      this.bootTerminal();
       this.updateStats();
-      this.loadD1Table('users');
+      this.loadD1Table(this.activeD1Table || 'users', false);
+      this.refreshAllTableCounts();
+      this.startLiveAutoSync();
     },
 
     checkPermissions() {
-      const isSuperAdmin = (typeof CURRENT_USER !== 'undefined' && (CURRENT_USER.role === 'Super Admin' || CURRENT_USER.username === 'ozie'));
-      if (navItemDevWeb) {
-        navItemDevWeb.style.display = isSuperAdmin ? 'block' : 'none';
+      let u = window.CURRENT_USER;
+      if (!u) {
+        try { u = JSON.parse(localStorage.getItem('SICEKAS_CURRENT_USER') || '{}'); } catch(e){}
       }
-      if (navSectionGodMode) {
-        navSectionGodMode.style.display = isSuperAdmin ? 'block' : 'none';
-      }
+      const isSuperAdmin = !!(u && (u.role === 'Super Admin' || u.username === 'ozie' || u.role === 'Admin'));
+      const navItem = document.getElementById('navItemDevWeb');
+      const navItemR2 = document.getElementById('navItemR2Storage');
+      const navSec = document.getElementById('navSectionGodMode');
+      if (navItem) navItem.style.display = isSuperAdmin ? 'block' : 'none';
+      if (navItemR2) navItemR2.style.display = isSuperAdmin ? 'block' : 'none';
+      if (navSec) navSec.style.display = isSuperAdmin ? 'block' : 'none';
       return isSuperAdmin;
     },
 
@@ -11831,6 +13025,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const panels = {
         api: document.getElementById('devTabApi'),
         d1studio: document.getElementById('devTabD1studio'),
+        r2storage: document.getElementById('devTabR2storage'),
         users: document.getElementById('devTabUsers'),
         logs: document.getElementById('devTabLogs'),
         maintenance: document.getElementById('devTabMaintenance')
@@ -11851,9 +13046,20 @@ document.addEventListener('DOMContentLoaded', () => {
                   { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' }
                 );
                 if (tabKey === 'd1studio') {
-                  this.loadD1Table(this.activeD1Table || 'users');
-                } else if (tabKey === 'users') {
-                  this.renderUsers();
+                  this.loadD1Table(this.activeD1Table || 'users', false);
+                  this.refreshAllTableCounts();
+                  this.startLiveAutoSync();
+                } else if (tabKey === 'r2storage') {
+                  this.stopLiveAutoSync();
+                  if (window.R2FileManager) {
+                    window.R2FileManager.init();
+                    window.R2FileManager.loadCurrentFolder();
+                  }
+                } else {
+                  this.stopLiveAutoSync();
+                  if (tabKey === 'users') {
+                    this.renderUsers();
+                  }
                 }
               }
             }
@@ -11865,6 +13071,103 @@ document.addEventListener('DOMContentLoaded', () => {
     activeD1Table: 'users',
     d1TableData: [],
     loadedUsers: [],
+    liveAutoSyncEnabled: true,
+    liveIntervalMs: 5000,
+    liveTimer: null,
+    isSyncing: false,
+    lastSyncTime: null,
+
+    startLiveAutoSync() {
+      this.stopLiveAutoSync();
+      if (!this.liveAutoSyncEnabled) return;
+
+      this.liveTimer = setInterval(async () => {
+        if (document.hidden) return;
+        const panel = document.getElementById('devTabD1studio');
+        if (!panel || panel.style.display === 'none') return;
+        if (this.isSyncing) return;
+
+        this.isSyncing = true;
+        try {
+          await this.loadD1Table(this.activeD1Table || 'users', true);
+          await this.refreshAllTableCounts();
+        } catch (e) {
+          console.warn('Live D1 auto-sync tick error:', e);
+        } finally {
+          this.isSyncing = false;
+        }
+      }, this.liveIntervalMs);
+
+      this.updateLiveUiState();
+    },
+
+    stopLiveAutoSync() {
+      if (this.liveTimer) {
+        clearInterval(this.liveTimer);
+        this.liveTimer = null;
+      }
+      this.updateLiveUiState();
+    },
+
+    toggleLiveAutoSync() {
+      this.liveAutoSyncEnabled = !this.liveAutoSyncEnabled;
+      if (this.liveAutoSyncEnabled) {
+        this.startLiveAutoSync();
+        showToast('🟢 Auto-Sync D1 Realtime aktif (sinkron tiap 5 detik)', 'success');
+      } else {
+        this.stopLiveAutoSync();
+        showToast('⏸️ Auto-Sync D1 dijeda', 'info');
+      }
+      this.updateLiveUiState();
+    },
+
+    updateLiveUiState() {
+      const badge = document.getElementById('d1LiveBadge');
+      const text = document.getElementById('d1LiveStatusText');
+      const btnText = document.getElementById('btnD1ToggleLiveSyncText');
+      if (this.liveAutoSyncEnabled && this.liveTimer) {
+        if (badge) badge.classList.remove('paused');
+        if (text) text.textContent = 'LIVE AUTO-SYNC (5s)';
+        if (btnText) btnText.textContent = '⏸️ Pause Sync';
+      } else {
+        if (badge) badge.classList.add('paused');
+        if (text) text.textContent = 'SYNC DIJEDA';
+        if (btnText) btnText.textContent = '▶️ Start Sync';
+      }
+    },
+
+    updateTimestampUi() {
+      const el = document.getElementById('d1LastUpdatedTime');
+      if (!el) return;
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('id-ID', { hour12: false });
+      el.textContent = `Update: ${timeStr}`;
+    },
+
+    async refreshAllTableCounts() {
+      const tables = [
+        'users', 'jadwal_kegiatan', 'poa_bulanan', 'tppol_jaspel',
+        'sppd_lpt', 'audit_logs', 'sppd_templates', 'kolaborasi_request', 'foto_upload_logs'
+      ];
+      try {
+        await Promise.all(tables.map(async (t) => {
+          try {
+            const res = await CloudflareDB.executeSql(`SELECT COUNT(*) AS total FROM ${t};`);
+            if (res && res.success && res.rows && res.rows[0]) {
+              const count = res.rows[0].total ?? res.rows[0].cnt ?? 0;
+              const el = document.getElementById(`count-${t}`);
+              if (el) {
+                if (el.textContent !== String(count)) {
+                  el.textContent = count;
+                  el.classList.add('d1-count-pop');
+                  setTimeout(() => el.classList.remove('d1-count-pop'), 500);
+                }
+              }
+            }
+          } catch (err) {}
+        }));
+      } catch (e) {}
+    },
 
     bindD1StudioEvents() {
       const pills = document.querySelectorAll('#d1TablePills .d1-pill');
@@ -11874,15 +13177,26 @@ document.addEventListener('DOMContentLoaded', () => {
           pill.classList.add('active');
           const tableName = pill.getAttribute('data-table');
           this.activeD1Table = tableName;
-          this.loadD1Table(tableName);
+          this.loadD1Table(tableName, false);
         });
       });
 
       const btnRefresh = document.getElementById('btnD1RefreshTable');
       if (btnRefresh) {
-        btnRefresh.addEventListener('click', () => {
-          this.loadD1Table(this.activeD1Table || 'users');
-          showToast('✓ Data tabel D1 berhasil dimuat ulang!', 'info');
+        btnRefresh.addEventListener('click', async () => {
+          const btnText = document.getElementById('btnD1RefreshText');
+          if (btnText) btnText.textContent = '⏳ Sinkron...';
+          await this.loadD1Table(this.activeD1Table || 'users', false);
+          await this.refreshAllTableCounts();
+          if (btnText) btnText.textContent = '🔄 Refresh Data';
+          showToast('✓ Data tabel Cloudflare D1 berhasil disinkronkan!', 'success');
+        });
+      }
+
+      const btnToggleLiveSync = document.getElementById('btnD1ToggleLiveSync');
+      if (btnToggleLiveSync) {
+        btnToggleLiveSync.addEventListener('click', () => {
+          this.toggleLiveAutoSync();
         });
       }
 
@@ -11937,7 +13251,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const res = await CloudflareDB.executeSql(sql);
         const latency = Date.now() - start;
-        if (timerEl) timerEl.textContent = `Latency: ${latency}ms (CGK Node)`;
+        if (timerEl) timerEl.textContent = `Latency: ${latency}ms (Cloudflare Edge)`;
 
         if (res && res.success) {
           if (res.type === 'SELECT' && res.rows) {
@@ -11947,7 +13261,8 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast(`✓ Query sukses! (${res.rows.length} baris, ${latency}ms)`, 'success');
           } else {
             showToast(`✓ Query mutasi berhasil dieksekusi di Cloudflare D1!`, 'success');
-            this.loadD1Table(this.activeD1Table || 'users');
+            await this.loadD1Table(this.activeD1Table || 'users', false);
+            await this.refreshAllTableCounts();
           }
         } else {
           showToast(`❌ SQL Error: ${res?.error || 'Gagal eksekusi query'}`, 'error');
@@ -11957,23 +13272,31 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     },
 
-    async loadD1Table(tableName = 'users') {
+    async loadD1Table(tableName = 'users', silent = false) {
+      this.activeD1Table = tableName;
       const countEl = document.getElementById(`count-${tableName}`);
       const infoEl = document.getElementById('d1TableActiveInfo');
       const thead = document.getElementById('d1GridThead');
       const tbody = document.getElementById('d1GridTbody');
 
-      if (infoEl) infoEl.innerHTML = `Menghubungkan ke Cloudflare D1... (Tabel: <strong>${tableName}</strong>)`;
-      if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; color:#ffd166; padding:24px;"><span class="spinner-mini"></span> Memuat data tabel [${tableName}] dari Cloudflare D1...</td></tr>`;
+      if (!silent) {
+        if (infoEl) infoEl.innerHTML = `Menghubungkan ke Cloudflare D1... (Tabel: <strong>${tableName}</strong>)`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; color:#ffd166; padding:24px;"><span class="spinner-mini"></span> Memuat data tabel [${tableName}] dari Cloudflare D1...</td></tr>`;
+      }
 
+      const start = Date.now();
       try {
         let rows = [];
-        // 1. Direct query via Cloudflare D1 executeSql for 100% table compatibility
-        const sqlRes = await CloudflareDB.executeSql(`SELECT * FROM ${tableName} LIMIT 200;`);
+        // Direct query via Cloudflare D1 executeSql for 100% live table compatibility
+        let sqlRes = await CloudflareDB.executeSql(`SELECT * FROM ${tableName} ORDER BY rowid DESC LIMIT 200;`);
+        if (!sqlRes || !sqlRes.success) {
+          sqlRes = await CloudflareDB.executeSql(`SELECT * FROM ${tableName} LIMIT 200;`);
+        }
+
         if (sqlRes && sqlRes.success && Array.isArray(sqlRes.rows)) {
           rows = sqlRes.rows;
         } else {
-          // 2. Fallback via specialized API endpoints
+          // Fallback via specialized API endpoints
           if (tableName === 'users') {
             rows = await CloudflareDB.fetchUsers();
           } else if (tableName === 'jadwal_kegiatan') {
@@ -11984,20 +13307,35 @@ document.addEventListener('DOMContentLoaded', () => {
             rows = await CloudflareDB.fetchTpPol();
           } else if (tableName === 'sppd_lpt') {
             rows = await CloudflareDB.fetchSppd();
+          } else if (tableName === 'sppd_templates') {
+            rows = await CloudflareDB.fetchSppdTemplates();
+          } else if (tableName === 'foto_upload_logs') {
+            rows = await CloudflareDB.fetchFotoLogs();
           } else if (tableName === 'audit_logs') {
             rows = await CloudflareDB.fetchAuditLogs();
           }
         }
 
-        this.d1TableData = Array.isArray(rows) ? rows : [];
-        if (countEl) countEl.textContent = this.d1TableData.length;
-        if (infoEl) infoEl.innerHTML = `Menampilkan tabel Cloudflare D1: <strong>${tableName}</strong> (${this.d1TableData.length} baris)`;
+        const latency = Date.now() - start;
+        const newRows = Array.isArray(rows) ? rows : [];
+        const hasChanged = JSON.stringify(newRows) !== JSON.stringify(this.d1TableData);
 
-        this.renderDynamicGrid(this.d1TableData);
+        this.d1TableData = newRows;
+        if (countEl) countEl.textContent = this.d1TableData.length;
+        if (infoEl) {
+          infoEl.innerHTML = `Menampilkan tabel Cloudflare D1: <strong>${tableName}</strong> (${this.d1TableData.length} baris) &bull; <span style="color:#34d399;">⚡ ${latency}ms</span>`;
+        }
+
+        if (!silent || hasChanged) {
+          this.renderDynamicGrid(this.d1TableData);
+        }
+        this.updateTimestampUi();
       } catch (e) {
         console.error('Error loading D1 table:', e);
-        if (infoEl) infoEl.innerHTML = `<span style="color:#ef4444;">Gagal memuat tabel ${tableName} dari cloud: ${e.message}</span>`;
-        if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #f87171; padding: 20px;">Gagal memuat data dari cloud database.</td></tr>`;
+        if (!silent) {
+          if (infoEl) infoEl.innerHTML = `<span style="color:#ef4444;">Gagal memuat tabel ${tableName} dari cloud: ${e.message}</span>`;
+          if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #f87171; padding: 20px;">Gagal memuat data dari cloud database.</td></tr>`;
+        }
       }
     },
 
@@ -12755,6 +14093,10 @@ document.addEventListener('DOMContentLoaded', () => {
           devDbCount.innerHTML = `Cloud D1 <span class="kpi-badge positive">Live</span>`;
         }
       }
+
+      if (window.R2FileManager && typeof window.R2FileManager.fetchStats === 'function') {
+        window.R2FileManager.fetchStats();
+      }
     }
   };
 
@@ -13082,9 +14424,1096 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  // ==========================================================================
+  // 15. CLOUDFLARE R2 OBJECT STORAGE & FILE MANAGER CONTROLLER
+  // ==========================================================================
+  const R2FileManager = {
+    isInitialized: false,
+    currentPrefix: '',
+    folders: [],
+    files: [],
+    currentFilteredFolders: [],
+    currentFilteredFiles: [],
+    allFoldersCache: [],
+    selectedKeys: new Set(),
+    viewMode: 'grid',
+    searchQuery: '',
+    activeLightboxUrl: '',
+
+    init() {
+      if (this.isInitialized) return;
+      this.isInitialized = true;
+
+      const btnSync = document.getElementById('btnR2SyncLive');
+      const btnSyncD1 = document.getElementById('btnR2SyncD1');
+      const btnNewFolder = document.getElementById('btnR2CreateFolder');
+      const btnUpload = document.getElementById('btnR2UploadTrigger');
+      const fileInput = document.getElementById('r2FileInput');
+      const btnBatchDel = document.getElementById('btnR2BatchDelete');
+      const btnRoot = document.getElementById('btnR2CrumbRoot');
+      const btnUp = document.getElementById('btnR2UpLevel');
+      const searchInput = document.getElementById('r2SearchInput');
+      const btnClearSearch = document.getElementById('btnR2ClearSearch');
+      const btnGrid = document.getElementById('btnR2ViewGrid');
+      const btnList = document.getElementById('btnR2ViewList');
+      const selectAll = document.getElementById('r2SelectAllCheckbox');
+      const dropZone = document.getElementById('r2DropZone');
+      const lbClose = document.getElementById('btnR2LbClose');
+      const lbBackdrop = document.getElementById('r2LightboxBackdrop');
+      const lbCopy = document.getElementById('btnR2LbCopyLink');
+
+      if (btnSync) btnSync.addEventListener('click', () => this.loadCurrentFolder(true));
+      if (btnSyncD1) btnSyncD1.addEventListener('click', () => this.syncToD1());
+      if (btnNewFolder) btnNewFolder.addEventListener('click', () => this.promptCreateFolder());
+      if (btnUpload && fileInput) btnUpload.addEventListener('click', () => fileInput.click());
+      if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            this.handleUploadFiles(e.target.files);
+            fileInput.value = '';
+          }
+        });
+      }
+      if (btnBatchDel) btnBatchDel.addEventListener('click', () => this.batchDelete());
+      if (btnRoot) btnRoot.addEventListener('click', () => this.navigateTo(''));
+      if (btnUp) btnUp.addEventListener('click', () => this.navigateUp());
+
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          this.searchQuery = (e.target.value || '').trim().toLowerCase();
+          if (btnClearSearch) btnClearSearch.style.display = this.searchQuery ? 'inline-block' : 'none';
+          this.renderContent();
+        });
+      }
+      if (btnClearSearch && searchInput) {
+        btnClearSearch.addEventListener('click', () => {
+          searchInput.value = '';
+          this.searchQuery = '';
+          btnClearSearch.style.display = 'none';
+          this.renderContent();
+        });
+      }
+
+      if (btnGrid) {
+        btnGrid.addEventListener('click', () => {
+          this.viewMode = 'grid';
+          btnGrid.classList.add('active');
+          if (btnList) btnList.classList.remove('active');
+          this.renderContent();
+        });
+      }
+      if (btnList) {
+        btnList.addEventListener('click', () => {
+          this.viewMode = 'list';
+          btnList.classList.add('active');
+          if (btnGrid) btnGrid.classList.remove('active');
+          this.renderContent();
+        });
+      }
+
+      if (selectAll) {
+        selectAll.addEventListener('change', (e) => this.toggleSelectAll(e.target.checked));
+      }
+
+      // Drag & Drop Upload Zone
+      if (dropZone) {
+        ['dragenter', 'dragover'].forEach(name => {
+          dropZone.addEventListener(name, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('dragover');
+          });
+        });
+
+        ['dragleave', 'drop'].forEach(name => {
+          dropZone.addEventListener(name, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('dragover');
+          });
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+          const files = e.dataTransfer?.files;
+          if (files && files.length > 0) {
+            this.handleUploadFiles(files);
+          }
+        });
+      }
+
+      // Lightbox listeners
+      if (lbClose) lbClose.addEventListener('click', () => this.closeLightbox());
+      if (lbBackdrop) lbBackdrop.addEventListener('click', () => this.closeLightbox());
+      if (lbCopy) {
+        lbCopy.addEventListener('click', () => {
+          if (this.activeLightboxUrl) this.copyLink(this.activeLightboxUrl);
+        });
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          this.closeLightbox();
+        }
+      });
+
+      this.fetchStats();
+    },
+
+    formatBytes(bytes) {
+      if (!bytes || bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    },
+
+    async fetchStats() {
+      try {
+        const res = await fetch('/api/r2/stats');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            const devR2Count = document.getElementById('devR2Count');
+            const devR2Size = document.getElementById('devR2Size');
+            if (devR2Count) {
+              devR2Count.innerHTML = `${data.total_files} File <span class="kpi-badge positive">Live</span>`;
+            }
+            if (devR2Size) {
+              devR2Size.innerHTML = `sicekas-storage (${data.formatted_size})`;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Gagal memuat statistik R2:', e);
+      }
+    },
+
+    async loadCurrentFolder(isManualSync = false) {
+      const loading = document.getElementById('r2LoadingState');
+      const emptyState = document.getElementById('r2EmptyState');
+      const grid = document.getElementById('r2GridContainer');
+      const table = document.getElementById('r2TableContainer');
+      const syncBtnText = document.getElementById('btnR2SyncLiveText');
+      const deployNotice = document.getElementById('r2PendingDeployNotice');
+
+      if (loading) loading.style.display = 'flex';
+      if (emptyState) emptyState.style.display = 'none';
+      if (grid) grid.style.opacity = '0.35';
+      if (table) table.style.opacity = '0.35';
+      if (syncBtnText) syncBtnText.innerHTML = '⏳ Menyinkronkan...';
+
+      try {
+        const url = `/api/r2/list?prefix=${encodeURIComponent(this.currentPrefix)}`;
+        const res = await fetch(url);
+        let data = null;
+        try {
+          data = await res.json();
+        } catch (je) {}
+
+        // Fallback detection: If endpoint is not yet deployed on live Cloudflare Pages
+        if (!res.ok || (data && !data.success && data.error && (data.error.includes('tidak ditemukan') || res.status === 404))) {
+          console.warn('R2 API /api/r2/list belum terdeploy di Cloudflare edge. Mengaktifkan fallback D1 foto_upload_logs.');
+          const logs = await CloudflareDB.fetchFotoLogs();
+          this.folders = [];
+          this.files = logs.map(l => ({
+            key: l.file_key,
+            name: l.file_name || l.file_key,
+            rawName: l.file_name || l.file_key,
+            size: l.file_size || 0,
+            uploaded: l.uploaded_at || new Date().toISOString(),
+            mimeType: l.mime_type || 'image/jpeg',
+            isImage: true,
+            url: l.url || `/api/foto/${encodeURIComponent(l.file_key)}`,
+            uploadedBy: l.uploaded_by || 'Petugas'
+          }));
+          this.selectedKeys.clear();
+          this.updateBatchDeleteUI();
+
+          const statsFolders = document.getElementById('r2StatsFolderCount');
+          const statsFiles = document.getElementById('r2StatsFileCount');
+          const statsSize = document.getElementById('r2StatsTotalSize');
+          const folderBytes = this.files.reduce((acc, f) => acc + (f.size || 0), 0);
+
+          if (statsFolders) statsFolders.textContent = '0 Folder';
+          if (statsFiles) statsFiles.textContent = `${this.files.length} File`;
+          if (statsSize) statsSize.textContent = this.formatBytes(folderBytes);
+
+          this.renderBreadcrumbs();
+          this.renderContent();
+
+          if (deployNotice) deployNotice.style.display = 'flex';
+          return;
+        }
+
+        if (data && data.success) {
+          if (deployNotice) deployNotice.style.display = 'none';
+          this.folders = data.folders || [];
+          this.files = data.files || [];
+          this.selectedKeys.clear();
+          this.updateBatchDeleteUI();
+
+          // Update stats pills
+          const statsFolders = document.getElementById('r2StatsFolderCount');
+          const statsFiles = document.getElementById('r2StatsFileCount');
+          const statsSize = document.getElementById('r2StatsTotalSize');
+
+          const folderBytes = this.files.reduce((acc, f) => acc + (f.size || 0), 0);
+
+          if (statsFolders) statsFolders.textContent = `${this.folders.length} Folder`;
+          if (statsFiles) statsFiles.textContent = `${this.files.length} File`;
+          if (statsSize) statsSize.textContent = this.formatBytes(folderBytes);
+
+          this.renderBreadcrumbs();
+          this.renderContent();
+
+          // Refresh full folder tree in background for move destination choices
+          this.scanAllFolders();
+
+          if (isManualSync) {
+            showToast('✅ Cloudflare R2 berhasil disinkronkan!', 'success');
+          }
+        } else {
+          throw new Error(data?.error || 'Gagal memuat isi bucket');
+        }
+      } catch (err) {
+        console.error('Error loadCurrentFolder R2:', err);
+        showToast('Gagal memuat data dari Cloudflare R2: ' + err.message, 'error');
+      } finally {
+        if (loading) loading.style.display = 'none';
+        if (grid) grid.style.opacity = '1';
+        if (table) table.style.opacity = '1';
+        if (syncBtnText) syncBtnText.innerHTML = '🔄 Sync R2 Live';
+      }
+    },
+
+    async scanAllFolders() {
+      try {
+        const res = await fetch('/api/r2/list?prefix=&delimiter=');
+        if (res.ok) {
+          const data = await res.json();
+          const folderSet = new Set(['']); // '' is root
+          (data.folders || []).forEach(f => folderSet.add(f.prefix));
+          (data.files || []).forEach(f => {
+            if (f.key.includes('/')) {
+              const parts = f.key.split('/');
+              parts.pop();
+              folderSet.add(`${parts.join('/')}/`);
+            }
+          });
+          this.allFoldersCache = Array.from(folderSet);
+        }
+      } catch (e) {}
+    },
+
+    renderBreadcrumbs() {
+      const trail = document.getElementById('r2CrumbTrail');
+      const btnUp = document.getElementById('btnR2UpLevel');
+      if (!trail) return;
+
+      trail.innerHTML = '';
+      const prefix = this.currentPrefix.replace(/\/$/, '');
+
+      if (!prefix) {
+        if (btnUp) btnUp.style.display = 'none';
+        return;
+      }
+
+      if (btnUp) btnUp.style.display = 'inline-flex';
+
+      const parts = prefix.split('/');
+      let accumulated = '';
+
+      parts.forEach((part, idx) => {
+        accumulated += `${part}/`;
+        const isLast = idx === parts.length - 1;
+
+        const sep = document.createElement('span');
+        sep.className = 'r2-crumb-separator';
+        sep.textContent = '/';
+        trail.appendChild(sep);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `r2-crumb-item ${isLast ? 'active' : ''}`;
+        btn.textContent = part;
+        if (!isLast) {
+          const targetPath = accumulated;
+          btn.addEventListener('click', () => this.navigateTo(targetPath));
+        }
+        trail.appendChild(btn);
+      });
+    },
+
+    navigateTo(prefix) {
+      this.currentPrefix = prefix;
+      this.searchQuery = '';
+      const input = document.getElementById('r2SearchInput');
+      const clearBtn = document.getElementById('btnR2ClearSearch');
+      if (input) input.value = '';
+      if (clearBtn) clearBtn.style.display = 'none';
+      this.loadCurrentFolder();
+    },
+
+    navigateUp() {
+      if (!this.currentPrefix) return;
+      const clean = this.currentPrefix.replace(/\/$/, '');
+      const parts = clean.split('/');
+      parts.pop();
+      const newPrefix = parts.length > 0 ? `${parts.join('/')}/` : '';
+      this.navigateTo(newPrefix);
+    },
+
+    // Index-based action delegators (prevents quote/special character injection in HTML attributes)
+    openFolder(idx) {
+      const f = this.currentFilteredFolders[idx];
+      if (f) this.navigateTo(f.prefix);
+    },
+    renameFolderByIdx(idx) {
+      const f = this.currentFilteredFolders[idx];
+      if (f) this.promptRename(f.prefix, f.name, true);
+    },
+    deleteFolderByIdx(idx) {
+      const f = this.currentFilteredFolders[idx];
+      if (f) this.promptDelete(f.prefix, f.name, true);
+    },
+    previewFileByIdx(idx) {
+      const file = this.currentFilteredFiles[idx];
+      if (file) this.previewLightbox(file);
+    },
+    copyLinkByIdx(idx) {
+      const file = this.currentFilteredFiles[idx];
+      if (file) this.copyLink(file.url);
+    },
+    copyFileByIdx(idx) {
+      const file = this.currentFilteredFiles[idx];
+      if (file) this.promptCopy(file.key, file.name);
+    },
+    moveFileByIdx(idx) {
+      const file = this.currentFilteredFiles[idx];
+      if (file) this.promptMove(file.key, file.name);
+    },
+    renameFileByIdx(idx) {
+      const file = this.currentFilteredFiles[idx];
+      if (file) this.promptRename(file.key, file.name, false);
+    },
+    deleteFileByIdx(idx) {
+      const file = this.currentFilteredFiles[idx];
+      if (file) this.promptDelete(file.key, file.name, false);
+    },
+    toggleSelectFileByIdx(idx) {
+      const file = this.currentFilteredFiles[idx];
+      if (file) this.toggleSelect(file.key);
+    },
+
+    renderContent() {
+      const q = this.searchQuery;
+      const filteredFolders = this.folders.filter(f => !q || f.name.toLowerCase().includes(q));
+      const filteredFiles = this.files.filter(f => !q || f.name.toLowerCase().includes(q) || f.key.toLowerCase().includes(q) || (f.uploadedBy && f.uploadedBy.toLowerCase().includes(q)));
+
+      this.currentFilteredFolders = filteredFolders;
+      this.currentFilteredFiles = filteredFiles;
+
+      const emptyState = document.getElementById('r2EmptyState');
+      const grid = document.getElementById('r2GridContainer');
+      const table = document.getElementById('r2TableContainer');
+      const headingFolders = document.getElementById('r2HeadingFolders');
+      const badgeFolders = document.getElementById('r2BadgeFolders');
+      const headingFiles = document.getElementById('r2HeadingFiles');
+      const badgeFiles = document.getElementById('r2BadgeFiles');
+      const folderGrid = document.getElementById('r2FolderGrid');
+      const fileGrid = document.getElementById('r2FileGrid');
+      const tableBody = document.getElementById('r2TableBody');
+      const footerInfo = document.getElementById('r2FooterInfo');
+
+      const totalItems = filteredFolders.length + filteredFiles.length;
+
+      if (totalItems === 0) {
+        if (emptyState) emptyState.style.display = 'flex';
+        if (grid) grid.style.display = 'none';
+        if (table) table.style.display = 'none';
+        if (footerInfo) footerInfo.textContent = 'Tidak ada objek yang sesuai kriteria.';
+        return;
+      }
+
+      if (emptyState) emptyState.style.display = 'none';
+
+      if (this.viewMode === 'grid') {
+        if (grid) grid.style.display = 'block';
+        if (table) table.style.display = 'none';
+
+        // Render Folder Section
+        if (filteredFolders.length > 0) {
+          if (headingFolders) headingFolders.style.display = 'flex';
+          if (badgeFolders) badgeFolders.textContent = filteredFolders.length;
+          if (folderGrid) {
+            folderGrid.innerHTML = filteredFolders.map((f, idx) => {
+              const escName = escapeHtmlHelper(f.name);
+              const escPrefix = escapeHtmlHelper(f.prefix);
+              return `
+                <div class="r2-folder-card" data-prefix="${escPrefix}">
+                  <div class="r2-folder-left" onclick="window.R2FileManager.openFolder(${idx})">
+                    <div class="r2-folder-icon-box">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                      </svg>
+                    </div>
+                    <div class="r2-folder-info">
+                      <span class="r2-folder-name" title="${escName}">${escName}</span>
+                      <span class="r2-folder-meta">Subdirektori R2</span>
+                    </div>
+                  </div>
+                  <div class="r2-folder-actions">
+                    <button type="button" class="r2-action-btn-mini" title="Ubah Nama Folder" onclick="window.R2FileManager.renameFolderByIdx(${idx})">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                    </button>
+                    <button type="button" class="r2-action-btn-mini delete" title="Hapus Folder Beserta Isinya" onclick="window.R2FileManager.deleteFolderByIdx(${idx})">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+        } else {
+          if (headingFolders) headingFolders.style.display = 'none';
+          if (folderGrid) folderGrid.innerHTML = '';
+        }
+
+        // Render File Section
+        if (filteredFiles.length > 0) {
+          if (headingFiles) headingFiles.style.display = 'flex';
+          if (badgeFiles) badgeFiles.textContent = filteredFiles.length;
+          if (fileGrid) {
+            fileGrid.innerHTML = filteredFiles.map((file, idx) => {
+              const escKey = escapeHtmlHelper(file.key);
+              const escName = escapeHtmlHelper(file.name);
+              const escUrl = escapeHtmlHelper(file.url);
+              const sizeStr = this.formatBytes(file.size);
+              const dateStr = file.uploaded ? new Date(file.uploaded).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+              const isChecked = this.selectedKeys.has(file.key);
+
+              return `
+                <div class="r2-file-card ${isChecked ? 'selected' : ''}" data-key="${escKey}">
+                  <input type="checkbox" class="r2-file-check" ${isChecked ? 'checked' : ''} onchange="window.R2FileManager.toggleSelectFileByIdx(${idx})">
+                  <span class="r2-file-badge">R2 Standard</span>
+                  
+                  <div class="r2-file-thumb-wrap" onclick="window.R2FileManager.previewFileByIdx(${idx})">
+                    ${file.isImage ? `
+                      <img src="${escUrl}" class="r2-file-thumb-img" alt="${escName}" loading="lazy">
+                    ` : `
+                      <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="#94a3b8" stroke-width="1.5">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                      </svg>
+                    `}
+                    <div class="r2-file-overlay">
+                      <button type="button" class="r2-overlay-btn">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        <span>Lihat</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="r2-file-body">
+                    <div class="r2-file-title" title="${escName}">${escName}</div>
+                    <div class="r2-file-meta-row">
+                      <span>${sizeStr}</span>
+                      <span>${dateStr}</span>
+                    </div>
+                  </div>
+
+                  <div class="r2-file-actions-bar">
+                    <button type="button" class="r2-action-icon-btn" title="Salin URL" onclick="window.R2FileManager.copyLinkByIdx(${idx})">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                    </button>
+                    <button type="button" class="r2-action-icon-btn" title="Duplikat / Salin File" onclick="window.R2FileManager.copyFileByIdx(${idx})">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </button>
+                    <button type="button" class="r2-action-icon-btn" title="Pindahkan ke Folder Lain" onclick="window.R2FileManager.moveFileByIdx(${idx})">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 10 20 15 15 20"></polyline><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg>
+                    </button>
+                    <button type="button" class="r2-action-icon-btn" title="Ubah Nama" onclick="window.R2FileManager.renameFileByIdx(${idx})">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                    </button>
+                    <a href="${escUrl}" download="${escName}" target="_blank" class="r2-action-icon-btn" title="Unduh File">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </a>
+                    <button type="button" class="r2-action-icon-btn delete" title="Hapus File" onclick="window.R2FileManager.deleteFileByIdx(${idx})">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+        } else {
+          if (headingFiles) headingFiles.style.display = 'none';
+          if (fileGrid) fileGrid.innerHTML = '';
+        }
+
+      } else {
+        // Table List Mode
+        if (grid) grid.style.display = 'none';
+        if (table) table.style.display = 'block';
+
+        let rowsHtml = '';
+
+        // Folder rows
+        filteredFolders.forEach((f, idx) => {
+          const escName = escapeHtmlHelper(f.name);
+          rowsHtml += `
+            <tr style="cursor: pointer;" onclick="window.R2FileManager.openFolder(${idx})">
+              <td style="text-align: center;">-</td>
+              <td>
+                <span style="font-size: 16px;">📁</span>
+              </td>
+              <td>
+                <strong style="color: #ffd166;">${escName}/</strong>
+                <span style="color: #64748b; font-size: 11px; margin-left: 6px;">(Folder Direktori)</span>
+              </td>
+              <td><span style="color: #64748b;">-</span></td>
+              <td><span style="color: #64748b;">-</span></td>
+              <td><span style="color: #94a3b8;">System</span></td>
+              <td style="text-align: right;" onclick="event.stopPropagation()">
+                <div style="display: flex; gap: 4px; justify-content: flex-end;">
+                  <button type="button" class="r2-action-btn-mini" title="Ubah Nama" onclick="window.R2FileManager.renameFolderByIdx(${idx})">✏️</button>
+                  <button type="button" class="r2-action-btn-mini delete" title="Hapus Folder" onclick="window.R2FileManager.deleteFolderByIdx(${idx})">🗑️</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+
+        // File rows
+        filteredFiles.forEach((file, idx) => {
+          const escKey = escapeHtmlHelper(file.key);
+          const escName = escapeHtmlHelper(file.name);
+          const escUrl = escapeHtmlHelper(file.url);
+          const sizeStr = this.formatBytes(file.size);
+          const dateStr = file.uploaded ? new Date(file.uploaded).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+          const isChecked = this.selectedKeys.has(file.key);
+
+          rowsHtml += `
+            <tr>
+              <td style="text-align: center;">
+                <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="window.R2FileManager.toggleSelectFileByIdx(${idx})">
+              </td>
+              <td>
+                ${file.isImage ? `
+                  <img src="${escUrl}" style="width: 32px; height: 32px; object-fit: cover; border-radius: 6px; cursor: pointer;" onclick="window.R2FileManager.previewFileByIdx(${idx})">
+                ` : `
+                  <span style="font-size: 18px;">📄</span>
+                `}
+              </td>
+              <td>
+                <div style="color: #f1f5f9; font-weight: 600; cursor: pointer;" onclick="window.R2FileManager.previewFileByIdx(${idx})">${escName}</div>
+                <span style="color: #64748b; font-size: 10.5px;">${escKey}</span>
+              </td>
+              <td><span style="color: #cbd5e1; font-weight: 600;">${sizeStr}</span></td>
+              <td><span style="color: #94a3b8; font-size: 11px;">${dateStr}</span></td>
+              <td><span style="color: #e2e8f0;">${escapeHtmlHelper(file.uploadedBy)}</span></td>
+              <td style="text-align: right;">
+                <div style="display: flex; gap: 4px; justify-content: flex-end;">
+                  <button type="button" class="r2-action-btn-mini" title="Salin Link" onclick="window.R2FileManager.copyLinkByIdx(${idx})">🔗</button>
+                  <button type="button" class="r2-action-btn-mini" title="Duplikat" onclick="window.R2FileManager.copyFileByIdx(${idx})">📋</button>
+                  <button type="button" class="r2-action-btn-mini" title="Pindahkan" onclick="window.R2FileManager.moveFileByIdx(${idx})">🚚</button>
+                  <button type="button" class="r2-action-btn-mini" title="Ubah Nama" onclick="window.R2FileManager.renameFileByIdx(${idx})">✏️</button>
+                  <button type="button" class="r2-action-btn-mini delete" title="Hapus" onclick="window.R2FileManager.deleteFileByIdx(${idx})">🗑️</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+
+        if (tableBody) tableBody.innerHTML = rowsHtml;
+      }
+
+      if (footerInfo) {
+        footerInfo.innerHTML = `Menampilkan <strong>${filteredFolders.length} folder</strong> &amp; <strong>${filteredFiles.length} file</strong> di <code>/${this.currentPrefix}</code>`;
+      }
+    },
+
+    toggleSelect(key) {
+      if (this.selectedKeys.has(key)) {
+        this.selectedKeys.delete(key);
+      } else {
+        this.selectedKeys.add(key);
+      }
+      this.updateBatchDeleteUI();
+      const card = document.querySelector(`.r2-file-card[data-key="${key}"]`);
+      if (card) {
+        if (this.selectedKeys.has(key)) card.classList.add('selected');
+        else card.classList.remove('selected');
+      }
+    },
+
+    toggleSelectAll(checked) {
+      this.files.forEach(f => {
+        if (checked) this.selectedKeys.add(f.key);
+        else this.selectedKeys.delete(f.key);
+      });
+      this.updateBatchDeleteUI();
+      this.renderContent();
+    },
+
+    updateBatchDeleteUI() {
+      const btn = document.getElementById('btnR2BatchDelete');
+      const countSpan = document.getElementById('r2BatchDeleteCount');
+      const selectAll = document.getElementById('r2SelectAllCheckbox');
+
+      if (!btn) return;
+      const count = this.selectedKeys.size;
+
+      if (count > 0) {
+        btn.style.display = 'inline-flex';
+        if (countSpan) countSpan.textContent = `🗑️ Hapus (${count})`;
+      } else {
+        btn.style.display = 'none';
+      }
+
+      if (selectAll) {
+        selectAll.checked = this.files.length > 0 && count === this.files.length;
+      }
+    },
+
+    async promptCreateFolder() {
+      const { value: folderName } = await Swal.fire({
+        title: 'Buat Folder Baru di R2',
+        text: `Direktori saat ini: /${this.currentPrefix}`,
+        input: 'text',
+        inputPlaceholder: 'Misal: Foto Kegiatan 2026',
+        showCancelButton: true,
+        confirmButtonText: '📁 Buat Folder',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#f43f5e',
+        background: '#0f172a',
+        color: '#f8fafc',
+        inputValidator: (value) => {
+          if (!value || !value.trim()) return 'Nama folder tidak boleh kosong!';
+          if (/[\\:*?"<>|]/.test(value)) return 'Nama folder tidak boleh mengandung karakter khusus \\/:*?"<>|';
+        }
+      });
+
+      if (folderName) {
+        try {
+          const res = await fetch('/api/r2/create-folder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              parentPrefix: this.currentPrefix,
+              folderName: folderName.trim()
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(`📁 Folder [${folderName}] berhasil dibuat!`, 'success');
+            await this.loadCurrentFolder();
+            this.fetchStats();
+          } else {
+            Swal.fire('Gagal Membuat Folder', data.error || 'Terjadi kesalahan sistem.', 'error');
+          }
+        } catch (e) {
+          Swal.fire('Gagal', e.message, 'error');
+        }
+      }
+    },
+
+    async handleUploadFiles(fileList) {
+      if (!fileList || fileList.length === 0) return;
+
+      const total = fileList.length;
+      let successCount = 0;
+
+      Swal.fire({
+        title: 'Mengunggah Berkas ke R2',
+        html: `Sedang mengunggah <b>${total}</b> file ke folder <code>/${this.currentPrefix}</code>...`,
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+        background: '#0f172a',
+        color: '#f8fafc'
+      });
+
+      const u = window.CURRENT_USER || {};
+      const uploader = u.nama || u.username || 'Admin';
+
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        try {
+          // Convert file to Base64 Data URL for robust proxy & edge support
+          const base64Data = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Gagal membaca file'));
+            reader.readAsDataURL(file);
+          });
+
+          const res = await fetch('/api/r2/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: file.name,
+              base64: base64Data,
+              prefix: this.currentPrefix,
+              uploaded_by: uploader
+            })
+          });
+          const data = await res.json();
+          if (data && data.success) successCount++;
+        } catch (e) {
+          console.warn('Upload file fail:', file.name, e);
+        }
+      }
+
+      await this.loadCurrentFolder();
+      this.fetchStats();
+
+      Swal.fire({
+        icon: successCount === total ? 'success' : 'warning',
+        title: 'Proses Unggah Selesai',
+        text: `${successCount} dari ${total} file berhasil diunggah ke Cloudflare R2.`,
+        confirmButtonColor: '#f43f5e',
+        background: '#0f172a',
+        color: '#f8fafc'
+      });
+    },
+
+    async promptRename(oldKey, oldName, isFolder) {
+      const { value: newName } = await Swal.fire({
+        title: isFolder ? 'Ubah Nama Folder' : 'Ubah Nama Berkas',
+        input: 'text',
+        inputValue: oldName,
+        showCancelButton: true,
+        confirmButtonText: 'Simpan Nama Baru',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#f43f5e',
+        background: '#0f172a',
+        color: '#f8fafc',
+        inputValidator: (value) => {
+          if (!value || !value.trim()) return 'Nama tidak boleh kosong!';
+          if (value.trim() === oldName) return 'Nama baru sama dengan nama lama!';
+        }
+      });
+
+      if (newName) {
+        try {
+          const res = await fetch('/api/r2/rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              oldKey,
+              newName: newName.trim(),
+              isFolder
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast('✓ Berhasil mengubah nama!', 'success');
+            await this.loadCurrentFolder();
+          } else {
+            Swal.fire('Gagal Mengubah Nama', data.error || 'Terjadi kesalahan.', 'error');
+          }
+        } catch (e) {
+          Swal.fire('Error', e.message, 'error');
+        }
+      }
+    },
+
+    async promptCopy(sourceKey, fileName) {
+      const extMatch = fileName.match(/(\.[^.]+)$/);
+      const ext = extMatch ? extMatch[1] : '';
+      const base = extMatch ? fileName.slice(0, -ext.length) : fileName;
+      const defaultNewName = `${base}-salinan${ext}`;
+
+      const { value: newName } = await Swal.fire({
+        title: 'Duplikat Berkas di R2',
+        text: `Salin file [${fileName}] ke nama baru:`,
+        input: 'text',
+        inputValue: defaultNewName,
+        showCancelButton: true,
+        confirmButtonText: '📋 Duplikat File',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#ffd166',
+        background: '#0f172a',
+        color: '#f8fafc',
+        inputValidator: (value) => {
+          if (!value || !value.trim()) return 'Nama file salinan tidak boleh kosong!';
+        }
+      });
+
+      if (newName) {
+        try {
+          const destinationKey = `${this.currentPrefix}${newName.trim()}`;
+          const res = await fetch('/api/r2/copy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sourceKey,
+              destinationKey
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast('✓ File berhasil disalin!', 'success');
+            await this.loadCurrentFolder();
+            this.fetchStats();
+          } else {
+            Swal.fire('Gagal Duplikat', data.error, 'error');
+          }
+        } catch (e) {
+          Swal.fire('Error', e.message, 'error');
+        }
+      }
+    },
+
+    async promptMove(sourceKey, fileName) {
+      const choices = {
+        '': '📁 / (Root Direktori)'
+      };
+
+      this.allFoldersCache.forEach(f => {
+        if (f) choices[f] = `📁 /${f}`;
+      });
+
+      const { value: targetFolder } = await Swal.fire({
+        title: 'Pindahkan File ke Folder Lain',
+        text: `Pilih folder tujuan untuk [${fileName}]:`,
+        input: 'select',
+        inputOptions: choices,
+        inputValue: this.currentPrefix,
+        showCancelButton: true,
+        confirmButtonText: '🚚 Pindahkan Sekarang',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#38bdf8',
+        background: '#0f172a',
+        color: '#f8fafc'
+      });
+
+      if (targetFolder !== undefined) {
+        if (targetFolder === this.currentPrefix) {
+          showToast('File sudah berada di folder ini.', 'info');
+          return;
+        }
+
+        const destinationKey = `${targetFolder}${fileName}`;
+
+        try {
+          const res = await fetch('/api/r2/move', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sourceKey,
+              destinationKey
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(`✓ File dipindahkan ke /${targetFolder}!`, 'success');
+            await this.loadCurrentFolder();
+          } else {
+            Swal.fire('Gagal Memindahkan', data.error, 'error');
+          }
+        } catch (e) {
+          Swal.fire('Error', e.message, 'error');
+        }
+      }
+    },
+
+    async promptDelete(key, name, isFolder) {
+      const confirm = await Swal.fire({
+        title: isFolder ? `Hapus Folder [${name}]?` : `Hapus File [${name}]?`,
+        text: isFolder 
+          ? 'PERINGATAN: Seluruh file dan subdirektori di dalam folder ini akan dihapus permanen dari Cloudflare R2!'
+          : 'File ini akan dihapus secara permanen dari Cloudflare R2 bucket.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#475569',
+        confirmButtonText: 'Ya, Hapus Sekarang',
+        cancelButtonText: 'Batal',
+        background: '#0f172a',
+        color: '#f8fafc'
+      });
+
+      if (confirm.isConfirmed) {
+        try {
+          const res = await fetch('/api/r2/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              key,
+              isFolder
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast('✓ Objek berhasil dihapus dari Cloudflare R2!', 'success');
+            await this.loadCurrentFolder();
+            this.fetchStats();
+          } else {
+            Swal.fire('Gagal Menghapus', data.error, 'error');
+          }
+        } catch (e) {
+          Swal.fire('Error', e.message, 'error');
+        }
+      }
+    },
+
+    async batchDelete() {
+      const keys = Array.from(this.selectedKeys);
+      if (keys.length === 0) return;
+
+      const confirm = await Swal.fire({
+        title: `Hapus ${keys.length} File Terpilih?`,
+        text: 'File-file yang dipilih akan dihapus secara permanen dari Cloudflare R2.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#475569',
+        confirmButtonText: `Ya, Hapus ${keys.length} File`,
+        cancelButtonText: 'Batal',
+        background: '#0f172a',
+        color: '#f8fafc'
+      });
+
+      if (confirm.isConfirmed) {
+        try {
+          const res = await fetch('/api/r2/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keys })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(`✓ ${keys.length} file berhasil dihapus!`, 'success');
+            this.selectedKeys.clear();
+            await this.loadCurrentFolder();
+            this.fetchStats();
+          } else {
+            Swal.fire('Gagal Menghapus', data.error, 'error');
+          }
+        } catch (e) {
+          Swal.fire('Error', e.message, 'error');
+        }
+      }
+    },
+
+    async syncToD1() {
+      const syncBtnText = document.getElementById('btnR2SyncD1Text');
+      if (syncBtnText) syncBtnText.textContent = '⏳ Menyinkronkan...';
+
+      Swal.fire({
+        title: 'Sinkronisasi R2 ke Database D1',
+        html: 'Membaca seluruh isi Cloudflare R2 bucket dan mendaftarkan berkas ke tabel <code>foto_upload_logs</code>...',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+        background: '#0f172a',
+        color: '#f8fafc'
+      });
+
+      try {
+        const res = await fetch('/api/r2/sync-d1', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Sinkronisasi D1 Berhasil!',
+            text: data.message,
+            confirmButtonColor: '#f43f5e',
+            background: '#0f172a',
+            color: '#f8fafc'
+          });
+          await this.loadCurrentFolder();
+          this.fetchStats();
+        } else {
+          Swal.fire('Gagal Sinkron', data.error || 'Terjadi kesalahan.', 'error');
+        }
+      } catch (e) {
+        Swal.fire('Error', e.message, 'error');
+      } finally {
+        if (syncBtnText) syncBtnText.textContent = '🔁 Sync ke Database D1';
+      }
+    },
+
+    previewLightbox(file) {
+      const modal = document.getElementById('r2LightboxModal');
+      const title = document.getElementById('r2LightboxTitle');
+      const sub = document.getElementById('r2LightboxSub');
+      const img = document.getElementById('r2LightboxImg');
+      const dl = document.getElementById('btnR2LbDownload');
+
+      if (!modal) return;
+
+      this.activeLightboxUrl = file.url;
+      if (title) title.textContent = file.name;
+      if (sub) sub.textContent = `${this.formatBytes(file.size)} • Diunggah oleh ${file.uploadedBy || 'Petugas'}`;
+      if (img) img.src = file.url;
+      if (dl) {
+        dl.href = file.url;
+        dl.download = file.name;
+      }
+
+      modal.style.display = 'flex';
+      gsap.fromTo('.r2-lightbox-dialog', 
+        { opacity: 0, scale: 0.92, y: 15 }, 
+        { opacity: 1, scale: 1, y: 0, duration: 0.3, ease: 'power2.out' }
+      );
+    },
+
+    closeLightbox() {
+      const modal = document.getElementById('r2LightboxModal');
+      if (modal) {
+        gsap.to('.r2-lightbox-dialog', {
+          opacity: 0,
+          scale: 0.95,
+          duration: 0.2,
+          ease: 'power2.in',
+          onComplete: () => {
+            modal.style.display = 'none';
+            const img = document.getElementById('r2LightboxImg');
+            if (img) img.src = '';
+            this.activeLightboxUrl = '';
+          }
+        });
+      }
+    },
+
+    copyLink(url) {
+      const fullUrl = url.startsWith('http') ? url : window.location.origin + url;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(fullUrl).then(() => {
+          showToast('🔗 URL foto berhasil disalin ke clipboard!', 'success');
+        }).catch(() => {
+          this.fallbackCopyText(fullUrl);
+        });
+      } else {
+        this.fallbackCopyText(fullUrl);
+      }
+    },
+
+    fallbackCopyText(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('🔗 URL foto berhasil disalin!', 'success');
+    }
+  };
+
+  window.R2FileManager = R2FileManager;
+
   window.InAppBrowser = InAppBrowser;
   InAppBrowser.init();
 
   window.DeveloperWebController = DeveloperWebController;
   DeveloperWebController.init();
+
+  if (window.SearchableSelect && typeof window.SearchableSelect.initAll === 'function') {
+    window.SearchableSelect.initAll();
+  }
 });

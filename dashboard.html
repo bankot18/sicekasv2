@@ -74,7 +74,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="dashboard.css?v=81">
+  <link rel="stylesheet" href="dashboard.css?v=88">
 </head>
 <body>
   <!-- Ambient Atmospheric Light Glows -->
@@ -291,6 +291,20 @@
                 </div>
                 <span class="nav-label">Developer Web</span>
                 <span class="badge-super-admin-nav">ADMIN</span>
+                <span class="nav-glow-pill"></span>
+              </a>
+            </li>
+
+            <!-- 8. Menu Khusus R2 Storage & File Manager -->
+            <li class="nav-item nav-item-admin" id="navItemR2Storage">
+              <a href="#" class="nav-link nav-link-admin" data-view="developer-web" data-subtab="r2storage" data-tooltip="Cloudflare R2 File Manager (Super Admin)" id="navR2Storage">
+                <div class="nav-icon dev-icon" style="background: rgba(244, 63, 94, 0.15); color: #f43f5e; border-color: rgba(244, 63, 94, 0.25);">
+                  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                  </svg>
+                </div>
+                <span class="nav-label">R2 File Manager</span>
+                <span class="sidebar-badge-counter" style="background: rgba(244, 63, 94, 0.2); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.4); font-size: 8.5px; font-weight: 800; padding: 1px 5px; border-radius: 4px;">R2</span>
                 <span class="nav-glow-pill"></span>
               </a>
             </li>
@@ -2005,84 +2019,137 @@
 
                     <!-- Item 3: Hasil Kunjungan Antara lain -->
                     <div style="margin-bottom: 12px; font-size: 12px; line-height: 1.45; color: #000000;">
-                      <div style="margin-bottom: 6px;">3. Hasil Kunjungan Antara lain:</div>
+                      <div style="margin-bottom: 6px;">3. Hasil kunjungan, antara lain :</div>
                       
                       <!-- a. Proses Pelaksanaan -->
                       <div style="margin-left: 20px; margin-bottom: 10px;">
-                        <div style="margin-bottom: 4px;">a. Proses Pelaksanaan:</div>
-                        <div id="lptValProses" class="lpt-editable-field" contenteditable="true" style="margin-left: 18px; padding: 4px 6px; min-height: 80px; line-height: 1.55; text-align: justify; outline: none;"></div>
+                        <div style="margin-bottom: 4px;">a. Proses pelaksanaan :</div>
+                        <div id="lptValProses" class="lpt-editable-field" contenteditable="true" style="margin-left: 18px; padding: 4px 6px; min-height: 50px; line-height: 1.55; text-align: justify; outline: none;"></div>
+                        
+                        <!-- Dynamic Table for Hasil Kegiatan (Opsional, Sesuai Gambar 1) -->
+                        <div id="lptTableWrapper" style="display: none; margin-left: 18px; margin-top: 8px; margin-bottom: 10px;">
+                          <table id="lptDynamicTable" class="exact-lpt-table" style="width: 100%; max-width: 540px; border-collapse: collapse; border: 1.5px solid #000000; font-family: Arial, Helvetica, sans-serif; font-size: 11px; text-align: center; color: #000000; background: #ffffff;">
+                            <thead id="lptTableThead">
+                              <!-- Dynamic Headers -->
+                            </thead>
+                            <tbody id="lptTableTbody">
+                              <!-- Dynamic Rows -->
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
 
                       <!-- b. Permasalahan yang dihadapi -->
                       <div style="margin-left: 20px;">
-                        <div style="margin-bottom: 4px;">b. Permasalahan yang dihadapi:</div>
+                        <div style="margin-bottom: 4px;">b. Permasalahan yang dihadapi :</div>
                         <div id="lptValMasalah" class="lpt-editable-field" contenteditable="true" style="margin-left: 18px; padding: 4px 6px; min-height: 60px; line-height: 1.55; text-align: justify; outline: none;"></div>
                       </div>
                     </div>
 
                     <!-- Item 4: Kesimpulan/Saran Perbaikan -->
                     <div style="margin-bottom: 20px; font-size: 12px; line-height: 1.45; color: #000000;">
-                      <div style="margin-bottom: 4px;">4. Kesimpulan/Saran Perbaikan:</div>
+                      <div style="margin-bottom: 4px;">4. Kesimpulan/ Saran perbaikan :</div>
                       <div id="lptValKesimpulan" class="lpt-editable-field" contenteditable="true" style="margin-left: 38px; padding: 4px 6px; min-height: 50px; line-height: 1.55; text-align: justify; outline: none;"></div>
                     </div>
 
                   </div>
 
-                  <!-- LPT Signatures Section (Date & Pelapor perfectly centered over Petugas 1) -->
-                  <div class="lpt-signatures-wrapper" style="margin-top: 25px; padding-left: 28px; padding-right: 15px; font-family: Arial, Helvetica, sans-serif;">
+                  <!-- LPT Signatures Section (Posisi Sesuai Gambar 2: Kanan, Vertikal Bertingkat Maks. 5 Petugas) -->
+                  <div class="lpt-signatures-wrapper" style="margin-top: 25px; padding-left: 28px; padding-right: 15px; font-family: Arial, Helvetica, sans-serif; display: flex; justify-content: flex-end;">
                     
-                    <!-- Signatures 3 Columns (Petugas 3, Petugas 2, Petugas 1) -->
-                    <div id="lptSignaturesRow" style="display: flex; justify-content: flex-end; align-items: flex-end; gap: 15px;">
+                    <div class="lpt-sig-stacked-block" id="lptSigStackedBlock" style="width: 270px; min-width: 240px; color: #000000; text-align: left;">
                       
-                      <!-- Petugas 3 (Kiri) -->
-                      <div id="lptSigCol3" class="lpt-sig-col" style="flex: 1; text-align: center; min-width: 140px; display: none;">
-                        <div style="text-align: center; margin-bottom: 75px; visibility: hidden;">
-                          <p style="margin: 0; font-size: 12px; line-height: 1.35;">Banjaran, 20 Agustus 2026</p>
-                          <p style="margin: 0; font-size: 12px; line-height: 1.35;">Pelapor</p>
+                      <!-- Tanggal & Pelapor -->
+                      <div style="text-align: center; margin-bottom: 22px;">
+                        <div style="font-size: 12px; line-height: 1.35; color: #000000;">
+                          Banjaran, <span id="lptSigDate">...........................................</span>
                         </div>
-                        <div style="text-align: center;">
-                          <span id="lptSigPetugasName3" style="font-size: 12px; color: #000000; border-bottom: 1px solid #000000; padding-bottom: 2px; display: inline-block; font-weight: bold; line-height: 1.2;">
-                            Satrianita, SKM
-                          </span>
-                        </div>
-                        <div id="lptSigPetugasNip3" style="font-size: 11px; color: #000000; text-align: center; margin-top: 3px; line-height: 1.2;">
-                          NIP. 19730908 199403 2 006
+                        <div style="font-size: 12px; line-height: 1.35; color: #000000; margin-top: 2px;">
+                          Pelapor,
                         </div>
                       </div>
 
-                      <!-- Petugas 2 (Tengah) -->
-                      <div id="lptSigCol2" class="lpt-sig-col" style="flex: 1; text-align: center; min-width: 140px; display: none;">
-                        <div style="text-align: center; margin-bottom: 75px; visibility: hidden;">
-                          <p style="margin: 0; font-size: 12px; line-height: 1.35;">Banjaran, 20 Agustus 2026</p>
-                          <p style="margin: 0; font-size: 12px; line-height: 1.35;">Pelapor</p>
+                      <!-- Daftar Petugas Pelapor 1 s.d. 5 (Vertikal Bertingkat Sesuai Gambar 2) -->
+                      <div id="lptOfficersListContainer" style="display: flex; flex-direction: column; gap: 20px;">
+                        
+                        <!-- Petugas 1 (Utama - Selalu Aktif) -->
+                        <div class="lpt-officer-item" id="lptSigRow1" style="display: flex; align-items: flex-start; font-size: 12px; line-height: 1.35;">
+                          <span class="lpt-officer-num" id="lptSigNum1" style="width: 20px; flex-shrink: 0; font-weight: bold; color: #000000;">1.</span>
+                          <div style="flex: 1;">
+                            <div>
+                              <span id="lptSigPetugasName1" style="font-weight: bold; text-decoration: underline; display: inline-block; color: #000000;">
+                                ...........................................
+                              </span>
+                            </div>
+                            <div id="lptSigPetugasNip1" style="font-size: 11px; color: #000000; margin-top: 2px;">
+                              NIP. ...........................................
+                            </div>
+                          </div>
                         </div>
-                        <div style="text-align: center;">
-                          <span id="lptSigPetugasName2" style="font-size: 12px; color: #000000; border-bottom: 1px solid #000000; padding-bottom: 2px; display: inline-block; font-weight: bold; line-height: 1.2;">
-                            Teti Nuryati, S.Keb, Bdn
-                          </span>
-                        </div>
-                        <div id="lptSigPetugasNip2" style="font-size: 11px; color: #000000; text-align: center; margin-top: 3px; line-height: 1.2;">
-                          NIP. 19750816 200701 2 012
-                        </div>
-                      </div>
 
-                      <!-- Petugas 1 (Kanan - Utama) -->
-                      <div id="lptSigCol1" class="lpt-sig-col" style="flex: 1; text-align: center; min-width: 140px; max-width: 250px;">
-                        <div style="text-align: center; margin-bottom: 75px;">
-                          <p style="margin: 0; font-size: 12px; line-height: 1.35; color: #000000;">Banjaran, <span id="lptSigDate">...........................................</span></p>
-                          <p style="margin: 0; font-size: 12px; line-height: 1.35; color: #000000;">Pelapor</p>
+                        <!-- Petugas 2 -->
+                        <div class="lpt-officer-item" id="lptSigRow2" style="display: none; align-items: flex-start; font-size: 12px; line-height: 1.35;">
+                          <span class="lpt-officer-num" id="lptSigNum2" style="width: 20px; flex-shrink: 0; font-weight: bold; color: #000000;">2.</span>
+                          <div style="flex: 1;">
+                            <div>
+                              <span id="lptSigPetugasName2" style="font-weight: bold; text-decoration: underline; display: inline-block; color: #000000;">
+                                ...........................................
+                              </span>
+                            </div>
+                            <div id="lptSigPetugasNip2" style="font-size: 11px; color: #000000; margin-top: 2px;">
+                              NIP. ...........................................
+                            </div>
+                          </div>
                         </div>
-                        <div style="text-align: center;">
-                          <span id="lptSigPetugasName1" style="font-size: 12px; color: #000000; border-bottom: 1px solid #000000; padding-bottom: 2px; display: inline-block; font-weight: bold; line-height: 1.2;">
-                            ...........................................
-                          </span>
-                        </div>
-                        <div id="lptSigPetugasNip1" style="font-size: 11px; color: #000000; text-align: center; margin-top: 3px; line-height: 1.2;">
-                          NIP. ...........................................
-                        </div>
-                      </div>
 
+                        <!-- Petugas 3 -->
+                        <div class="lpt-officer-item" id="lptSigRow3" style="display: none; align-items: flex-start; font-size: 12px; line-height: 1.35;">
+                          <span class="lpt-officer-num" id="lptSigNum3" style="width: 20px; flex-shrink: 0; font-weight: bold; color: #000000;">3.</span>
+                          <div style="flex: 1;">
+                            <div>
+                              <span id="lptSigPetugasName3" style="font-weight: bold; text-decoration: underline; display: inline-block; color: #000000;">
+                                ...........................................
+                              </span>
+                            </div>
+                            <div id="lptSigPetugasNip3" style="font-size: 11px; color: #000000; margin-top: 2px;">
+                              NIP. ...........................................
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Petugas 4 -->
+                        <div class="lpt-officer-item" id="lptSigRow4" style="display: none; align-items: flex-start; font-size: 12px; line-height: 1.35;">
+                          <span class="lpt-officer-num" id="lptSigNum4" style="width: 20px; flex-shrink: 0; font-weight: bold; color: #000000;">4.</span>
+                          <div style="flex: 1;">
+                            <div>
+                              <span id="lptSigPetugasName4" style="font-weight: bold; text-decoration: underline; display: inline-block; color: #000000;">
+                                ...........................................
+                              </span>
+                            </div>
+                            <div id="lptSigPetugasNip4" style="font-size: 11px; color: #000000; margin-top: 2px;">
+                              NIP. ...........................................
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Petugas 5 -->
+                        <div class="lpt-officer-item" id="lptSigRow5" style="display: none; align-items: flex-start; font-size: 12px; line-height: 1.35;">
+                          <span class="lpt-officer-num" id="lptSigNum5" style="width: 20px; flex-shrink: 0; font-weight: bold; color: #000000;">5.</span>
+                          <div style="flex: 1;">
+                            <div>
+                              <span id="lptSigPetugasName5" style="font-weight: bold; text-decoration: underline; display: inline-block; color: #000000;">
+                                ...........................................
+                              </span>
+                            </div>
+                            <div id="lptSigPetugasNip5" style="font-size: 11px; color: #000000; margin-top: 2px;">
+                              NIP. ...........................................
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
                     </div>
+
                   </div>
 
                 </div>
@@ -2621,7 +2688,51 @@
 
                   <div class="sppd-field">
                     <label for="lptInputProses">3.a. Proses Pelaksanaan Kegiatan</label>
-                    <textarea id="lptInputProses" class="sppd-input-styled" rows="4" style="resize: vertical; font-family: inherit; font-size: 12px; line-height: 1.45;" placeholder="Ketik uraian proses pelaksanaan kegiatan..."></textarea>
+                    <textarea id="lptInputProses" class="sppd-input-styled" rows="3" style="resize: vertical; font-family: inherit; font-size: 12px; line-height: 1.45;" placeholder="Ketik uraian proses pelaksanaan kegiatan..."></textarea>
+                  </div>
+
+                  <!-- 3.c. Tabel Data Hasil Kegiatan (Opsional Sesuai Gambar 1) -->
+                  <div class="sppd-field" style="margin-top: 12px; background: rgba(56, 189, 248, 0.04); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 10px; padding: 12px 12px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; font-weight: 700; font-size: 12.5px; color: var(--accent-color, #38bdf8);">
+                        <input type="checkbox" id="lptToggleTable" style="width: 16px; height: 16px; accent-color: var(--accent-color, #38bdf8); cursor: pointer;">
+                        <span>📊 Tambahkan Tabel Hasil Kegiatan</span>
+                      </label>
+                      <span id="lptBadgeTable" style="font-size: 10.5px; color: #94a3b8; font-weight: 600;">Tidak Aktif</span>
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-muted, #94a3b8); margin-bottom: 10px; line-height: 1.4;">
+                      Sertakan tabel ringkasan data hasil pemeriksaan/skrining di bawah poin 3.a Proses Pelaksanaan (bisa diaktifkan/dinonaktifkan sesuai kebutuhan).
+                    </div>
+
+                    <!-- Panel Konfigurasi Tabel (Tampil Saat Toggle Aktif) -->
+                    <div id="lptTableControlsWrap" style="display: none;">
+                      <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;">
+                        <button type="button" id="lptBtnPresetUks" class="sppd-btn-table-action" style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); color: #38bdf8; font-size: 11px; padding: 5px 9px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 5px;" title="Muat format tabel UKS/Skrining persis seperti di Gambar 1">
+                          <span>📋 Contoh Skrining UKS (Gambar 1)</span>
+                        </button>
+                        <button type="button" id="lptBtnAddRow" class="sppd-btn-table-action" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #e2e8f0; font-size: 11px; padding: 5px 8px; border-radius: 6px; cursor: pointer;" title="Tambah 1 Baris Data">
+                          <span>+ Baris</span>
+                        </button>
+                        <button type="button" id="lptBtnDelRow" class="sppd-btn-table-action" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #f87171; font-size: 11px; padding: 5px 8px; border-radius: 6px; cursor: pointer;" title="Hapus Baris Terakhir">
+                          <span>- Baris</span>
+                        </button>
+                        <button type="button" id="lptBtnAddCol" class="sppd-btn-table-action" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #e2e8f0; font-size: 11px; padding: 5px 8px; border-radius: 6px; cursor: pointer;" title="Tambah 1 Kolom">
+                          <span>+ Kolom</span>
+                        </button>
+                        <button type="button" id="lptBtnDelCol" class="sppd-btn-table-action" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #f87171; font-size: 11px; padding: 5px 8px; border-radius: 6px; cursor: pointer;" title="Hapus Kolom Terakhir">
+                          <span>- Kolom</span>
+                        </button>
+                      </div>
+
+                      <!-- Mini Editor Visual Tabel -->
+                      <div style="font-size: 11px; font-weight: 600; color: #cbd5e1; margin-bottom: 5px;">Editor Data Tabel:</div>
+                      <div id="lptSidebarTableEditor" style="max-height: 240px; overflow-x: auto; overflow-y: auto; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 6px;">
+                        <!-- Dynamic Input Grid -->
+                      </div>
+                      <div style="font-size: 10.5px; color: #94a3b8; margin-top: 6px; font-style: italic;">
+                        💡 Tip: Anda juga dapat langsung mengklik dan mengetik pada tabel di lembar Pratinjau Dokumen.
+                      </div>
+                    </div>
                   </div>
 
                   <div class="sppd-field" style="margin-top: 10px;">
@@ -2634,176 +2745,183 @@
                     <textarea id="lptInputKesimpulan" class="sppd-input-styled" rows="3" style="resize: vertical; font-family: inherit; font-size: 12px; line-height: 1.45;" placeholder="Ketik kesimpulan atau saran perbaikan..."></textarea>
                   </div>
 
-                  <!-- Section LPT 3: Petugas Pelapor & Tanda Tangan -->
-                  <div class="sppd-section-label" style="margin-top: 18px;">
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                      <circle cx="8.5" cy="7" r="4"></circle>
-                      <polyline points="17 11 19 13 23 9"></polyline>
-                    </svg>
-                    <span>4. Petugas Pelapor LPT (Tanda Tangan)</span>
+                  <!-- Section LPT 3: Petugas Pelapor & Tanda Tangan (Maks. 5 Orang) -->
+                  <div class="sppd-section-label" style="margin-top: 18px; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="8.5" cy="7" r="4"></circle>
+                        <polyline points="17 11 19 13 23 9"></polyline>
+                      </svg>
+                      <span>4. Petugas Pelapor LPT (Maks. 5 Petugas)</span>
+                    </div>
+                    <span id="lptPetugasSummaryBadge" style="font-size: 10.5px; color: #38bdf8; font-weight: 600; background: rgba(56, 189, 248, 0.12); padding: 2px 7px; border-radius: 6px;">1 / 5 Petugas Aktif</span>
                   </div>
 
-                  <!-- Petugas 1 (Utama / Kanan) -->
-                  <div class="sppd-field" style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                      <span style="font-weight: 700; font-size: 12.5px; color: var(--accent-color, #38bdf8);">Petugas 1 (Pelapor Utama)</span>
-                      <span style="font-size: 10.5px; color: #10b981; font-weight: 600;">Wajib / Aktif</span>
+                  <!-- Container 5 Petugas -->
+                  <div id="lptOfficersInputContainer" style="display: flex; flex-direction: column; gap: 8px;">
+                    
+                    <!-- Petugas 1 (Utama - Selalu Aktif) -->
+                    <div class="sppd-field" style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-weight: 700; font-size: 12px; color: var(--accent-color, #38bdf8);">#1. Petugas 1 (Pelapor Utama)</span>
+                        <span style="font-size: 10px; color: #10b981; font-weight: 600;">Wajib / Aktif</span>
+                      </div>
+                      <div class="select-wrapper" id="lptSelectWrapPetugas1">
+                        <select id="lptSelectPetugas1" class="sppd-input-styled lpt-petugas-select" style="font-size: 12px;">
+                          <option value="" selected>-- Pilih Petugas Pelapor (Utama) --</option>
+                          <option value="Mochamad Fauzie, S.Gz" data-nip="NRP. 873.3204.16.02.008">28. Mochamad Fauzie, S.Gz (Nutrisionis)</option>
+                          <option value="dr. Rina Indriati" data-nip="NIP. 19740404 201411 2 001">1. dr. Rina Indriati (Kepala Puskesmas)</option>
+                          <option value="Teti Nuryati, S.Keb, Bdn" data-nip="NIP. 19750816 200701 2 012">2. Teti Nuryati, S.Keb, Bdn (Satker/Bidan Mahir)</option>
+                          <option value="Satrianita, SKM" data-nip="NIP. 19730908 199403 2 006">3. Satrianita, SKM (Sanitarian Ahli Muda)</option>
+                          <option value="Asep Yanto, AMKG" data-nip="NIP. 19690623 199103 1 002">4. Asep Yanto, AMKG (Perawat Gigi Penyelia)</option>
+                          <option value="N. Yayat Rohayati, AM.Keb" data-nip="NIP. 19690613 198903 2 005">5. N. Yayat Rohayati, AM.Keb (Bidan Penyelia)</option>
+                          <option value="Rd Teti Mulyati, Amd.Kep" data-nip="NIP. 19680825 199003 2 008">6. Rd Teti Mulyati, Amd.Kep (Perawat Penyelia)</option>
+                          <option value="Indri Yusiana, Amd.Kep" data-nip="NIP. 19681004 199103 2 007">7. Indri Yusiana, Amd.Kep (Perawat Penyelia)</option>
+                          <option value="Santi Sentri Yanti, S.Keb" data-nip="NIP. 19781014 200501 2 007">8. Santi Sentri Yanti, S.Keb (Bidan Pelaksana)</option>
+                          <option value="Imas Winarti, AM.Keb" data-nip="NIP. 19690524 200604 2 004">9. Imas Winarti, AM.Keb (Bidan Pelaksana)</option>
+                          <option value="Eva Farida, S.Keb" data-nip="NIP. 19840508 201704 2 011">10. Eva Farida, S.Keb (Bidan Mahir)</option>
+                          <option value="Neng Yulia Ernawati, S.Keb" data-nip="NIP. 19860725 201704 2 007">11. Neng Yulia Ernawati, S.Keb (Bidan Pelaksana)</option>
+                          <option value="Eva Solina, S.Keb" data-nip="NIP. 19821219 201704 2 003">12. Eva Solina, S.Keb (Bidan Pelaksana)</option>
+                          <option value="Riza Nur Multiani, A.Md.AK" data-nip="NIP. 19910127 202203 2 010">13. Riza Nur Multiani, A.Md.AK (Penata Lab Kes)</option>
+                          <option value="drg. Regina Desi Gresiana Simamora" data-nip="NIP. 19930805 202505 2 002">14. drg. Regina Desi Gresiana Simamora (Dokter Gigi)</option>
+                          <option value="Nurul Hidayah, Amd.Kes" data-nip="NIP. 20001224 202505 2 002">15. Nurul Hidayah, Amd.Kes (Terapis Gigi)</option>
+                          <option value="Dadi Permadi, SKM" data-nip="NIP. 19840525 202221 1 001">16. Dadi Permadi, SKM (Penyuluh Kesehatan)</option>
+                          <option value="Anisa Rohmatunisa, AM.Keb" data-nip="NIP. 19880321 202321 2 001">17. Anisa Rohmatunisa, AM.Keb (Bidan Terampil)</option>
+                          <option value="Nina Mariyana, Amd.Kep" data-nip="NIP. 19960728 202321 2 005">18. Nina Mariyana, Amd.Kep (Perawat Terampil)</option>
+                          <option value="Sheila Nurlaila, A.Md.Gz" data-nip="NIP. 19930713 202321 2 003">19. Sheila Nurlaila, A.Md.Gz (Nutrisionis Terampil)</option>
+                          <option value="Debby Nadia Lofika, S.Farm. Apt" data-nip="NIP. 19921004 202521 2 044">20. Debby Nadia Lofika, S.Farm. Apt (Apoteker)</option>
+                          <option value="Lutfiyatun Oktaviana, S.Kep.Ners" data-nip="NRP. 873.3204.10.02.005">21. Lutfiyatun Oktaviana, S.Kep.Ners (Perawat)</option>
+                          <option value="dr. Dinar Dwi Restika Agustin" data-nip="NRP. 873.3204.07.05.005">22. dr. Dinar Dwi Restika Agustin (Dokter Umum)</option>
+                          <option value="dr. Putri Tasya Afifah" data-nip="NRP. 873.3204.08.06.029">23. dr. Putri Tasya Afifah (Dokter Umum)</option>
+                          <option value="drg. Intan Nur Atsila" data-nip="NRP. 873.3204.08.06.019">24. drg. Intan Nur Atsila (Dokter Gigi)</option>
+                          <option value="Rini Julianti, SE" data-nip="NRP. 873.06.02.021">25. Rini Julianti, SE (Akuntan)</option>
+                          <option value="Andriana Mahardhytia, Amd.Kes" data-nip="NRP. 873.120.10.03">26. Andriana Mahardhytia, Amd.Kes (Rekam Medis)</option>
+                          <option value="Dilla Anggraeni Pratiwi, A.Md.Akun" data-nip="NRP. 873.3204.13.03.012">27. Dilla Anggraeni Pratiwi, A.Md.Akun (Admin BOK)</option>
+                          <option value="Ilham Ardiansyah Isnandar, SKM" data-nip="NRP. 873.3204.11.06.011">29. Ilham Ardiansyah Isnandar, SKM (Epidemiolog)</option>
+                          <option value="Rian Sidik Sudiana, Amd.Kes" data-nip="NRP. 873.3204.12.06.007">30. Rian Sidik Sudiana, Amd.Kes (Rekam Medis)</option>
+                          <option value="Fahri Dzulfikar Rismayanto, A.Md. Bns" data-nip="NRP. 873.3204.13.07.037">31. Fahri Dzulfikar Rismayanto, A.Md. Bns (Admin BLUD)</option>
+                          <option value="Mutiara Sofiatussirri, Amd." data-nip="NRP. 873.3204.05.05.005">32. Mutiara Sofiatussirri, Amd. (ATLM)</option>
+                          <option value="Muhamad Faridz Alparizy, Amd.Kep" data-nip="NRP. 873.3204.14.05.040">33. Muhamad Faridz Alparizy, Amd.Kep (Perawat)</option>
+                          <option value="Neng Safitri Nur Ladyawati, AM.Keb" data-nip="NRP. 873.3204.09.06.106">34. Neng Safitri Nur Ladyawati, AM.Keb (Bidan Desa)</option>
+                          <option value="Dani Setiadi, S.Farm" data-nip="NRP. 873.3204.18.01.002">35. Dani Setiadi, S.Farm (TTK)</option>
+                          <option value="Ripan Sutiana" data-nip="-">36. Ripan Sutiana (Petugas Keamanan)</option>
+                          <option value="Mevi Riyanayasti" data-nip="-">37. Mevi Riyanayasti (Petugas Kebersihan)</option>
+                          <option value="Ade Boy" data-nip="-">38. Ade Boy (Supir)</option>
+                          <option value="Suhara" data-nip="-">39. Suhara (Petugas Keamanan)</option>
+                          <option value="CUSTOM">-- Ketik Manual --</option>
+                        </select>
+                      </div>
+                      <div class="sppd-grid-2" id="lptCustomWrap1" style="display: none; margin-top: 6px;">
+                        <input type="text" id="lptInputCustomNama1" class="sppd-input-styled" placeholder="Nama Lengkap &amp; Gelar" style="font-size: 12px; padding: 5px 8px;">
+                        <input type="text" id="lptInputCustomNip1" class="sppd-input-styled" placeholder="NIP / NRP" style="font-size: 12px; padding: 5px 8px;">
+                      </div>
                     </div>
-                    <div class="select-wrapper">
-                      <select id="lptSelectPetugas1" class="sppd-input-styled" style="font-size: 12px;">
-                        <option value="" selected>-- Pilih Petugas Pelapor (Utama) --</option>
-                        <option value="Mochamad Fauzie, S.Gz" data-nip="NRP. 873.3204.16.02.008">28. Mochamad Fauzie, S.Gz (Nutrisionis)</option>
-                        <option value="dr. Rina Indriati" data-nip="NIP. 19740404 201411 2 001">1. dr. Rina Indriati (Kepala Puskesmas)</option>
-                        <option value="Teti Nuryati, S.Keb, Bdn" data-nip="NIP. 19750816 200701 2 012">2. Teti Nuryati, S.Keb, Bdn (Satker/Bidan Mahir)</option>
-                        <option value="Satrianita, SKM" data-nip="NIP. 19730908 199403 2 006">3. Satrianita, SKM (Sanitarian Ahli Muda)</option>
-                        <option value="Asep Yanto, AMKG" data-nip="NIP. 19690623 199103 1 002">4. Asep Yanto, AMKG (Perawat Gigi Penyelia)</option>
-                        <option value="N. Yayat Rohayati, AM.Keb" data-nip="NIP. 19690613 198903 2 005">5. N. Yayat Rohayati, AM.Keb (Bidan Penyelia)</option>
-                        <option value="Rd Teti Mulyati, Amd.Kep" data-nip="NIP. 19680825 199003 2 008">6. Rd Teti Mulyati, Amd.Kep (Perawat Penyelia)</option>
-                        <option value="Indri Yusiana, Amd.Kep" data-nip="NIP. 19681004 199103 2 007">7. Indri Yusiana, Amd.Kep (Perawat Penyelia)</option>
-                        <option value="Santi Sentri Yanti, S.Keb" data-nip="NIP. 19781014 200501 2 007">8. Santi Sentri Yanti, S.Keb (Bidan Pelaksana)</option>
-                        <option value="Imas Winarti, AM.Keb" data-nip="NIP. 19690524 200604 2 004">9. Imas Winarti, AM.Keb (Bidan Pelaksana)</option>
-                        <option value="Eva Farida, S.Keb" data-nip="NIP. 19840508 201704 2 011">10. Eva Farida, S.Keb (Bidan Mahir)</option>
-                        <option value="Neng Yulia Ernawati, S.Keb" data-nip="NIP. 19860725 201704 2 007">11. Neng Yulia Ernawati, S.Keb (Bidan Pelaksana)</option>
-                        <option value="Eva Solina, S.Keb" data-nip="NIP. 19821219 201704 2 003">12. Eva Solina, S.Keb (Bidan Pelaksana)</option>
-                        <option value="Riza Nur Multiani, A.Md.AK" data-nip="NIP. 19910127 202203 2 010">13. Riza Nur Multiani, A.Md.AK (Penata Lab Kes)</option>
-                        <option value="drg. Regina Desi Gresiana Simamora" data-nip="NIP. 19930805 202505 2 002">14. drg. Regina Desi Gresiana Simamora (Dokter Gigi)</option>
-                        <option value="Nurul Hidayah, Amd.Kes" data-nip="NIP. 20001224 202505 2 002">15. Nurul Hidayah, Amd.Kes (Terapis Gigi)</option>
-                        <option value="Dadi Permadi, SKM" data-nip="NIP. 19840525 202221 1 001">16. Dadi Permadi, SKM (Penyuluh Kesehatan)</option>
-                        <option value="Anisa Rohmatunisa, AM.Keb" data-nip="NIP. 19880321 202321 2 001">17. Anisa Rohmatunisa, AM.Keb (Bidan Terampil)</option>
-                        <option value="Nina Mariyana, Amd.Kep" data-nip="NIP. 19960728 202321 2 005">18. Nina Mariyana, Amd.Kep (Perawat Terampil)</option>
-                        <option value="Sheila Nurlaila, A.Md.Gz" data-nip="NIP. 19930713 202321 2 003">19. Sheila Nurlaila, A.Md.Gz (Nutrisionis Terampil)</option>
-                        <option value="Debby Nadia Lofika, S.Farm. Apt" data-nip="NIP. 19921004 202521 2 044">20. Debby Nadia Lofika, S.Farm. Apt (Apoteker)</option>
-                        <option value="Lutfiyatun Oktaviana, S.Kep.Ners" data-nip="NRP. 873.3204.10.02.005">21. Lutfiyatun Oktaviana, S.Kep.Ners (Perawat)</option>
-                        <option value="dr. Dinar Dwi Restika Agustin" data-nip="NRP. 873.3204.07.05.005">22. dr. Dinar Dwi Restika Agustin (Dokter Umum)</option>
-                        <option value="dr. Putri Tasya Afifah" data-nip="NRP. 873.3204.08.06.029">23. dr. Putri Tasya Afifah (Dokter Umum)</option>
-                        <option value="drg. Intan Nur Atsila" data-nip="NRP. 873.3204.08.06.019">24. drg. Intan Nur Atsila (Dokter Gigi)</option>
-                        <option value="Rini Julianti, SE" data-nip="NRP. 873.06.02.021">25. Rini Julianti, SE (Akuntan)</option>
-                        <option value="Andriana Mahardhytia, Amd.Kes" data-nip="NRP. 873.120.10.03">26. Andriana Mahardhytia, Amd.Kes (Rekam Medis)</option>
-                        <option value="Dilla Anggraeni Pratiwi, A.Md.Akun" data-nip="NRP. 873.3204.13.03.012">27. Dilla Anggraeni Pratiwi, A.Md.Akun (Admin BOK)</option>
-                        <option value="Ilham Ardiansyah Isnandar, SKM" data-nip="NRP. 873.3204.11.06.011">29. Ilham Ardiansyah Isnandar, SKM (Epidemiolog)</option>
-                        <option value="Rian Sidik Sudiana, Amd.Kes" data-nip="NRP. 873.3204.12.06.007">30. Rian Sidik Sudiana, Amd.Kes (Rekam Medis)</option>
-                        <option value="Fahri Dzulfikar Rismayanto, A.Md. Bns" data-nip="NRP. 873.3204.13.07.037">31. Fahri Dzulfikar Rismayanto, A.Md. Bns (Admin BLUD)</option>
-                        <option value="Mutiara Sofiatussirri, Amd." data-nip="NRP. 873.3204.05.05.005">32. Mutiara Sofiatussirri, Amd. (ATLM)</option>
-                        <option value="Muhamad Faridz Alparizy, Amd.Kep" data-nip="NRP. 873.3204.14.05.040">33. Muhamad Faridz Alparizy, Amd.Kep (Perawat)</option>
-                        <option value="Neng Safitri Nur Ladyawati, AM.Keb" data-nip="NRP. 873.3204.09.06.106">34. Neng Safitri Nur Ladyawati, AM.Keb (Bidan Desa)</option>
-                        <option value="Dani Setiadi, S.Farm" data-nip="NRP. 873.3204.18.01.002">35. Dani Setiadi, S.Farm (TTK)</option>
-                        <option value="Ripan Sutiana" data-nip="-">36. Ripan Sutiana (Petugas Keamanan)</option>
-                        <option value="Mevi Riyanayasti" data-nip="-">37. Mevi Riyanayasti (Petugas Kebersihan)</option>
-                        <option value="Ade Boy" data-nip="-">38. Ade Boy (Supir)</option>
-                        <option value="Suhara" data-nip="-">39. Suhara (Petugas Keamanan)</option>
-                      </select>
+
+                    <!-- Petugas 2 -->
+                    <div class="sppd-field" id="lptCardPetugas2" style="display: none; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; font-weight: 700; font-size: 12px; color: var(--accent-color, #38bdf8);">
+                          <input type="checkbox" id="lptTogglePetugas2" style="width: 15px; height: 15px; accent-color: var(--accent-color, #38bdf8); cursor: pointer;">
+                          <span>#2. Petugas 2</span>
+                        </label>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                          <span id="lptBadgePetugas2" style="font-size: 10px; color: #94a3b8; font-weight: 600;">Disembunyikan</span>
+                          <button type="button" class="lpt-btn-del-petugas" data-index="2" onclick="window.removePetugas ? window.removePetugas(2) : null" title="Hapus Petugas 2" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; border-radius: 5px; height: 22px; width: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;">✕</button>
+                        </div>
+                      </div>
+                      <div class="select-wrapper" id="lptSelectWrapPetugas2">
+                        <select id="lptSelectPetugas2" class="sppd-input-styled lpt-petugas-select" style="font-size: 12px;">
+                          <option value="" selected>-- Pilih Petugas 2 --</option>
+                          <option value="CUSTOM">-- Ketik Manual --</option>
+                        </select>
+                      </div>
+                      <div class="sppd-grid-2" id="lptCustomWrap2" style="display: none; margin-top: 6px;">
+                        <input type="text" id="lptInputCustomNama2" class="sppd-input-styled" placeholder="Nama Lengkap &amp; Gelar" style="font-size: 12px; padding: 5px 8px;">
+                        <input type="text" id="lptInputCustomNip2" class="sppd-input-styled" placeholder="NIP / NRP" style="font-size: 12px; padding: 5px 8px;">
+                      </div>
                     </div>
+
+                    <!-- Petugas 3 -->
+                    <div class="sppd-field" id="lptCardPetugas3" style="display: none; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; font-weight: 700; font-size: 12px; color: var(--accent-color, #38bdf8);">
+                          <input type="checkbox" id="lptTogglePetugas3" style="width: 15px; height: 15px; accent-color: var(--accent-color, #38bdf8); cursor: pointer;">
+                          <span>#3. Petugas 3</span>
+                        </label>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                          <span id="lptBadgePetugas3" style="font-size: 10px; color: #94a3b8; font-weight: 600;">Disembunyikan</span>
+                          <button type="button" class="lpt-btn-del-petugas" data-index="3" onclick="window.removePetugas ? window.removePetugas(3) : null" title="Hapus Petugas 3" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; border-radius: 5px; height: 22px; width: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;">✕</button>
+                        </div>
+                      </div>
+                      <div class="select-wrapper" id="lptSelectWrapPetugas3">
+                        <select id="lptSelectPetugas3" class="sppd-input-styled lpt-petugas-select" style="font-size: 12px;">
+                          <option value="" selected>-- Pilih Petugas 3 --</option>
+                          <option value="CUSTOM">-- Ketik Manual --</option>
+                        </select>
+                      </div>
+                      <div class="sppd-grid-2" id="lptCustomWrap3" style="display: none; margin-top: 6px;">
+                        <input type="text" id="lptInputCustomNama3" class="sppd-input-styled" placeholder="Nama Lengkap &amp; Gelar" style="font-size: 12px; padding: 5px 8px;">
+                        <input type="text" id="lptInputCustomNip3" class="sppd-input-styled" placeholder="NIP / NRP" style="font-size: 12px; padding: 5px 8px;">
+                      </div>
+                    </div>
+
+                    <!-- Petugas 4 -->
+                    <div class="sppd-field" id="lptCardPetugas4" style="display: none; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; font-weight: 700; font-size: 12px; color: var(--accent-color, #38bdf8);">
+                          <input type="checkbox" id="lptTogglePetugas4" style="width: 15px; height: 15px; accent-color: var(--accent-color, #38bdf8); cursor: pointer;">
+                          <span>#4. Petugas 4</span>
+                        </label>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                          <span id="lptBadgePetugas4" style="font-size: 10px; color: #94a3b8; font-weight: 600;">Disembunyikan</span>
+                          <button type="button" class="lpt-btn-del-petugas" data-index="4" onclick="window.removePetugas ? window.removePetugas(4) : null" title="Hapus Petugas 4" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; border-radius: 5px; height: 22px; width: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;">✕</button>
+                        </div>
+                      </div>
+                      <div class="select-wrapper" id="lptSelectWrapPetugas4">
+                        <select id="lptSelectPetugas4" class="sppd-input-styled lpt-petugas-select" style="font-size: 12px;">
+                          <option value="" selected>-- Pilih Petugas 4 --</option>
+                          <option value="CUSTOM">-- Ketik Manual --</option>
+                        </select>
+                      </div>
+                      <div class="sppd-grid-2" id="lptCustomWrap4" style="display: none; margin-top: 6px;">
+                        <input type="text" id="lptInputCustomNama4" class="sppd-input-styled" placeholder="Nama Lengkap &amp; Gelar" style="font-size: 12px; padding: 5px 8px;">
+                        <input type="text" id="lptInputCustomNip4" class="sppd-input-styled" placeholder="NIP / NRP" style="font-size: 12px; padding: 5px 8px;">
+                      </div>
+                    </div>
+
+                    <!-- Petugas 5 -->
+                    <div class="sppd-field" id="lptCardPetugas5" style="display: none; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; font-weight: 700; font-size: 12px; color: var(--accent-color, #38bdf8);">
+                          <input type="checkbox" id="lptTogglePetugas5" style="width: 15px; height: 15px; accent-color: var(--accent-color, #38bdf8); cursor: pointer;">
+                          <span>#5. Petugas 5</span>
+                        </label>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                          <span id="lptBadgePetugas5" style="font-size: 10px; color: #94a3b8; font-weight: 600;">Disembunyikan</span>
+                          <button type="button" class="lpt-btn-del-petugas" data-index="5" onclick="window.removePetugas ? window.removePetugas(5) : null" title="Hapus Petugas 5" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; border-radius: 5px; height: 22px; width: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;">✕</button>
+                        </div>
+                      </div>
+                      <div class="select-wrapper" id="lptSelectWrapPetugas5">
+                        <select id="lptSelectPetugas5" class="sppd-input-styled lpt-petugas-select" style="font-size: 12px;">
+                          <option value="" selected>-- Pilih Petugas 5 --</option>
+                          <option value="CUSTOM">-- Ketik Manual --</option>
+                        </select>
+                      </div>
+                      <div class="sppd-grid-2" id="lptCustomWrap5" style="display: none; margin-top: 6px;">
+                        <input type="text" id="lptInputCustomNama5" class="sppd-input-styled" placeholder="Nama Lengkap &amp; Gelar" style="font-size: 12px; padding: 5px 8px;">
+                        <input type="text" id="lptInputCustomNip5" class="sppd-input-styled" placeholder="NIP / NRP" style="font-size: 12px; padding: 5px 8px;">
+                      </div>
+                    </div>
+
                   </div>
 
-                  <!-- Petugas 2 (Tengah - Toggleable) -->
-                  <div class="sppd-field" style="margin-top: 10px; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; font-weight: 700; font-size: 12.5px; color: var(--accent-color, #38bdf8);">
-                        <input type="checkbox" id="lptTogglePetugas2" style="width: 16px; height: 16px; accent-color: var(--accent-color, #38bdf8); cursor: pointer;">
-                        <span>Tampilkan Petugas 2</span>
-                      </label>
-                      <span id="lptBadgePetugas2" style="font-size: 10.5px; color: #94a3b8; font-weight: 600;">Disembunyikan</span>
-                    </div>
-                    <div class="select-wrapper" id="lptWrapSelectPetugas2" style="display: none;">
-                      <select id="lptSelectPetugas2" class="sppd-input-styled" style="font-size: 12px;">
-                        <option value="" selected>-- Pilih Petugas 2 --</option>
-                        <option value="Teti Nuryati, S.Keb, Bdn" data-nip="NIP. 19750816 200701 2 012">2. Teti Nuryati, S.Keb, Bdn (Satker/Bidan Mahir)</option>
-                        <option value="dr. Rina Indriati" data-nip="NIP. 19740404 201411 2 001">1. dr. Rina Indriati (Kepala Puskesmas)</option>
-                        <option value="Satrianita, SKM" data-nip="NIP. 19730908 199403 2 006">3. Satrianita, SKM (Sanitarian Ahli Muda)</option>
-                        <option value="Asep Yanto, AMKG" data-nip="NIP. 19690623 199103 1 002">4. Asep Yanto, AMKG (Perawat Gigi Penyelia)</option>
-                        <option value="N. Yayat Rohayati, AM.Keb" data-nip="NIP. 19690613 198903 2 005">5. N. Yayat Rohayati, AM.Keb (Bidan Penyelia)</option>
-                        <option value="Rd Teti Mulyati, Amd.Kep" data-nip="NIP. 19680825 199003 2 008">6. Rd Teti Mulyati, Amd.Kep (Perawat Penyelia)</option>
-                        <option value="Indri Yusiana, Amd.Kep" data-nip="NIP. 19681004 199103 2 007">7. Indri Yusiana, Amd.Kep (Perawat Penyelia)</option>
-                        <option value="Santi Sentri Yanti, S.Keb" data-nip="NIP. 19781014 200501 2 007">8. Santi Sentri Yanti, S.Keb (Bidan Pelaksana)</option>
-                        <option value="Imas Winarti, AM.Keb" data-nip="NIP. 19690524 200604 2 004">9. Imas Winarti, AM.Keb (Bidan Pelaksana)</option>
-                        <option value="Eva Farida, S.Keb" data-nip="NIP. 19840508 201704 2 011">10. Eva Farida, S.Keb (Bidan Mahir)</option>
-                        <option value="Neng Yulia Ernawati, S.Keb" data-nip="NIP. 19860725 201704 2 007">11. Neng Yulia Ernawati, S.Keb (Bidan Pelaksana)</option>
-                        <option value="Eva Solina, S.Keb" data-nip="NIP. 19821219 201704 2 003">12. Eva Solina, S.Keb (Bidan Pelaksana)</option>
-                        <option value="Riza Nur Multiani, A.Md.AK" data-nip="NIP. 19910127 202203 2 010">13. Riza Nur Multiani, A.Md.AK (Penata Lab Kes)</option>
-                        <option value="drg. Regina Desi Gresiana Simamora" data-nip="NIP. 19930805 202505 2 002">14. drg. Regina Desi Gresiana Simamora (Dokter Gigi)</option>
-                        <option value="Nurul Hidayah, Amd.Kes" data-nip="NIP. 20001224 202505 2 002">15. Nurul Hidayah, Amd.Kes (Terapis Gigi)</option>
-                        <option value="Dadi Permadi, SKM" data-nip="NIP. 19840525 202221 1 001">16. Dadi Permadi, SKM (Penyuluh Kesehatan)</option>
-                        <option value="Anisa Rohmatunisa, AM.Keb" data-nip="NIP. 19880321 202321 2 001">17. Anisa Rohmatunisa, AM.Keb (Bidan Terampil)</option>
-                        <option value="Nina Mariyana, Amd.Kep" data-nip="NIP. 19960728 202321 2 005">18. Nina Mariyana, Amd.Kep (Perawat Terampil)</option>
-                        <option value="Sheila Nurlaila, A.Md.Gz" data-nip="NIP. 19930713 202321 2 003">19. Sheila Nurlaila, A.Md.Gz (Nutrisionis Terampil)</option>
-                        <option value="Debby Nadia Lofika, S.Farm. Apt" data-nip="NIP. 19921004 202521 2 044">20. Debby Nadia Lofika, S.Farm. Apt (Apoteker)</option>
-                        <option value="Lutfiyatun Oktaviana, S.Kep.Ners" data-nip="NRP. 873.3204.10.02.005">21. Lutfiyatun Oktaviana, S.Kep.Ners (Perawat)</option>
-                        <option value="dr. Dinar Dwi Restika Agustin" data-nip="NRP. 873.3204.07.05.005">22. dr. Dinar Dwi Restika Agustin (Dokter Umum)</option>
-                        <option value="dr. Putri Tasya Afifah" data-nip="NRP. 873.3204.08.06.029">23. dr. Putri Tasya Afifah (Dokter Umum)</option>
-                        <option value="drg. Intan Nur Atsila" data-nip="NRP. 873.3204.08.06.019">24. drg. Intan Nur Atsila (Dokter Gigi)</option>
-                        <option value="Rini Julianti, SE" data-nip="NRP. 873.06.02.021">25. Rini Julianti, SE (Akuntan)</option>
-                        <option value="Andriana Mahardhytia, Amd.Kes" data-nip="NRP. 873.120.10.03">26. Andriana Mahardhytia, Amd.Kes (Rekam Medis)</option>
-                        <option value="Dilla Anggraeni Pratiwi, A.Md.Akun" data-nip="NRP. 873.3204.13.03.012">27. Dilla Anggraeni Pratiwi, A.Md.Akun (Admin BOK)</option>
-                        <option value="Mochamad Fauzie, S.Gz" data-nip="NRP. 873.3204.16.02.008">28. Mochamad Fauzie, S.Gz (Nutrisionis)</option>
-                        <option value="Ilham Ardiansyah Isnandar, SKM" data-nip="NRP. 873.3204.11.06.011">29. Ilham Ardiansyah Isnandar, SKM (Epidemiolog)</option>
-                        <option value="Rian Sidik Sudiana, Amd.Kes" data-nip="NRP. 873.3204.12.06.007">30. Rian Sidik Sudiana, Amd.Kes (Rekam Medis)</option>
-                        <option value="Fahri Dzulfikar Rismayanto, A.Md. Bns" data-nip="NRP. 873.3204.13.07.037">31. Fahri Dzulfikar Rismayanto, A.Md. Bns (Admin BLUD)</option>
-                        <option value="Mutiara Sofiatussirri, Amd." data-nip="NRP. 873.3204.05.05.005">32. Mutiara Sofiatussirri, Amd. (ATLM)</option>
-                        <option value="Muhamad Faridz Alparizy, Amd.Kep" data-nip="NRP. 873.3204.14.05.040">33. Muhamad Faridz Alparizy, Amd.Kep (Perawat)</option>
-                        <option value="Neng Safitri Nur Ladyawati, AM.Keb" data-nip="NRP. 873.3204.09.06.106">34. Neng Safitri Nur Ladyawati, AM.Keb (Bidan Desa)</option>
-                        <option value="Dani Setiadi, S.Farm" data-nip="NRP. 873.3204.18.01.002">35. Dani Setiadi, S.Farm (TTK)</option>
-                        <option value="Ripan Sutiana" data-nip="-">36. Ripan Sutiana (Petugas Keamanan)</option>
-                        <option value="Mevi Riyanayasti" data-nip="-">37. Mevi Riyanayasti (Petugas Kebersihan)</option>
-                        <option value="Ade Boy" data-nip="-">38. Ade Boy (Supir)</option>
-                        <option value="Suhara" data-nip="-">39. Suhara (Petugas Keamanan)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <!-- Petugas 3 (Kiri - Toggleable) -->
-                  <div class="sppd-field" style="margin-top: 10px; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; font-weight: 700; font-size: 12.5px; color: var(--accent-color, #38bdf8);">
-                        <input type="checkbox" id="lptTogglePetugas3" style="width: 16px; height: 16px; accent-color: var(--accent-color, #38bdf8); cursor: pointer;">
-                        <span>Tampilkan Petugas 3</span>
-                      </label>
-                      <span id="lptBadgePetugas3" style="font-size: 10.5px; color: #94a3b8; font-weight: 600;">Disembunyikan</span>
-                    </div>
-                    <div class="select-wrapper" id="lptWrapSelectPetugas3" style="display: none;">
-                      <select id="lptSelectPetugas3" class="sppd-input-styled" style="font-size: 12px;">
-                        <option value="" selected>-- Pilih Petugas 3 --</option>
-                        <option value="Satrianita, SKM" data-nip="NIP. 19730908 199403 2 006">3. Satrianita, SKM (Sanitarian Ahli Muda)</option>
-                        <option value="dr. Rina Indriati" data-nip="NIP. 19740404 201411 2 001">1. dr. Rina Indriati (Kepala Puskesmas)</option>
-                        <option value="Teti Nuryati, S.Keb, Bdn" data-nip="NIP. 19750816 200701 2 012">2. Teti Nuryati, S.Keb, Bdn (Satker/Bidan Mahir)</option>
-                        <option value="Asep Yanto, AMKG" data-nip="NIP. 19690623 199103 1 002">4. Asep Yanto, AMKG (Perawat Gigi Penyelia)</option>
-                        <option value="N. Yayat Rohayati, AM.Keb" data-nip="NIP. 19690613 198903 2 005">5. N. Yayat Rohayati, AM.Keb (Bidan Penyelia)</option>
-                        <option value="Rd Teti Mulyati, Amd.Kep" data-nip="NIP. 19680825 199003 2 008">6. Rd Teti Mulyati, Amd.Kep (Perawat Penyelia)</option>
-                        <option value="Indri Yusiana, Amd.Kep" data-nip="NIP. 19681004 199103 2 007">7. Indri Yusiana, Amd.Kep (Perawat Penyelia)</option>
-                        <option value="Santi Sentri Yanti, S.Keb" data-nip="NIP. 19781014 200501 2 007">8. Santi Sentri Yanti, S.Keb (Bidan Pelaksana)</option>
-                        <option value="Imas Winarti, AM.Keb" data-nip="NIP. 19690524 200604 2 004">9. Imas Winarti, AM.Keb (Bidan Pelaksana)</option>
-                        <option value="Eva Farida, S.Keb" data-nip="NIP. 19840508 201704 2 011">10. Eva Farida, S.Keb (Bidan Mahir)</option>
-                        <option value="Neng Yulia Ernawati, S.Keb" data-nip="NIP. 19860725 201704 2 007">11. Neng Yulia Ernawati, S.Keb (Bidan Pelaksana)</option>
-                        <option value="Eva Solina, S.Keb" data-nip="NIP. 19821219 201704 2 003">12. Eva Solina, S.Keb (Bidan Pelaksana)</option>
-                        <option value="Riza Nur Multiani, A.Md.AK" data-nip="NIP. 19910127 202203 2 010">13. Riza Nur Multiani, A.Md.AK (Penata Lab Kes)</option>
-                        <option value="drg. Regina Desi Gresiana Simamora" data-nip="NIP. 19930805 202505 2 002">14. drg. Regina Desi Gresiana Simamora (Dokter Gigi)</option>
-                        <option value="Nurul Hidayah, Amd.Kes" data-nip="NIP. 20001224 202505 2 002">15. Nurul Hidayah, Amd.Kes (Terapis Gigi)</option>
-                        <option value="Dadi Permadi, SKM" data-nip="NIP. 19840525 202221 1 001">16. Dadi Permadi, SKM (Penyuluh Kesehatan)</option>
-                        <option value="Anisa Rohmatunisa, AM.Keb" data-nip="NIP. 19880321 202321 2 001">17. Anisa Rohmatunisa, AM.Keb (Bidan Terampil)</option>
-                        <option value="Nina Mariyana, Amd.Kep" data-nip="NIP. 19960728 202321 2 005">18. Nina Mariyana, Amd.Kep (Perawat Terampil)</option>
-                        <option value="Sheila Nurlaila, A.Md.Gz" data-nip="NIP. 19930713 202321 2 003">19. Sheila Nurlaila, A.Md.Gz (Nutrisionis Terampil)</option>
-                        <option value="Debby Nadia Lofika, S.Farm. Apt" data-nip="NIP. 19921004 202521 2 044">20. Debby Nadia Lofika, S.Farm. Apt (Apoteker)</option>
-                        <option value="Lutfiyatun Oktaviana, S.Kep.Ners" data-nip="NRP. 873.3204.10.02.005">21. Lutfiyatun Oktaviana, S.Kep.Ners (Perawat)</option>
-                        <option value="dr. Dinar Dwi Restika Agustin" data-nip="NRP. 873.3204.07.05.005">22. dr. Dinar Dwi Restika Agustin (Dokter Umum)</option>
-                        <option value="dr. Putri Tasya Afifah" data-nip="NRP. 873.3204.08.06.029">23. dr. Putri Tasya Afifah (Dokter Umum)</option>
-                        <option value="drg. Intan Nur Atsila" data-nip="NRP. 873.3204.08.06.019">24. drg. Intan Nur Atsila (Dokter Gigi)</option>
-                        <option value="Rini Julianti, SE" data-nip="NRP. 873.06.02.021">25. Rini Julianti, SE (Akuntan)</option>
-                        <option value="Andriana Mahardhytia, Amd.Kes" data-nip="NRP. 873.120.10.03">26. Andriana Mahardhytia, Amd.Kes (Rekam Medis)</option>
-                        <option value="Dilla Anggraeni Pratiwi, A.Md.Akun" data-nip="NRP. 873.3204.13.03.012">27. Dilla Anggraeni Pratiwi, A.Md.Akun (Admin BOK)</option>
-                        <option value="Mochamad Fauzie, S.Gz" data-nip="NRP. 873.3204.16.02.008">28. Mochamad Fauzie, S.Gz (Nutrisionis)</option>
-                        <option value="Ilham Ardiansyah Isnandar, SKM" data-nip="NRP. 873.3204.11.06.011">29. Ilham Ardiansyah Isnandar, SKM (Epidemiolog)</option>
-                        <option value="Rian Sidik Sudiana, Amd.Kes" data-nip="NRP. 873.3204.12.06.007">30. Rian Sidik Sudiana, Amd.Kes (Rekam Medis)</option>
-                        <option value="Fahri Dzulfikar Rismayanto, A.Md. Bns" data-nip="NRP. 873.3204.13.07.037">31. Fahri Dzulfikar Rismayanto, A.Md. Bns (Admin BLUD)</option>
-                        <option value="Mutiara Sofiatussirri, Amd." data-nip="NRP. 873.3204.05.05.005">32. Mutiara Sofiatussirri, Amd. (ATLM)</option>
-                        <option value="Muhamad Faridz Alparizy, Amd.Kep" data-nip="NRP. 873.3204.14.05.040">33. Muhamad Faridz Alparizy, Amd.Kep (Perawat)</option>
-                        <option value="Neng Safitri Nur Ladyawati, AM.Keb" data-nip="NRP. 873.3204.09.06.106">34. Neng Safitri Nur Ladyawati, AM.Keb (Bidan Desa)</option>
-                        <option value="Dani Setiadi, S.Farm" data-nip="NRP. 873.3204.18.01.002">35. Dani Setiadi, S.Farm (TTK)</option>
-                        <option value="Ripan Sutiana" data-nip="-">36. Ripan Sutiana (Petugas Keamanan)</option>
-                        <option value="Mevi Riyanayasti" data-nip="-">37. Mevi Riyanayasti (Petugas Kebersihan)</option>
-                        <option value="Ade Boy" data-nip="-">38. Ade Boy (Supir)</option>
-                        <option value="Suhara" data-nip="-">39. Suhara (Petugas Keamanan)</option>
-                      </select>
-                    </div>
+                  <!-- Tombol Tambah Petugas (Maks. 5) -->
+                  <div style="margin-top: 10px;">
+                    <button type="button" id="lptBtnAddPetugas" onclick="window.addLptPetugas ? window.addLptPetugas() : null" style="width: 100%; background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(14, 165, 233, 0.22) 100%); border: 1px dashed rgba(56, 189, 248, 0.45); color: #38bdf8; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                      <span>Tambah Petugas Pelapor (Maks. 5)</span>
+                    </button>
                   </div>
 
                   <!-- Section 4: Template LPT (Cloud D1) -->
@@ -3367,6 +3485,17 @@
                 <span class="kpi-sub">Mochamad Fauzie, S.Gz</span>
               </div>
             </div>
+
+            <div class="kpi-card">
+              <div class="kpi-icon-box" style="background: rgba(244, 63, 94, 0.15); color: #f43f5e;">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              </div>
+              <div class="kpi-info">
+                <span class="kpi-label">Cloudflare R2 Bucket</span>
+                <div class="kpi-value" id="devR2Count">sicekas-storage <span class="kpi-badge positive">Live</span></div>
+                <span class="kpi-sub" id="devR2Size">S3 Object Storage File Manager</span>
+              </div>
+            </div>
           </div>
 
           <!-- 3. INTERACTIVE DEVELOPER NAVIGATION TABS -->
@@ -3379,6 +3508,10 @@
               <button type="button" class="dev-tab-btn" data-devtab="d1studio">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
                 <span>D1 Database Studio (Live Table Manager)</span>
+              </button>
+              <button type="button" class="dev-tab-btn" data-devtab="r2storage">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span>R2 Cloud Storage &amp; File Manager</span>
               </button>
               <button type="button" class="dev-tab-btn" data-devtab="users">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
@@ -3472,13 +3605,21 @@
                     </div>
                     <div>
                       <h3 class="card-title">Cloudflare D1 Database Studio (Live Table Manager)</h3>
-                      <p class="card-subtitle">Kelola, sunting, filter, dan eksekusi query seluruh tabel D1 SQLite secara realtime</p>
+                      <p class="card-subtitle">Kelola, pantau, dan sinkronkan seluruh tabel D1 SQLite secara realtime langsung dari edge server</p>
                     </div>
                   </div>
                   
                   <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <button type="button" class="btn-dev-action" id="btnD1RefreshTable" title="Muat Ulang Data Tabel">
-                      <span>🔄 Refresh Data</span>
+                    <div class="d1-live-badge" id="d1LiveBadge" title="Status Realtime Auto-Sync">
+                      <span class="d1-live-dot"></span>
+                      <span id="d1LiveStatusText">LIVE AUTO-SYNC (5s)</span>
+                    </div>
+                    <span class="d1-time-badge" id="d1LastUpdatedTime" title="Waktu pembaruan data terakhir">Update: Menghubungkan...</span>
+                    <button type="button" class="btn-dev-action" id="btnD1ToggleLiveSync" title="Jeda atau Lanjutkan Auto-Sync Otomatis">
+                      <span id="btnD1ToggleLiveSyncText">⏸️ Pause Sync</span>
+                    </button>
+                    <button type="button" class="btn-dev-action" id="btnD1RefreshTable" title="Muat Ulang Data Tabel D1 Sekarang">
+                      <span id="btnD1RefreshText">🔄 Refresh Data</span>
                     </button>
                     <button type="button" class="btn-dev-action primary" id="btnD1ToggleSqlRunner" title="Buka Kotak SQL Editor">
                       <span>⚡ SQL Query Sandbox</span>
@@ -3491,22 +3632,31 @@
                   <span class="d1-sel-label">Pilih Tabel D1:</span>
                   <div class="d1-pills-group" id="d1TablePills">
                     <button type="button" class="d1-pill active" data-table="users">
-                      <span class="d1-pill-icon">👥</span> users <span class="d1-pill-count" id="count-users">39</span>
+                      <span class="d1-pill-icon">👥</span> users <span class="d1-pill-count" id="count-users">...</span>
                     </button>
                     <button type="button" class="d1-pill" data-table="jadwal_kegiatan">
-                      <span class="d1-pill-icon">📅</span> jadwal_kegiatan <span class="d1-pill-count" id="count-jadwal_kegiatan">6</span>
+                      <span class="d1-pill-icon">📅</span> jadwal_kegiatan <span class="d1-pill-count" id="count-jadwal_kegiatan">...</span>
                     </button>
                     <button type="button" class="d1-pill" data-table="poa_bulanan">
-                      <span class="d1-pill-icon">📑</span> poa_bulanan <span class="d1-pill-count" id="count-poa_bulanan">0</span>
+                      <span class="d1-pill-icon">📑</span> poa_bulanan <span class="d1-pill-count" id="count-poa_bulanan">...</span>
                     </button>
                     <button type="button" class="d1-pill" data-table="tppol_jaspel">
-                      <span class="d1-pill-icon">🏆</span> tppol_jaspel <span class="d1-pill-count" id="count-tppol_jaspel">0</span>
+                      <span class="d1-pill-icon">🏆</span> tppol_jaspel <span class="d1-pill-count" id="count-tppol_jaspel">...</span>
                     </button>
                     <button type="button" class="d1-pill" data-table="sppd_lpt">
-                      <span class="d1-pill-icon">📜</span> sppd_lpt <span class="d1-pill-count" id="count-sppd_lpt">0</span>
+                      <span class="d1-pill-icon">📜</span> sppd_lpt <span class="d1-pill-count" id="count-sppd_lpt">...</span>
                     </button>
                     <button type="button" class="d1-pill" data-table="audit_logs">
-                      <span class="d1-pill-icon">🛡️</span> audit_logs <span class="d1-pill-count" id="count-audit_logs">0</span>
+                      <span class="d1-pill-icon">🛡️</span> audit_logs <span class="d1-pill-count" id="count-audit_logs">...</span>
+                    </button>
+                    <button type="button" class="d1-pill" data-table="sppd_templates">
+                      <span class="d1-pill-icon">📋</span> sppd_templates <span class="d1-pill-count" id="count-sppd_templates">...</span>
+                    </button>
+                    <button type="button" class="d1-pill" data-table="kolaborasi_request">
+                      <span class="d1-pill-icon">🤝</span> kolaborasi_request <span class="d1-pill-count" id="count-kolaborasi_request">...</span>
+                    </button>
+                    <button type="button" class="d1-pill" data-table="foto_upload_logs">
+                      <span class="d1-pill-icon">📷</span> foto_upload_logs <span class="d1-pill-count" id="count-foto_upload_logs">...</span>
                     </button>
                   </div>
                 </div>
@@ -3530,6 +3680,9 @@
                       <button type="button" class="btn-sql-tag" onclick="window.DeveloperWebController.setSqlExample('SELECT * FROM poa_bulanan;')">All POA</button>
                       <button type="button" class="btn-sql-tag" onclick="window.DeveloperWebController.setSqlExample('SELECT * FROM tppol_jaspel;')">All TP POL</button>
                       <button type="button" class="btn-sql-tag" onclick="window.DeveloperWebController.setSqlExample('SELECT * FROM sppd_lpt;')">All SPPD</button>
+                      <button type="button" class="btn-sql-tag" onclick="window.DeveloperWebController.setSqlExample('SELECT * FROM sppd_templates ORDER BY updated_at DESC;')">SPPD Templates</button>
+                      <button type="button" class="btn-sql-tag" onclick="window.DeveloperWebController.setSqlExample('SELECT * FROM kolaborasi_request ORDER BY id DESC;')">Kolaborasi</button>
+                      <button type="button" class="btn-sql-tag" onclick="window.DeveloperWebController.setSqlExample('SELECT * FROM foto_upload_logs ORDER BY uploaded_at DESC;')">Foto Logs</button>
                       <button type="button" class="btn-sql-tag" onclick="window.DeveloperWebController.setSqlExample('SELECT * FROM audit_logs ORDER BY id DESC LIMIT 20;')">Recent Logs</button>
                     </div>
                     <button type="button" class="btn-dev-action primary" id="btnD1RunCustomSql">
@@ -3743,15 +3896,207 @@
                   </button>
                 </div>
 
-                <div class="dash-card dev-m-card">
-                  <div class="m-card-icon rose">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            <div class="dev-tab-panel" id="devTabR2storage" style="display: none;">
+              <div class="dash-card dev-card">
+                <!-- 1. Card Header & Live Controls -->
+                <div class="card-header" style="flex-wrap: wrap; gap: 14px;">
+                  <div class="card-title-group">
+                    <div class="header-icon-box" style="background: rgba(244, 63, 94, 0.15); color: #f43f5e;">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 class="card-title">Cloudflare R2 Object Storage &amp; File Manager</h3>
+                      <p class="card-subtitle">Eksplorasi folder, upload foto kegiatan, pindahkan, salin, ubah nama, hapus, dan sinkronkan dengan database D1 secara realtime</p>
+                    </div>
                   </div>
-                  <h4>Bersihkan Cache &amp; Storage</h4>
-                  <p>Hapus seluruh data cache lokal browser untuk memastikan aplikasi berjalan dari state bersih.</p>
-                  <button type="button" class="btn-dev-action delete w-full" id="btnDevWipeStorage">
-                    <span>🗑 Bersihkan Cache Browser</span>
-                  </button>
+
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span class="status-indicator-badge live" id="r2BucketBadge" title="Status Cloudflare R2">
+                      <span class="live-dot" style="background: #10b981;"></span> sicekas-storage (Connected)
+                    </span>
+                    <button type="button" class="btn-dev-action" id="btnR2SyncLive" title="Sinkronkan data live langsung dari Cloudflare R2 Bucket">
+                      <span id="btnR2SyncLiveText">🔄 Sync R2 Live</span>
+                    </button>
+                    <button type="button" class="btn-dev-action" id="btnR2SyncD1" title="Daftarkan seluruh file R2 ke tabel database D1 foto_upload_logs">
+                      <span id="btnR2SyncD1Text">🔁 Sync ke Database D1</span>
+                    </button>
+                    <button type="button" class="btn-dev-action" id="btnR2CreateFolder" title="Buat folder baru di Cloudflare R2">
+                      <span>➕ Tambah Folder</span>
+                    </button>
+                    <button type="button" class="btn-dev-action primary" id="btnR2UploadTrigger" title="Unggah file foto / dokumen ke folder aktif">
+                      <span>⬆️ Unggah File</span>
+                    </button>
+                    <input type="file" id="r2FileInput" multiple accept="image/*,application/pdf" style="display: none;">
+                  </div>
+                </div>
+
+                <!-- Deployment Info Banner (Shown if API route is not yet deployed) -->
+                <div id="r2PendingDeployNotice" style="display: none; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 10px; padding: 12px 16px; margin: 16px 20px 0; align-items: center; gap: 12px;">
+                  <div style="font-size: 20px;">ℹ️</div>
+                  <div style="flex: 1; font-size: 12.5px; color: #fde68a; line-height: 1.5;">
+                    <strong>Mode Kompatibilitas D1 Aktif:</strong> Menampilkan berkas foto yang tersimpan di database. Untuk mengaktifkan fitur manajemen live R2 (buat folder, pindah, salin, ubah nama, batch delete), silakan deploy perubahan terbaru ke Cloudflare Pages.
+                  </div>
+                  <button type="button" class="btn-dev-action" onclick="document.getElementById('r2PendingDeployNotice').style.display='none';" style="font-size: 11px; padding: 4px 8px;">✕ Tutup</button>
+                </div>
+
+                <!-- 2. Bucket Quick KPI Pills -->
+                <div class="r2-stats-banner">
+                  <div class="r2-stat-pill">
+                    <span class="r2-stat-icon">📁</span>
+                    <div class="r2-stat-data">
+                      <span class="r2-stat-label">Subfolder</span>
+                      <strong class="r2-stat-val" id="r2StatsFolderCount">0 Folder</strong>
+                    </div>
+                  </div>
+                  <div class="r2-stat-pill">
+                    <span class="r2-stat-icon">🖼️</span>
+                    <div class="r2-stat-data">
+                      <span class="r2-stat-label">Total File Aktif</span>
+                      <strong class="r2-stat-val" id="r2StatsFileCount">0 File</strong>
+                    </div>
+                  </div>
+                  <div class="r2-stat-pill">
+                    <span class="r2-stat-icon">💾</span>
+                    <div class="r2-stat-data">
+                      <span class="r2-stat-label">Kapasitas Folder</span>
+                      <strong class="r2-stat-val" id="r2StatsTotalSize">0 KB</strong>
+                    </div>
+                  </div>
+                  <div class="r2-stat-pill">
+                    <span class="r2-stat-icon">⚡</span>
+                    <div class="r2-stat-data">
+                      <span class="r2-stat-label">Arsitektur S3 Edge</span>
+                      <strong class="r2-stat-val" style="color: #10b981;">0 Egress Fee (Standard)</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 3. Breadcrumb & Explorer Toolbar -->
+                <div class="r2-toolbar-row">
+                  <div class="r2-breadcrumb-bar">
+                    <button type="button" class="r2-crumb-root" id="btnR2CrumbRoot" title="Kembali ke Root Direktori">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                      </svg>
+                      <span>sicekas-storage</span>
+                    </button>
+                    <div class="r2-crumb-trail" id="r2CrumbTrail"></div>
+                    <button type="button" class="r2-btn-up" id="btnR2UpLevel" style="display: none;" title="Naik satu level folder">
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                      <span>Naik</span>
+                    </button>
+                  </div>
+
+                  <div class="r2-toolbar-actions">
+                    <div class="r2-search-box">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                      </svg>
+                      <input type="text" id="r2SearchInput" placeholder="Cari nama file / format..." autocomplete="off">
+                      <button type="button" id="btnR2ClearSearch" style="display: none;" title="Hapus pencarian">&times;</button>
+                    </div>
+
+                    <!-- Batch Delete Trigger -->
+                    <button type="button" class="btn-dev-action delete" id="btnR2BatchDelete" style="display: none;" title="Hapus item yang dipilih">
+                      <span id="r2BatchDeleteCount">🗑️ Hapus (0)</span>
+                    </button>
+
+                    <!-- View Switcher -->
+                    <div class="r2-view-switcher">
+                      <button type="button" class="r2-view-btn active" id="btnR2ViewGrid" title="Tampilan Grid Thumbnail">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                      </button>
+                      <button type="button" class="r2-view-btn" id="btnR2ViewList" title="Tampilan Tabel List">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 4. Drag & Drop Upload Zone -->
+                <div class="r2-dropzone" id="r2DropZone">
+                  <div class="r2-dropzone-content">
+                    <div class="r2-dropzone-icon">
+                      <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.75">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                      </svg>
+                    </div>
+                    <div class="r2-dropzone-text">
+                      <span class="r2-dz-main">Tarik &amp; Lepaskan foto ke sini, atau <label for="r2FileInput" class="r2-dz-browse">Pilih Berkas</label></span>
+                      <span class="r2-dz-sub">Otomatis diunggah langsung ke folder aktif di Cloudflare R2</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 5. Main Explorer Content Area -->
+                <div class="r2-explorer-body" id="r2ExplorerBody">
+                  <!-- Loading Indicator -->
+                  <div class="r2-loading-state" id="r2LoadingState" style="display: none;">
+                    <div class="r2-spinner"></div>
+                    <span>Memuat objek dari Cloudflare R2...</span>
+                  </div>
+
+                  <!-- Empty State -->
+                  <div class="r2-empty-state" id="r2EmptyState" style="display: none;">
+                    <div class="r2-empty-icon">📂</div>
+                    <h4>Folder ini Masih Kosong</h4>
+                    <p>Belum ada file atau subfolder di direktori ini. Anda dapat mengunggah file foto atau membuat subfolder baru.</p>
+                    <button type="button" class="btn-dev-action primary" onclick="document.getElementById('r2FileInput').click();">
+                      <span>⬆️ Unggah File Pertama</span>
+                    </button>
+                  </div>
+
+                  <!-- Grid Mode -->
+                  <div class="r2-grid-view" id="r2GridContainer">
+                    <!-- Folders Section -->
+                    <div class="r2-section-heading" id="r2HeadingFolders" style="display: none;">
+                      <span>Folder</span>
+                      <span class="r2-count-badge" id="r2BadgeFolders">0</span>
+                    </div>
+                    <div class="r2-folders-grid" id="r2FolderGrid"></div>
+
+                    <!-- Files Section -->
+                    <div class="r2-section-heading" id="r2HeadingFiles" style="display: none;">
+                      <span>Berkas File &amp; Foto</span>
+                      <span class="r2-count-badge" id="r2BadgeFiles">0</span>
+                    </div>
+                    <div class="r2-files-grid" id="r2FileGrid"></div>
+                  </div>
+
+                  <!-- List Table Mode -->
+                  <div class="r2-list-view" id="r2TableContainer" style="display: none;">
+                    <table class="dev-table r2-table">
+                      <thead>
+                        <tr>
+                          <th style="width: 38px; text-align: center;">
+                            <input type="checkbox" id="r2SelectAllCheckbox" title="Pilih Semua">
+                          </th>
+                          <th style="width: 54px;">Tipe</th>
+                          <th>Nama File / Folder</th>
+                          <th>Ukuran</th>
+                          <th>Terakhir Diubah</th>
+                          <th>Pengunggah</th>
+                          <th style="width: 170px; text-align: right;">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody id="r2TableBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Footer Summary Bar -->
+                <div class="r2-footer-bar">
+                  <div class="r2-footer-left" id="r2FooterInfo">
+                    <span>Memuat berkas Cloudflare R2...</span>
+                  </div>
+                  <div class="r2-footer-right">
+                    <span class="badge-system-live"><span class="live-dot"></span> SICEKAS R2 File Engine v2.0</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -4694,7 +5039,37 @@
     </div>
   </div>
 
+  <!-- ==========================================================================
+       MODAL: CLOUDFLARE R2 IMAGE LIGHTBOX PREVIEW & ACTIONS
+       ========================================================================== -->
+  <div class="r2-lightbox-overlay" id="r2LightboxModal" style="display: none;">
+    <div class="r2-lightbox-backdrop" id="r2LightboxBackdrop"></div>
+    <div class="r2-lightbox-dialog">
+      <div class="r2-lightbox-header">
+        <div class="r2-lightbox-title-wrap">
+          <div class="r2-lightbox-badge">CLOUDFLARE R2 PREVIEW</div>
+          <h3 class="r2-lightbox-filename" id="r2LightboxTitle">foto.jpg</h3>
+          <span class="r2-lightbox-sub" id="r2LightboxSub">0 KB • Standard Storage</span>
+        </div>
+        <div class="r2-lightbox-controls">
+          <button type="button" class="r2-lb-btn" id="btnR2LbCopyLink" title="Salin URL Foto">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+            <span>Salin URL</span>
+          </button>
+          <a href="#" class="r2-lb-btn" id="btnR2LbDownload" download target="_blank" title="Unduh File Asli">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>Unduh</span>
+          </a>
+          <button type="button" class="r2-lb-close" id="btnR2LbClose" title="Tutup Pratinjau">&times;</button>
+        </div>
+      </div>
+      <div class="r2-lightbox-body">
+        <img src="" alt="Pratinjau Foto" class="r2-lightbox-img" id="r2LightboxImg">
+      </div>
+    </div>
+  </div>
+
   <script src="sppd_assets.js"></script>
-  <script src="dashboard.js?v=84"></script>
+  <script src="dashboard.js?v=89"></script>
 </body>
 </html>
